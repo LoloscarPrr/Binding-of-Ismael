@@ -6,6 +6,7 @@ class_name IsmaelEnemy
 var target: Node2D
 
 func _ready() -> void:
+	add_to_group("enemies")
 	collision_layer = 2
 	collision_mask = 1
 	var shape := CollisionShape2D.new()
