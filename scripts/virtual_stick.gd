@@ -26,14 +26,17 @@ func handle_touch(event: InputEvent) -> bool:
 			_update_value(event.position)
 			return true
 		elif not event.pressed and event.index == _touch_id:
-			_touch_id = -1
-			value = Vector2.ZERO
-			queue_redraw()
+			reset()
 			return true
 	elif event is InputEventScreenDrag and event.index == _touch_id:
 		_update_value(event.position)
 		return true
 	return false
+
+func reset() -> void:
+	_touch_id = -1
+	value = Vector2.ZERO
+	queue_redraw()
 
 func _update_value(global_pos: Vector2) -> void:
 	var local_pos := global_pos - global_position
