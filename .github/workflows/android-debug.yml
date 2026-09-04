@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Prepare Godot export templates
         shell: bash
@@ -27,19 +27,38 @@ jobs:
             cp -a /root/.local/share/godot/export_templates/4.3.stable ~/.local/share/godot/export_templates/
           fi
 
+      - name: Generate Android debug keystore
+        shell: bash
+        run: |
+          mkdir -p build/ci
+          keytool -genkeypair -noprompt \
+            -keystore build/ci/debug.keystore \
+            -storetype JKS \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+
       - name: Import project
         shell: bash
         run: godot --headless --editor --quit
 
       - name: Export debug APK
         shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/build/ci/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build/android
           godot --headless --verbose --export-debug "Android Debug" build/android/Binding-of-Ismael-debug.apk
 
       - name: Verify APK exists
         shell: bash
-        run: test -f build/android/Binding-of-Ismael-debug.apk
+        run: test -s build/android/Binding-of-Ismael-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
