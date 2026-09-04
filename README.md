@@ -13,8 +13,10 @@ Alpha técnica inicial en Godot 4:
 - Sala de prueba con límites y puertas provisionales.
 - Cuatro enemigos perseguidores con vida y colisión.
 - Proyectiles con daño.
+- Vida del jugador y daño por contacto en desarrollo.
 - Controles de teclado para pruebas: WASD para movimiento y flechas para disparo.
 - Renderizador Compatibility para priorizar compatibilidad Android.
+- GitHub Actions configurado para generar un APK debug en cada push a `main`.
 
 ## Arquitectura inicial
 
@@ -27,6 +29,9 @@ scripts/
   projectile.gd
   enemy.gd
   virtual_stick.gd
+.github/workflows/
+  android-debug.yml
+export_presets.cfg
 ```
 
 ## Próximos hitos
@@ -37,8 +42,11 @@ scripts/
 4. Enemigos con comportamientos distintos.
 5. Sistema data-driven de ítems y modificadores.
 6. Jefe y transición de piso.
-7. Exportación Android automatizada mediante GitHub Actions.
-8. Sustituir gráficos provisionales por arte original.
+7. Sustituir gráficos provisionales por arte original.
+
+## APK de prueba
+
+Cada push a `main` ejecuta el workflow **Android Debug APK**. Cuando termine correctamente, el APK queda disponible como artifact con el nombre `Binding-of-Ismael-debug-apk` dentro de la ejecución de GitHub Actions.
 
 ## Principio de control
 
