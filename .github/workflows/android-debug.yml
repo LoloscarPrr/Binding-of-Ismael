@@ -1,0 +1,49 @@
+name: Android Debug APK
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Android Debug APK
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Godot export templates
+        shell: bash
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          if [ -d /root/.local/share/godot/export_templates/4.3.stable ]; then
+            cp -a /root/.local/share/godot/export_templates/4.3.stable ~/.local/share/godot/export_templates/
+          fi
+
+      - name: Import project
+        shell: bash
+        run: godot --headless --editor --quit
+
+      - name: Export debug APK
+        shell: bash
+        run: |
+          mkdir -p build/android
+          godot --headless --verbose --export-debug "Android Debug" build/android/Binding-of-Ismael-debug.apk
+
+      - name: Verify APK exists
+        shell: bash
+        run: test -f build/android/Binding-of-Ismael-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Binding-of-Ismael-debug-apk
+          path: build/android/Binding-of-Ismael-debug.apk
+          if-no-files-found: error
