@@ -7,6 +7,8 @@ const STICK_SIZE := Vector2(290.0, 290.0)
 const STICK_MARGIN_X := 42.0
 const STICK_MARGIN_BOTTOM := 24.0
 const TOTAL_ROOMS := 5
+const MIN_SPAWN_FROM_PLAYER := 270.0
+const MIN_SPAWN_BETWEEN_ENEMIES := 150.0
 
 var player: IsmaelPlayer
 var left_stick: VirtualStick
@@ -43,16 +45,41 @@ func _spawn_room() -> void:
 	status_label.text = ""
 	room_label.text = "SALA %d / %d" % [_room_index, TOTAL_ROOMS]
 	var count := mini(3 + _room_index, 7)
-	var positions := [Vector2(0.24,0.25), Vector2(0.76,0.25), Vector2(0.24,0.70), Vector2(0.76,0.70), Vector2(0.50,0.22), Vector2(0.50,0.72), Vector2(0.50,0.48)]
-	_enemies_alive = count
-	for i in count:
+	var positions := _safe_spawn_positions(count)
+	_enemies_alive = positions.size()
+	for spawn_position in positions:
 		var enemy := IsmaelEnemy.new()
-		enemy.position = room_rect.position + room_rect.size * positions[i]
+		enemy.position = spawn_position
 		enemy.target = player
 		enemy.set_movement_bounds(room_rect)
 		enemy.defeated.connect(_on_enemy_defeated)
 		add_child(enemy)
 	queue_redraw()
+
+func _safe_spawn_positions(count: int) -> Array[Vector2]:
+	var ratios := [
+		Vector2(0.16, 0.18), Vector2(0.84, 0.18),
+		Vector2(0.16, 0.48), Vector2(0.84, 0.48),
+		Vector2(0.16, 0.78), Vector2(0.84, 0.78),
+		Vector2(0.50, 0.18), Vector2(0.50, 0.45),
+		Vector2(0.30, 0.32), Vector2(0.70, 0.32)
+	]
+	var result: Array[Vector2] = []
+	var required_player_distance := MIN_SPAWN_FROM_PLAYER + float(maxi(_room_index - 2, 0)) * 25.0
+	for ratio in ratios:
+		if result.size() >= count:
+			break
+		var candidate := room_rect.position + room_rect.size * ratio
+		if candidate.distance_to(player.position) < required_player_distance:
+			continue
+		var separated := true
+		for existing in result:
+			if candidate.distance_to(existing) < MIN_SPAWN_BETWEEN_ENEMIES:
+				separated = false
+				break
+		if separated:
+			result.append(candidate)
+	return result
 
 func _create_touch_ui() -> void:
 	var layer := CanvasLayer.new()
