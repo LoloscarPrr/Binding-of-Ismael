@@ -1,9 +1,9 @@
 extends Node2D
 
 const TOTAL_ROOMS := 5
-const MIN_SPAWN_FROM_PLAYER := 270.0
-const MIN_SPAWN_BETWEEN_ENEMIES := 150.0
-const ENEMY_SPAWN_GRACE := 0.85
+const ROOM_ENTRY_DELAY := 0.65
+const ENEMY_ACTIVATION_DELAY := 0.70
+const MIN_ENEMY_SEPARATION_RATIO := 0.16
 
 var player: IsmaelPlayer
 var left_stick: VirtualStick
@@ -18,82 +18,99 @@ var _game_over := false
 var _room_index := 1
 var _room_cleared := false
 var _transition_locked := false
+var _spawn_generation := 0
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	_update_room_rect()
 	player = IsmaelPlayer.new()
-	player.position = room_rect.get_center()
+	player.position = _room_entry_position(false)
 	player.set_movement_bounds(room_rect)
 	player.health_changed.connect(_on_player_health_changed)
 	player.died.connect(_on_player_died)
 	add_child(player)
 	_create_touch_ui()
-	_spawn_room()
 	_on_player_health_changed(player.health, player.max_health)
 	_layout_touch_ui()
+	_begin_room(false)
 	queue_redraw()
 
-func _spawn_room() -> void:
+func _begin_room(from_door: bool) -> void:
+	_spawn_generation += 1
+	var generation: int = _spawn_generation
 	_room_cleared = false
-	_transition_locked = false
-	status_label.text = ""
+	_transition_locked = true
+	_enemies_alive = 0
 	room_label.text = "SALA %d / %d" % [_room_index, TOTAL_ROOMS]
+	status_label.text = "PREPÁRATE"
+	player.position = _room_entry_position(from_door)
+	player.velocity = Vector2.ZERO
+	player.move_input = Vector2.ZERO
+	player.aim_input = Vector2.ZERO
+	queue_redraw()
+	_spawn_room_after_entry(generation)
+
+func _spawn_room_after_entry(generation: int) -> void:
+	await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
+	if generation != _spawn_generation or _game_over:
+		return
+
 	var count: int = mini(3 + _room_index, 7)
-	var positions: Array[Vector2] = _safe_spawn_positions(count)
+	var positions: Array[Vector2] = _deterministic_spawn_positions(count)
 	_enemies_alive = positions.size()
+
 	for spawn_position: Vector2 in positions:
 		var enemy := IsmaelEnemy.new()
 		enemy.position = spawn_position
 		enemy.target = player
-		enemy.spawn_grace_time = ENEMY_SPAWN_GRACE if _room_index > 1 else 0.35
+		enemy.spawn_grace_time = ENEMY_ACTIVATION_DELAY
 		enemy.set_movement_bounds(room_rect)
 		enemy.defeated.connect(_on_enemy_defeated)
 		add_child(enemy)
+
+	_transition_locked = false
+	status_label.text = ""
 	queue_redraw()
 
-func _safe_spawn_positions(count: int) -> Array[Vector2]:
-	var ratios: Array[Vector2]
-	if _room_index == 1:
-		ratios = [
-			Vector2(0.16, 0.18), Vector2(0.84, 0.18),
-			Vector2(0.16, 0.48), Vector2(0.84, 0.48),
-			Vector2(0.22, 0.78), Vector2(0.78, 0.78),
-			Vector2(0.50, 0.18), Vector2(0.50, 0.72),
-			Vector2(0.30, 0.32), Vector2(0.70, 0.32)
-		]
-	else:
-		# Al entrar por abajo, toda la franja inferior queda libre de enemigos.
-		ratios = [
-			Vector2(0.14, 0.16), Vector2(0.86, 0.16),
-			Vector2(0.30, 0.22), Vector2(0.70, 0.22),
-			Vector2(0.14, 0.42), Vector2(0.86, 0.42),
-			Vector2(0.36, 0.48), Vector2(0.64, 0.48),
-			Vector2(0.50, 0.12), Vector2(0.50, 0.38)
-		]
+func _room_entry_position(from_door: bool) -> Vector2:
+	var center_x: float = room_rect.get_center().x
+	if from_door:
+		return Vector2(center_x, room_rect.position.y + room_rect.size.y * 0.88)
+	return Vector2(center_x, room_rect.position.y + room_rect.size.y * 0.82)
 
+func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
+	# Los enemigos solo usan la mitad superior de la sala.
+	# La franja inferior queda completamente reservada para la entrada del jugador.
+	var slots: Array[Vector2] = [
+		Vector2(0.14, 0.16), Vector2(0.86, 0.16),
+		Vector2(0.32, 0.18), Vector2(0.68, 0.18),
+		Vector2(0.14, 0.38), Vector2(0.86, 0.38),
+		Vector2(0.34, 0.42), Vector2(0.66, 0.42),
+		Vector2(0.50, 0.12), Vector2(0.50, 0.36)
+	]
 	var result: Array[Vector2] = []
-	var diagonal: float = room_rect.size.length()
-	var required_player_distance: float = maxf(MIN_SPAWN_FROM_PLAYER, diagonal * (0.27 if _room_index > 1 else 0.22))
-	var required_enemy_distance: float = maxf(MIN_SPAWN_BETWEEN_ENEMIES, minf(room_rect.size.x, room_rect.size.y) * 0.18)
-	var entry_safe_y: float = room_rect.position.y + room_rect.size.y * 0.60
+	var min_dimension: float = minf(room_rect.size.x, room_rect.size.y)
+	var minimum_separation: float = maxf(110.0, min_dimension * MIN_ENEMY_SEPARATION_RATIO)
+	var player_safe_radius: float = maxf(room_rect.size.y * 0.43, 300.0)
 
-	for ratio: Vector2 in ratios:
+	for ratio: Vector2 in slots:
 		if result.size() >= count:
 			break
 		var candidate: Vector2 = room_rect.position + room_rect.size * ratio
-		if _room_index > 1 and candidate.y > entry_safe_y:
+
+		# Regla absoluta: nunca permitir un spawn dentro de la zona segura del jugador.
+		if candidate.distance_to(player.position) < player_safe_radius:
 			continue
-		if candidate.distance_to(player.position) < required_player_distance:
-			continue
-		var separated: bool = true
+
+		var separated := true
 		for existing: Vector2 in result:
-			if candidate.distance_to(existing) < required_enemy_distance:
+			if candidate.distance_to(existing) < minimum_separation:
 				separated = false
 				break
 		if separated:
 			result.append(candidate)
 
+	# En pantallas extremadamente pequeñas priorizamos seguridad sobre cantidad.
 	return result
 
 func _create_touch_ui() -> void:
@@ -168,23 +185,30 @@ func _input(event: InputEvent) -> void:
 func _physics_process(_delta: float) -> void:
 	if _game_over or not is_instance_valid(player):
 		return
+
+	if _transition_locked:
+		player.move_input = Vector2.ZERO
+		player.aim_input = Vector2.ZERO
+		return
+
 	var keyboard_move := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var keyboard_aim := Input.get_vector("shoot_left", "shoot_right", "shoot_up", "shoot_down")
 	player.move_input = left_stick.value if left_stick.value.length() > 0.0 else keyboard_move
 	player.aim_input = right_stick.value if right_stick.value.length() > 0.0 else keyboard_aim
-	if _room_cleared and not _transition_locked:
+	if _room_cleared:
 		var center := room_rect.get_center()
 		if player.position.y < room_rect.position.y + 72.0 and absf(player.position.x - center.x) < 90.0:
 			_advance_room()
 
 func _advance_room() -> void:
+	if _transition_locked:
+		return
 	_transition_locked = true
 	if _room_index >= TOTAL_ROOMS:
 		status_label.text = "PISO COMPLETADO"
 		return
 	_room_index += 1
-	player.position = Vector2(room_rect.get_center().x, room_rect.position.y + room_rect.size.y - minf(110.0, room_rect.size.y * 0.16))
-	_spawn_room()
+	_begin_room(true)
 
 func _on_viewport_size_changed() -> void:
 	_update_room_rect()
@@ -215,6 +239,7 @@ func _on_player_health_changed(current: int, maximum: int) -> void:
 
 func _on_player_died() -> void:
 	_game_over = true
+	_spawn_generation += 1
 	left_stick.reset()
 	right_stick.reset()
 	status_label.text = "DERROTA"
