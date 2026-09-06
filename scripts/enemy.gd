@@ -10,6 +10,7 @@ const SEPARATION_DISTANCE := 72.0
 @export var health := 4
 var target: Node2D
 var movement_bounds := Rect2(54.0, 82.0, 1172.0, 584.0)
+var spawn_grace_time := 0.0
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -22,7 +23,12 @@ func _ready() -> void:
 	add_child(shape)
 	queue_redraw()
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
+	if spawn_grace_time > 0.0:
+		spawn_grace_time = maxf(0.0, spawn_grace_time - delta)
+		velocity = Vector2.ZERO
+		return
+
 	if not is_instance_valid(target):
 		velocity = Vector2.ZERO
 		return
