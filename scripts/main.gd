@@ -3,6 +3,7 @@ extends Node2D
 const TOTAL_ROOMS := 5
 const MIN_SPAWN_FROM_PLAYER := 270.0
 const MIN_SPAWN_BETWEEN_ENEMIES := 150.0
+const ENEMY_SPAWN_GRACE := 0.85
 
 var player: IsmaelPlayer
 var left_stick: VirtualStick
@@ -45,27 +46,44 @@ func _spawn_room() -> void:
 		var enemy := IsmaelEnemy.new()
 		enemy.position = spawn_position
 		enemy.target = player
+		enemy.spawn_grace_time = ENEMY_SPAWN_GRACE if _room_index > 1 else 0.35
 		enemy.set_movement_bounds(room_rect)
 		enemy.defeated.connect(_on_enemy_defeated)
 		add_child(enemy)
 	queue_redraw()
 
 func _safe_spawn_positions(count: int) -> Array[Vector2]:
-	var ratios: Array[Vector2] = [
-		Vector2(0.16, 0.18), Vector2(0.84, 0.18),
-		Vector2(0.16, 0.48), Vector2(0.84, 0.48),
-		Vector2(0.16, 0.78), Vector2(0.84, 0.78),
-		Vector2(0.50, 0.18), Vector2(0.50, 0.45),
-		Vector2(0.30, 0.32), Vector2(0.70, 0.32)
-	]
+	var ratios: Array[Vector2]
+	if _room_index == 1:
+		ratios = [
+			Vector2(0.16, 0.18), Vector2(0.84, 0.18),
+			Vector2(0.16, 0.48), Vector2(0.84, 0.48),
+			Vector2(0.22, 0.78), Vector2(0.78, 0.78),
+			Vector2(0.50, 0.18), Vector2(0.50, 0.72),
+			Vector2(0.30, 0.32), Vector2(0.70, 0.32)
+		]
+	else:
+		# Al entrar por abajo, toda la franja inferior queda libre de enemigos.
+		ratios = [
+			Vector2(0.14, 0.16), Vector2(0.86, 0.16),
+			Vector2(0.30, 0.22), Vector2(0.70, 0.22),
+			Vector2(0.14, 0.42), Vector2(0.86, 0.42),
+			Vector2(0.36, 0.48), Vector2(0.64, 0.48),
+			Vector2(0.50, 0.12), Vector2(0.50, 0.38)
+		]
+
 	var result: Array[Vector2] = []
-	var stage_distance: float = MIN_SPAWN_FROM_PLAYER + float(maxi(_room_index - 2, 0)) * 25.0
-	var required_player_distance: float = minf(stage_distance, room_rect.size.y * 0.48)
-	var required_enemy_distance: float = minf(MIN_SPAWN_BETWEEN_ENEMIES, room_rect.size.y * 0.26)
+	var diagonal: float = room_rect.size.length()
+	var required_player_distance: float = maxf(MIN_SPAWN_FROM_PLAYER, diagonal * (0.27 if _room_index > 1 else 0.22))
+	var required_enemy_distance: float = maxf(MIN_SPAWN_BETWEEN_ENEMIES, minf(room_rect.size.x, room_rect.size.y) * 0.18)
+	var entry_safe_y: float = room_rect.position.y + room_rect.size.y * 0.60
+
 	for ratio: Vector2 in ratios:
 		if result.size() >= count:
 			break
 		var candidate: Vector2 = room_rect.position + room_rect.size * ratio
+		if _room_index > 1 and candidate.y > entry_safe_y:
+			continue
 		if candidate.distance_to(player.position) < required_player_distance:
 			continue
 		var separated: bool = true
@@ -75,6 +93,7 @@ func _safe_spawn_positions(count: int) -> Array[Vector2]:
 				break
 		if separated:
 			result.append(candidate)
+
 	return result
 
 func _create_touch_ui() -> void:
