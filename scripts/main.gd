@@ -44,10 +44,10 @@ func _spawn_room() -> void:
 	_transition_locked = false
 	status_label.text = ""
 	room_label.text = "SALA %d / %d" % [_room_index, TOTAL_ROOMS]
-	var count := mini(3 + _room_index, 7)
-	var positions := _safe_spawn_positions(count)
+	var count: int = mini(3 + _room_index, 7)
+	var positions: Array[Vector2] = _safe_spawn_positions(count)
 	_enemies_alive = positions.size()
-	for spawn_position in positions:
+	for spawn_position: Vector2 in positions:
 		var enemy := IsmaelEnemy.new()
 		enemy.position = spawn_position
 		enemy.target = player
@@ -57,7 +57,7 @@ func _spawn_room() -> void:
 	queue_redraw()
 
 func _safe_spawn_positions(count: int) -> Array[Vector2]:
-	var ratios := [
+	var ratios: Array[Vector2] = [
 		Vector2(0.16, 0.18), Vector2(0.84, 0.18),
 		Vector2(0.16, 0.48), Vector2(0.84, 0.48),
 		Vector2(0.16, 0.78), Vector2(0.84, 0.78),
@@ -65,15 +65,15 @@ func _safe_spawn_positions(count: int) -> Array[Vector2]:
 		Vector2(0.30, 0.32), Vector2(0.70, 0.32)
 	]
 	var result: Array[Vector2] = []
-	var required_player_distance := MIN_SPAWN_FROM_PLAYER + float(maxi(_room_index - 2, 0)) * 25.0
-	for ratio in ratios:
+	var required_player_distance: float = MIN_SPAWN_FROM_PLAYER + float(maxi(_room_index - 2, 0)) * 25.0
+	for ratio: Vector2 in ratios:
 		if result.size() >= count:
 			break
-		var candidate := room_rect.position + room_rect.size * ratio
+		var candidate: Vector2 = room_rect.position + room_rect.size * ratio
 		if candidate.distance_to(player.position) < required_player_distance:
 			continue
-		var separated := true
-		for existing in result:
+		var separated: bool = true
+		for existing: Vector2 in result:
 			if candidate.distance_to(existing) < MIN_SPAWN_BETWEEN_ENEMIES:
 				separated = false
 				break
