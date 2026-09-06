@@ -1,11 +1,5 @@
 extends Node2D
 
-const ROOM_SIDE_MARGIN := 36.0
-const ROOM_TOP := 72.0
-const ROOM_BOTTOM_MARGIN := 28.0
-const STICK_SIZE := Vector2(290.0, 290.0)
-const STICK_MARGIN_X := 42.0
-const STICK_MARGIN_BOTTOM := 24.0
 const TOTAL_ROOMS := 5
 const MIN_SPAWN_FROM_PLAYER := 270.0
 const MIN_SPAWN_BETWEEN_ENEMIES := 150.0
@@ -65,7 +59,9 @@ func _safe_spawn_positions(count: int) -> Array[Vector2]:
 		Vector2(0.30, 0.32), Vector2(0.70, 0.32)
 	]
 	var result: Array[Vector2] = []
-	var required_player_distance: float = MIN_SPAWN_FROM_PLAYER + float(maxi(_room_index - 2, 0)) * 25.0
+	var stage_distance: float = MIN_SPAWN_FROM_PLAYER + float(maxi(_room_index - 2, 0)) * 25.0
+	var required_player_distance: float = minf(stage_distance, room_rect.size.y * 0.48)
+	var required_enemy_distance: float = minf(MIN_SPAWN_BETWEEN_ENEMIES, room_rect.size.y * 0.26)
 	for ratio: Vector2 in ratios:
 		if result.size() >= count:
 			break
@@ -74,7 +70,7 @@ func _safe_spawn_positions(count: int) -> Array[Vector2]:
 			continue
 		var separated: bool = true
 		for existing: Vector2 in result:
-			if candidate.distance_to(existing) < MIN_SPAWN_BETWEEN_ENEMIES:
+			if candidate.distance_to(existing) < required_enemy_distance:
 				separated = false
 				break
 		if separated:
@@ -86,48 +82,64 @@ func _create_touch_ui() -> void:
 	layer.layer = 10
 	add_child(layer)
 	left_stick = VirtualStick.new()
-	left_stick.size = STICK_SIZE
-	left_stick.stick_radius = 108.0
-	left_stick.knob_radius = 47.0
 	layer.add_child(left_stick)
 	right_stick = VirtualStick.new()
-	right_stick.size = STICK_SIZE
-	right_stick.stick_radius = 108.0
-	right_stick.knob_radius = 47.0
 	layer.add_child(right_stick)
 	health_label = Label.new()
-	health_label.add_theme_font_size_override("font_size", 24)
 	layer.add_child(health_label)
 	room_label = Label.new()
 	room_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	room_label.add_theme_font_size_override("font_size", 20)
 	layer.add_child(room_label)
 	status_label = Label.new()
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_label.add_theme_font_size_override("font_size", 28)
 	layer.add_child(status_label)
 	restart_button = Button.new()
 	restart_button.text = "REINICIAR"
-	restart_button.size = Vector2(230.0, 76.0)
-	restart_button.add_theme_font_size_override("font_size", 24)
 	restart_button.visible = false
 	restart_button.pressed.connect(_restart_game)
 	layer.add_child(restart_button)
 
 func _layout_touch_ui() -> void:
-	if not is_instance_valid(left_stick): return
-	var s := get_viewport_rect().size
-	left_stick.position = Vector2(STICK_MARGIN_X, s.y - STICK_SIZE.y - STICK_MARGIN_BOTTOM)
-	right_stick.position = Vector2(s.x - STICK_SIZE.x - STICK_MARGIN_X, s.y - STICK_SIZE.y - STICK_MARGIN_BOTTOM)
-	health_label.position = Vector2(30.0, 22.0)
-	room_label.position = Vector2(s.x * 0.5 - 120.0, 22.0)
-	room_label.size = Vector2(240.0, 38.0)
-	status_label.position = Vector2(s.x * 0.5 - 210.0, 52.0)
-	status_label.size = Vector2(420.0, 44.0)
-	restart_button.position = s * 0.5 - restart_button.size * 0.5
+	if not is_instance_valid(left_stick):
+		return
+	var screen_size: Vector2 = get_viewport_rect().size
+	var short_side: float = minf(screen_size.x, screen_size.y)
+	var ui_scale: float = clampf(short_side / 720.0, 0.78, 1.35)
+	var stick_side: float = clampf(short_side * 0.40, 220.0, 320.0)
+	var stick_size := Vector2(stick_side, stick_side)
+	var margin_x: float = clampf(screen_size.x * 0.025, 22.0, 52.0)
+	var margin_bottom: float = clampf(screen_size.y * 0.025, 18.0, 36.0)
+
+	left_stick.size = stick_size
+	right_stick.size = stick_size
+	left_stick.stick_radius = stick_side * 0.37
+	right_stick.stick_radius = stick_side * 0.37
+	left_stick.knob_radius = stick_side * 0.16
+	right_stick.knob_radius = stick_side * 0.16
+	left_stick.position = Vector2(margin_x, screen_size.y - stick_side - margin_bottom)
+	right_stick.position = Vector2(screen_size.x - stick_side - margin_x, screen_size.y - stick_side - margin_bottom)
+
+	var health_font: int = maxi(18, int(round(24.0 * ui_scale)))
+	var room_font: int = maxi(16, int(round(20.0 * ui_scale)))
+	var status_font: int = maxi(20, int(round(28.0 * ui_scale)))
+	health_label.add_theme_font_size_override("font_size", health_font)
+	room_label.add_theme_font_size_override("font_size", room_font)
+	status_label.add_theme_font_size_override("font_size", status_font)
+	restart_button.add_theme_font_size_override("font_size", health_font)
+
+	health_label.position = Vector2(margin_x, clampf(screen_size.y * 0.025, 14.0, 28.0))
+	var room_width: float = clampf(screen_size.x * 0.20, 190.0, 280.0)
+	room_label.position = Vector2(screen_size.x * 0.5 - room_width * 0.5, health_label.position.y)
+	room_label.size = Vector2(room_width, 42.0 * ui_scale)
+	var status_width: float = clampf(screen_size.x * 0.42, 320.0, 560.0)
+	status_label.position = Vector2(screen_size.x * 0.5 - status_width * 0.5, health_label.position.y + 34.0 * ui_scale)
+	status_label.size = Vector2(status_width, 48.0 * ui_scale)
+	restart_button.size = Vector2(230.0, 76.0) * ui_scale
+	restart_button.position = screen_size * 0.5 - restart_button.size * 0.5
 
 func _input(event: InputEvent) -> void:
-	if _game_over: return
+	if _game_over:
+		return
 	if left_stick and left_stick.handle_touch(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -135,7 +147,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _physics_process(_delta: float) -> void:
-	if _game_over or not is_instance_valid(player): return
+	if _game_over or not is_instance_valid(player):
+		return
 	var keyboard_move := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var keyboard_aim := Input.get_vector("shoot_left", "shoot_right", "shoot_up", "shoot_down")
 	player.move_input = left_stick.value if left_stick.value.length() > 0.0 else keyboard_move
@@ -151,20 +164,28 @@ func _advance_room() -> void:
 		status_label.text = "PISO COMPLETADO"
 		return
 	_room_index += 1
-	player.position = Vector2(room_rect.get_center().x, room_rect.position.y + room_rect.size.y - 110.0)
+	player.position = Vector2(room_rect.get_center().x, room_rect.position.y + room_rect.size.y - minf(110.0, room_rect.size.y * 0.16))
 	_spawn_room()
 
 func _on_viewport_size_changed() -> void:
 	_update_room_rect()
-	if is_instance_valid(player): player.set_movement_bounds(room_rect)
+	if is_instance_valid(player):
+		player.set_movement_bounds(room_rect)
+		player.position.x = clampf(player.position.x, room_rect.position.x, room_rect.end.x)
+		player.position.y = clampf(player.position.y, room_rect.position.y, room_rect.end.y)
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		enemy.set_movement_bounds(room_rect)
 	_layout_touch_ui()
 	queue_redraw()
 
 func _update_room_rect() -> void:
-	var s := get_viewport_rect().size
-	room_rect = Rect2(Vector2(ROOM_SIDE_MARGIN, ROOM_TOP), Vector2(maxf(500.0, s.x - ROOM_SIDE_MARGIN * 2.0), maxf(360.0, s.y - ROOM_TOP - ROOM_BOTTOM_MARGIN)))
+	var screen_size: Vector2 = get_viewport_rect().size
+	var side_margin: float = clampf(screen_size.x * 0.028, 24.0, 52.0)
+	var top_margin: float = clampf(screen_size.y * 0.10, 60.0, 96.0)
+	var bottom_margin: float = clampf(screen_size.y * 0.04, 18.0, 42.0)
+	var room_width: float = maxf(1.0, screen_size.x - side_margin * 2.0)
+	var room_height: float = maxf(1.0, screen_size.y - top_margin - bottom_margin)
+	room_rect = Rect2(Vector2(side_margin, top_margin), Vector2(room_width, room_height))
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
 	if is_instance_valid(health_label):
@@ -194,10 +215,11 @@ func _restart_game() -> void:
 	get_tree().reload_current_scene()
 
 func _draw() -> void:
-	var s := get_viewport_rect().size
-	draw_rect(Rect2(Vector2.ZERO, s), Color(0.10, 0.085, 0.075))
+	var screen_size: Vector2 = get_viewport_rect().size
+	draw_rect(Rect2(Vector2.ZERO, screen_size), Color(0.10, 0.085, 0.075))
 	draw_rect(room_rect, Color(0.19, 0.16, 0.13))
 	draw_rect(room_rect, Color(0.42, 0.34, 0.26), false, 8.0)
-	var c := room_rect.get_center()
+	var center: Vector2 = room_rect.get_center()
 	var door_color := Color(0.10, 0.55, 0.28) if _room_cleared else Color(0.05, 0.04, 0.035)
-	draw_rect(Rect2(c.x - 58.0, room_rect.position.y - 8.0, 116.0, 24.0), door_color)
+	var door_width: float = clampf(room_rect.size.x * 0.09, 90.0, 130.0)
+	draw_rect(Rect2(center.x - door_width * 0.5, room_rect.position.y - 8.0, door_width, 24.0), door_color)
