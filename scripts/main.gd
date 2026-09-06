@@ -54,11 +54,9 @@ func _spawn_room_after_entry(generation: int) -> void:
 	await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 	if generation != _spawn_generation or _game_over:
 		return
-
 	var count: int = mini(3 + _room_index, 7)
 	var positions: Array[Vector2] = _deterministic_spawn_positions(count)
 	_enemies_alive = positions.size()
-
 	for spawn_position: Vector2 in positions:
 		var enemy := IsmaelEnemy.new()
 		enemy.position = spawn_position
@@ -67,7 +65,6 @@ func _spawn_room_after_entry(generation: int) -> void:
 		enemy.set_movement_bounds(room_rect)
 		enemy.defeated.connect(_on_enemy_defeated)
 		add_child(enemy)
-
 	_transition_locked = false
 	status_label.text = ""
 	queue_redraw()
@@ -79,8 +76,6 @@ func _room_entry_position(from_door: bool) -> Vector2:
 	return Vector2(center_x, room_rect.position.y + room_rect.size.y * 0.82)
 
 func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
-	# Los enemigos solo usan la mitad superior de la sala.
-	# La franja inferior queda completamente reservada para la entrada del jugador.
 	var slots: Array[Vector2] = [
 		Vector2(0.14, 0.16), Vector2(0.86, 0.16),
 		Vector2(0.32, 0.18), Vector2(0.68, 0.18),
@@ -92,16 +87,12 @@ func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
 	var min_dimension: float = minf(room_rect.size.x, room_rect.size.y)
 	var minimum_separation: float = maxf(110.0, min_dimension * MIN_ENEMY_SEPARATION_RATIO)
 	var player_safe_radius: float = maxf(room_rect.size.y * 0.43, 300.0)
-
 	for ratio: Vector2 in slots:
 		if result.size() >= count:
 			break
 		var candidate: Vector2 = room_rect.position + room_rect.size * ratio
-
-		# Regla absoluta: nunca permitir un spawn dentro de la zona segura del jugador.
 		if candidate.distance_to(player.position) < player_safe_radius:
 			continue
-
 		var separated := true
 		for existing: Vector2 in result:
 			if candidate.distance_to(existing) < minimum_separation:
@@ -109,8 +100,6 @@ func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
 				break
 		if separated:
 			result.append(candidate)
-
-	# En pantallas extremadamente pequeñas priorizamos seguridad sobre cantidad.
 	return result
 
 func _create_touch_ui() -> void:
@@ -141,20 +130,18 @@ func _layout_touch_ui() -> void:
 	var screen_size: Vector2 = get_viewport_rect().size
 	var short_side: float = minf(screen_size.x, screen_size.y)
 	var ui_scale: float = clampf(short_side / 720.0, 0.78, 1.35)
-	var stick_side: float = clampf(short_side * 0.40, 220.0, 320.0)
+	var stick_side: float = clampf(short_side * 0.50, 270.0, 390.0)
 	var stick_size := Vector2(stick_side, stick_side)
-	var margin_x: float = clampf(screen_size.x * 0.025, 22.0, 52.0)
-	var margin_bottom: float = clampf(screen_size.y * 0.025, 18.0, 36.0)
-
+	var margin_x: float = clampf(screen_size.x * 0.018, 16.0, 40.0)
+	var margin_bottom: float = clampf(screen_size.y * 0.015, 10.0, 26.0)
 	left_stick.size = stick_size
 	right_stick.size = stick_size
-	left_stick.stick_radius = stick_side * 0.37
-	right_stick.stick_radius = stick_side * 0.37
-	left_stick.knob_radius = stick_side * 0.16
-	right_stick.knob_radius = stick_side * 0.16
+	left_stick.stick_radius = stick_side * 0.39
+	right_stick.stick_radius = stick_side * 0.39
+	left_stick.knob_radius = stick_side * 0.17
+	right_stick.knob_radius = stick_side * 0.17
 	left_stick.position = Vector2(margin_x, screen_size.y - stick_side - margin_bottom)
 	right_stick.position = Vector2(screen_size.x - stick_side - margin_x, screen_size.y - stick_side - margin_bottom)
-
 	var health_font: int = maxi(18, int(round(24.0 * ui_scale)))
 	var room_font: int = maxi(16, int(round(20.0 * ui_scale)))
 	var status_font: int = maxi(20, int(round(28.0 * ui_scale)))
@@ -162,7 +149,6 @@ func _layout_touch_ui() -> void:
 	room_label.add_theme_font_size_override("font_size", room_font)
 	status_label.add_theme_font_size_override("font_size", status_font)
 	restart_button.add_theme_font_size_override("font_size", health_font)
-
 	health_label.position = Vector2(margin_x, clampf(screen_size.y * 0.025, 14.0, 28.0))
 	var room_width: float = clampf(screen_size.x * 0.20, 190.0, 280.0)
 	room_label.position = Vector2(screen_size.x * 0.5 - room_width * 0.5, health_label.position.y)
@@ -185,12 +171,10 @@ func _input(event: InputEvent) -> void:
 func _physics_process(_delta: float) -> void:
 	if _game_over or not is_instance_valid(player):
 		return
-
 	if _transition_locked:
 		player.move_input = Vector2.ZERO
 		player.aim_input = Vector2.ZERO
 		return
-
 	var keyboard_move := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var keyboard_aim := Input.get_vector("shoot_left", "shoot_right", "shoot_up", "shoot_down")
 	player.move_input = left_stick.value if left_stick.value.length() > 0.0 else keyboard_move
