@@ -45,18 +45,30 @@ jobs:
             -keysize 2048 \
             -validity 10000
 
-      - name: Import project
+      - name: Validate Godot project
         shell: bash
-        run: godot --headless --editor --quit
+        run: |
+          set -o pipefail
+          godot --headless --editor --quit 2>&1 | tee build/ci/godot-import.log
+          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script" build/ci/godot-import.log; then
+            echo "Godot script validation failed"
+            exit 1
+          fi
 
       - name: Export debug APK
         shell: bash
         run: |
+          set -o pipefail
           mkdir -p build/android
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$PWD/build/ci/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
-          godot --headless --verbose --export-debug "Android Debug" build/android/Binding-of-Ismael-debug.apk
+          godot --headless --verbose --export-debug "Android Debug" build/android/Binding-of-Ismael-debug.apk 2>&1 | tee build/ci/godot-export.log
+          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script" build/ci/godot-export.log; then
+            echo "Godot export contained script errors"
+            rm -f build/android/Binding-of-Ismael-debug.apk
+            exit 1
+          fi
 
       - name: Verify APK exists
         shell: bash
