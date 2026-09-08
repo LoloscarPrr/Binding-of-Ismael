@@ -10,6 +10,8 @@ const BODY_RADIUS := 28.0
 @export var fire_rate := 0.18
 @export var max_health := 6
 @export var invulnerability_time := 0.75
+@export var projectile_speed := 760.0
+@export var projectile_damage := 1
 
 var move_input := Vector2.ZERO
 var aim_input := Vector2.ZERO
@@ -35,24 +37,18 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		velocity = Vector2.ZERO
 		return
-
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_invulnerability = maxf(0.0, _invulnerability - delta)
-
 	velocity = move_input.limit_length(1.0) * move_speed
 	move_and_slide()
-
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider()
 		if collider is IsmaelEnemy:
 			take_damage(1)
-
 	clamp_to_bounds()
-
 	if aim_input.length() > 0.25 and _shoot_cooldown <= 0.0:
 		shoot(aim_input.normalized())
 		_shoot_cooldown = fire_rate
-
 	queue_redraw()
 
 func set_movement_bounds(bounds: Rect2) -> void:
@@ -67,6 +63,8 @@ func shoot(direction: Vector2) -> void:
 	var projectile := IsmaelProjectile.new()
 	projectile.position = global_position + direction * 38.0
 	projectile.direction = direction
+	projectile.speed = projectile_speed
+	projectile.damage = projectile_damage
 	get_tree().current_scene.add_child(projectile)
 
 func take_damage(amount: int) -> void:
@@ -85,6 +83,11 @@ func take_damage(amount: int) -> void:
 func heal(amount: int) -> void:
 	if is_dead:
 		return
+	health = mini(max_health, health + amount)
+	health_changed.emit(health, max_health)
+
+func add_max_health(amount: int) -> void:
+	max_health += amount
 	health = mini(max_health, health + amount)
 	health_changed.emit(health, max_health)
 
