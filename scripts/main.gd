@@ -60,10 +60,12 @@ func _begin_room(from_door: bool) -> void:
 	status_label.text = _room_title()
 	reward_label.text = ""
 	_hide_reward_choices()
+	_clear_room_obstacles()
 	player.position = _room_entry_position(from_door)
 	player.velocity = Vector2.ZERO
 	player.move_input = Vector2.ZERO
 	player.aim_input = Vector2.ZERO
+	_build_room_layout()
 	queue_redraw()
 	if _room_kind == "recompensa":
 		_open_reward_room(generation)
@@ -82,6 +84,41 @@ func _room_title() -> String:
 		"recompensa": return "CÁMARA DE OFRENDA"
 		"emboscada": return "EMBOSCADA"
 		_: return "PREPÁRATE"
+
+func _clear_room_obstacles() -> void:
+	for obstacle in get_tree().get_nodes_in_group("room_obstacles"):
+		obstacle.queue_free()
+
+func _add_obstacle(ratio: Vector2, size_ratio: Vector2, variant: int = 0) -> void:
+	var obstacle := IsmaelRoomObstacle.new()
+	var obstacle_size := Vector2(room_rect.size.x * size_ratio.x, room_rect.size.y * size_ratio.y)
+	obstacle.configure(obstacle_size, variant)
+	obstacle.position = room_rect.position + room_rect.size * ratio
+	add_child(obstacle)
+
+func _build_room_layout() -> void:
+	if _room_kind == "recompensa":
+		return
+	var variant: int = 0 if _floor_index == 1 else 1
+	if _room_kind == "jefe":
+		_add_obstacle(Vector2(0.24, 0.58), Vector2(0.08, 0.16), 2)
+		_add_obstacle(Vector2(0.76, 0.58), Vector2(0.08, 0.16), 2)
+		return
+	if _room_kind == "emboscada":
+		_add_obstacle(Vector2(0.38, 0.56), Vector2(0.07, 0.12), variant)
+		_add_obstacle(Vector2(0.62, 0.56), Vector2(0.07, 0.12), variant)
+		_add_obstacle(Vector2(0.50, 0.47), Vector2(0.08, 0.08), variant)
+		return
+	match _room_index % 3:
+		0:
+			_add_obstacle(Vector2(0.35, 0.58), Vector2(0.07, 0.18), variant)
+			_add_obstacle(Vector2(0.65, 0.58), Vector2(0.07, 0.18), variant)
+		1:
+			_add_obstacle(Vector2(0.50, 0.55), Vector2(0.18, 0.08), variant)
+		2:
+			_add_obstacle(Vector2(0.30, 0.60), Vector2(0.08, 0.11), variant)
+			_add_obstacle(Vector2(0.50, 0.52), Vector2(0.08, 0.11), variant)
+			_add_obstacle(Vector2(0.70, 0.60), Vector2(0.08, 0.11), variant)
 
 func _open_reward_room(generation: int) -> void:
 	await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
