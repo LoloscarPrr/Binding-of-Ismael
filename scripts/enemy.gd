@@ -22,7 +22,7 @@ var _orbit_sign := 1.0
 func _ready() -> void:
 	add_to_group("enemies")
 	collision_layer = 2
-	collision_mask = 3
+	collision_mask = 11
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = 34.0 if kind == EnemyKind.BOSS else 24.0
