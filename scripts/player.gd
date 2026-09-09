@@ -23,7 +23,7 @@ var _invulnerability := 0.0
 
 func _ready() -> void:
 	collision_layer = 1
-	collision_mask = 2
+	collision_mask = 10
 	health = max_health
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
