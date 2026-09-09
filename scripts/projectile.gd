@@ -8,7 +8,7 @@ var damage := 1
 
 func _ready() -> void:
 	collision_layer = 4
-	collision_mask = 2
+	collision_mask = 10
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = 8.0
