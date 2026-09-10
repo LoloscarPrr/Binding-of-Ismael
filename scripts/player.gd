@@ -29,7 +29,7 @@ func _ready() -> void:
 	health = max_health
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
-	circle.radius = 26.0
+	circle.radius = 24.0
 	shape.shape = circle
 	add_child(shape)
 	health_changed.emit(health, max_health)
@@ -112,10 +112,47 @@ func reset_health() -> void:
 	health_changed.emit(health, max_health)
 
 func _draw() -> void:
-	var body_color := Color(0.82, 0.70, 0.62)
+	var skin := Color(0.83, 0.70, 0.62)
+	var skin_shadow := Color(0.62, 0.46, 0.40)
+	var outline := Color(0.12, 0.085, 0.075)
+	var shirt := Color(0.54, 0.45, 0.40)
 	if _invulnerability > 0.0 and int(_invulnerability * 12.0) % 2 == 0:
-		body_color = Color(1.0, 0.85, 0.85)
-	draw_circle(Vector2.ZERO, BODY_RADIUS, body_color)
-	draw_circle(Vector2(-9, -5), 4.5, Color(0.1, 0.1, 0.1))
-	draw_circle(Vector2(9, -5), 4.5, Color(0.1, 0.1, 0.1))
-	draw_arc(Vector2(0, 4), 9.0, 0.2, PI - 0.2, 20, Color(0.25, 0.12, 0.12), 2.5)
+		skin = Color(1.0, 0.86, 0.86)
+	# shadow
+	draw_ellipse(Vector2(0, 22), Vector2(24, 9), Color(0.03, 0.025, 0.02, 0.35))
+	# legs
+	draw_rect(Rect2(-15, 12, 11, 16), outline)
+	draw_rect(Rect2(4, 12, 11, 16), outline)
+	draw_rect(Rect2(-13, 12, 8, 13), skin_shadow)
+	draw_rect(Rect2(5, 12, 8, 13), skin_shadow)
+	# torso
+	draw_rect(Rect2(-19, -2, 38, 25), outline)
+	draw_rect(Rect2(-16, 0, 32, 20), shirt)
+	# head silhouette
+	draw_rect(Rect2(-24, -29, 48, 36), outline)
+	draw_rect(Rect2(-21, -32, 42, 39), outline)
+	draw_rect(Rect2(-19, -29, 38, 33), skin)
+	draw_rect(Rect2(-15, -32, 30, 4), skin)
+	# ears
+	draw_rect(Rect2(-25, -18, 6, 12), outline)
+	draw_rect(Rect2(19, -18, 6, 12), outline)
+	draw_rect(Rect2(-23, -16, 4, 8), skin_shadow)
+	draw_rect(Rect2(19, -16, 4, 8), skin_shadow)
+	# eyes
+	draw_rect(Rect2(-13, -17, 8, 9), Color(0.035, 0.03, 0.03))
+	draw_rect(Rect2(5, -17, 8, 9), Color(0.035, 0.03, 0.03))
+	draw_rect(Rect2(-11, -15, 2, 3), Color(0.75, 0.80, 0.84))
+	draw_rect(Rect2(9, -15, 2, 3), Color(0.75, 0.80, 0.84))
+	# nose and mouth
+	draw_rect(Rect2(-2, -8, 4, 5), skin_shadow)
+	draw_rect(Rect2(-7, -1, 14, 3), Color(0.24, 0.10, 0.10))
+	# tiny tear streaks
+	draw_rect(Rect2(-11, -7, 3, 5), Color(0.42, 0.61, 0.72, 0.75))
+	draw_rect(Rect2(8, -7, 3, 5), Color(0.42, 0.61, 0.72, 0.75))
+
+func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
+	var points := PackedVector2Array()
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		points.append(center + Vector2(cos(a) * radii.x, sin(a) * radii.y))
+	draw_colored_polygon(points, color)
