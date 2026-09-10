@@ -18,6 +18,7 @@ var _age := 0.0
 var _dash_timer := 0.0
 var _dash_direction := Vector2.ZERO
 var _orbit_sign := 1.0
+var _hit_flash := 0.0
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -50,9 +51,11 @@ func configure(enemy_kind: EnemyKind, floor_index: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	_age += delta
+	_hit_flash = maxf(0.0, _hit_flash - delta)
 	if spawn_grace_time > 0.0:
 		spawn_grace_time = maxf(0.0, spawn_grace_time - delta)
 		velocity = Vector2.ZERO
+		queue_redraw()
 		return
 	if not is_instance_valid(target):
 		velocity = Vector2.ZERO
@@ -98,8 +101,9 @@ func _physics_process(delta: float) -> void:
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider()
 		if collider is IsmaelPlayer:
-			collider.take_damage(1)
+			collider.take_contact_damage(1, global_position)
 	clamp_to_bounds()
+	queue_redraw()
 
 func set_movement_bounds(bounds: Rect2) -> void:
 	movement_bounds = bounds
@@ -114,6 +118,8 @@ func take_damage(amount: int) -> void:
 	if health <= 0:
 		return
 	health -= amount
+	_hit_flash = 0.11
+	queue_redraw()
 	if health <= 0:
 		defeated.emit(self)
 		queue_free()
@@ -128,6 +134,8 @@ func _draw() -> void:
 			body_color = Color(0.35, 0.20, 0.62)
 		EnemyKind.BOSS:
 			body_color = Color(0.40, 0.07, 0.10)
+	if _hit_flash > 0.0:
+		body_color = Color(1.0, 0.88, 0.82)
 	draw_circle(Vector2.ZERO, radius, body_color)
 	draw_circle(Vector2(-radius * 0.32, -5), 4.0, Color.BLACK)
 	draw_circle(Vector2(radius * 0.32, -5), 4.0, Color.BLACK)
