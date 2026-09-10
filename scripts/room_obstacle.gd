@@ -22,16 +22,28 @@ func _ready() -> void:
 
 func _draw() -> void:
 	var rect := Rect2(-obstacle_size * 0.5, obstacle_size)
-	var fill := Color(0.28, 0.24, 0.20)
-	var rim := Color(0.46, 0.38, 0.30)
+	var shadow := rect.grow(7.0)
+	shadow.position += Vector2(5.0, 8.0)
+	var fill := Color(0.24, 0.20, 0.17)
+	var rim := Color(0.43, 0.35, 0.28)
+	var highlight := Color(0.53, 0.44, 0.35)
 	if variant == 1:
-		fill = Color(0.23, 0.25, 0.27)
-		rim = Color(0.40, 0.46, 0.50)
+		fill = Color(0.19, 0.21, 0.22)
+		rim = Color(0.34, 0.39, 0.41)
+		highlight = Color(0.46, 0.51, 0.52)
 	elif variant == 2:
-		fill = Color(0.30, 0.16, 0.14)
-		rim = Color(0.52, 0.24, 0.20)
+		fill = Color(0.25, 0.12, 0.11)
+		rim = Color(0.45, 0.20, 0.17)
+		highlight = Color(0.58, 0.29, 0.23)
+	draw_rect(shadow, Color(0.035, 0.025, 0.022, 0.62))
 	draw_rect(rect, fill)
-	draw_rect(rect, rim, false, 5.0)
+	draw_rect(rect, rim, false, 6.0)
+	var inner := rect.grow(-8.0)
+	draw_line(inner.position, Vector2(inner.end.x, inner.position.y), highlight, 3.0)
 	var crack := obstacle_size * 0.22
-	draw_line(Vector2(-crack.x, -crack.y), Vector2(0.0, 0.0), rim, 3.0)
-	draw_line(Vector2(0.0, 0.0), Vector2(crack.x, -crack.y * 0.45), rim, 3.0)
+	draw_line(Vector2(-crack.x, -crack.y), Vector2(-4.0, -2.0), rim, 4.0)
+	draw_line(Vector2(-4.0, -2.0), Vector2(crack.x * 0.42, crack.y * 0.18), rim, 4.0)
+	draw_line(Vector2(crack.x * 0.42, crack.y * 0.18), Vector2(crack.x, -crack.y * 0.45), rim, 3.0)
+	if obstacle_size.x > 150.0:
+		draw_line(Vector2(-obstacle_size.x * 0.18, rect.position.y + 5.0), Vector2(-obstacle_size.x * 0.18, rect.end.y - 5.0), Color(rim, 0.7), 2.0)
+		draw_line(Vector2(obstacle_size.x * 0.20, rect.position.y + 5.0), Vector2(obstacle_size.x * 0.20, rect.end.y - 5.0), Color(rim, 0.7), 2.0)
