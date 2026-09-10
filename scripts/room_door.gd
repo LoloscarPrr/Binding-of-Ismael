@@ -22,16 +22,21 @@ func set_open(value: bool) -> void:
 
 func _apply_state() -> void:
 	if is_instance_valid(_collision):
-		_collision.disabled = is_open
+		_collision.set_deferred("disabled", is_open)
 
 func _draw() -> void:
-	var rect := Rect2(-door_size * 0.5, door_size)
-	var fill := Color(0.08, 0.055, 0.045)
+	var half_w := door_size.x * 0.5
+	var half_h := door_size.y * 0.5
 	var rim := Color(0.38, 0.28, 0.20)
 	if is_open:
-		fill = Color(0.08, 0.25, 0.13)
-		rim = Color(0.18, 0.60, 0.30)
-	draw_rect(rect, fill)
+		# Open door is drawn as two side posts, leaving a clear frontal passage.
+		var post_w := 18.0
+		draw_rect(Rect2(Vector2(-half_w, -half_h), Vector2(post_w, door_size.y)), Color(0.10, 0.07, 0.055))
+		draw_rect(Rect2(Vector2(half_w - post_w, -half_h), Vector2(post_w, door_size.y)), Color(0.10, 0.07, 0.055))
+		draw_line(Vector2(-half_w, -half_h), Vector2(-half_w + post_w, -half_h), Color(0.18, 0.60, 0.30), 5.0)
+		draw_line(Vector2(half_w - post_w, -half_h), Vector2(half_w, -half_h), Color(0.18, 0.60, 0.30), 5.0)
+		return
+	var rect := Rect2(-door_size * 0.5, door_size)
+	draw_rect(rect, Color(0.08, 0.055, 0.045))
 	draw_rect(rect, rim, false, 6.0)
-	if not is_open:
-		draw_circle(Vector2(0, 3), 7.0, Color(0.58, 0.46, 0.24))
+	draw_circle(Vector2(0, 3), 7.0, Color(0.58, 0.46, 0.24))
