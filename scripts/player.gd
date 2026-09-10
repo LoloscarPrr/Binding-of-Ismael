@@ -12,6 +12,7 @@ const BODY_RADIUS := 28.0
 @export var invulnerability_time := 0.75
 @export var projectile_speed := 760.0
 @export var projectile_damage := 1
+@export var contact_knockback := 430.0
 
 var move_input := Vector2.ZERO
 var aim_input := Vector2.ZERO
@@ -20,6 +21,7 @@ var movement_bounds := Rect2(54.0, 82.0, 1172.0, 584.0)
 var is_dead := false
 var _shoot_cooldown := 0.0
 var _invulnerability := 0.0
+var _knockback_velocity := Vector2.ZERO
 
 func _ready() -> void:
 	collision_layer = 1
@@ -39,12 +41,13 @@ func _physics_process(delta: float) -> void:
 		return
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_invulnerability = maxf(0.0, _invulnerability - delta)
-	velocity = move_input.limit_length(1.0) * move_speed
+	_knockback_velocity = _knockback_velocity.move_toward(Vector2.ZERO, 1250.0 * delta)
+	velocity = move_input.limit_length(1.0) * move_speed + _knockback_velocity
 	move_and_slide()
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider()
 		if collider is IsmaelEnemy:
-			take_damage(1)
+			take_contact_damage(1, collider.global_position)
 	clamp_to_bounds()
 	if aim_input.length() > 0.25 and _shoot_cooldown <= 0.0:
 		shoot(aim_input.normalized())
@@ -67,6 +70,15 @@ func shoot(direction: Vector2) -> void:
 	projectile.damage = projectile_damage
 	get_tree().current_scene.add_child(projectile)
 
+func take_contact_damage(amount: int, source_position: Vector2) -> void:
+	if is_dead or _invulnerability > 0.0:
+		return
+	var away := source_position.direction_to(global_position)
+	if away.length_squared() < 0.01:
+		away = Vector2.DOWN
+	_knockback_velocity = away.normalized() * contact_knockback
+	take_damage(amount)
+
 func take_damage(amount: int) -> void:
 	if is_dead or _invulnerability > 0.0:
 		return
@@ -78,6 +90,7 @@ func take_damage(amount: int) -> void:
 		move_input = Vector2.ZERO
 		aim_input = Vector2.ZERO
 		velocity = Vector2.ZERO
+		_knockback_velocity = Vector2.ZERO
 		died.emit()
 
 func heal(amount: int) -> void:
@@ -95,6 +108,7 @@ func reset_health() -> void:
 	is_dead = false
 	health = max_health
 	_invulnerability = 0.0
+	_knockback_velocity = Vector2.ZERO
 	health_changed.emit(health, max_health)
 
 func _draw() -> void:
