@@ -30,20 +30,32 @@ jobs:
             cp -a /root/.config/godot/. ~/.config/godot/
           fi
 
-      - name: Generate Android debug keystore
+      - name: Restore persistent Android debug keystore
+        uses: actions/cache@v4
+        with:
+          path: build/ci/debug.keystore
+          key: binding-of-ismael-debug-keystore-v1
+
+      - name: Create Android debug keystore when missing
         shell: bash
         run: |
           mkdir -p build/ci
-          keytool -genkeypair -noprompt \
+          if [ ! -s build/ci/debug.keystore ]; then
+            keytool -genkeypair -noprompt \
+              -keystore build/ci/debug.keystore \
+              -storetype JKS \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Binding of Ismael Debug,O=Binding of Ismael,C=CL" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000
+          fi
+          keytool -list \
             -keystore build/ci/debug.keystore \
-            -storetype JKS \
             -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000
+            -alias androiddebugkey >/dev/null
 
       - name: Validate Godot project
         shell: bash

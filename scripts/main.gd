@@ -11,6 +11,7 @@ const REWARD_POOL: Array[String] = ["movimiento", "cadencia", "vida", "curacion"
 var player: IsmaelPlayer
 var left_stick: VirtualStick
 var right_stick: VirtualStick
+var hud_backdrop: Panel
 var health_label: Label
 var pickup_label: Label
 var minimap_label: Label
@@ -40,6 +41,7 @@ var _bombs := 0
 var _keys := 0
 
 func _ready() -> void:
+	_configure_mobile_display()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	_update_room_rect()
 	player = IsmaelPlayer.new()
@@ -54,6 +56,12 @@ func _ready() -> void:
 	_layout_touch_ui()
 	_begin_room(false)
 	queue_redraw()
+
+func _configure_mobile_display() -> void:
+	if not OS.has_feature("android") and not OS.has_feature("ios"):
+		return
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _begin_room(from_door: bool) -> void:
 	_spawn_generation += 1
@@ -316,7 +324,7 @@ func _on_pickup_collected(kind: String) -> void:
 
 func _update_pickup_hud() -> void:
 	if is_instance_valid(pickup_label):
-		pickup_label.text = "MON %02d   BOM %02d   LLA %02d" % [_coins, _bombs, _keys]
+		pickup_label.text = "MONEDAS %02d   BOMBAS %02d   LLAVES %02d" % [_coins, _bombs, _keys]
 
 func _update_minimap() -> void:
 	if not is_instance_valid(minimap_label):
@@ -341,6 +349,14 @@ func _create_touch_ui() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	hud_backdrop = Panel.new()
+	hud_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hud_style := StyleBoxFlat.new()
+	hud_style.bg_color = Color(0.055, 0.045, 0.04, 0.88)
+	hud_style.border_color = Color(0.40, 0.31, 0.23, 0.82)
+	hud_style.border_width_bottom = 3
+	hud_backdrop.add_theme_stylebox_override("panel", hud_style)
+	layer.add_child(hud_backdrop)
 	left_stick = VirtualStick.new()
 	layer.add_child(left_stick)
 	right_stick = VirtualStick.new()
@@ -395,29 +411,39 @@ func _layout_touch_ui() -> void:
 	right_stick.knob_radius = left_stick.knob_radius
 	left_stick.position = Vector2(margin_x, screen_size.y - stick_side - margin_bottom)
 	right_stick.position = Vector2(screen_size.x - stick_side - margin_x, screen_size.y - stick_side - margin_bottom)
-	var tiny_font := maxi(13, int(round(15.0 * ui_scale)))
-	var small_font := maxi(15, int(round(18.0 * ui_scale)))
-	var normal_font := maxi(18, int(round(24.0 * ui_scale)))
+	var resource_font := maxi(18, int(round(20.0 * ui_scale)))
+	var small_font := maxi(18, int(round(20.0 * ui_scale)))
+	var normal_font := maxi(24, int(round(27.0 * ui_scale)))
 	health_label.add_theme_font_size_override("font_size", normal_font)
-	pickup_label.add_theme_font_size_override("font_size", tiny_font)
-	minimap_label.add_theme_font_size_override("font_size", tiny_font)
+	pickup_label.add_theme_font_size_override("font_size", resource_font)
+	minimap_label.add_theme_font_size_override("font_size", resource_font)
 	floor_label.add_theme_font_size_override("font_size", small_font)
 	room_label.add_theme_font_size_override("font_size", small_font)
 	status_label.add_theme_font_size_override("font_size", normal_font)
 	reward_label.add_theme_font_size_override("font_size", small_font)
-	health_label.position = Vector2(margin_x, 14.0)
-	pickup_label.position = Vector2(margin_x, 48.0 * ui_scale)
-	pickup_label.size = Vector2(360.0, 30.0 * ui_scale)
-	minimap_label.position = Vector2(screen_size.x - 330.0 * ui_scale - margin_x, 12.0)
-	minimap_label.size = Vector2(330.0 * ui_scale, 60.0 * ui_scale)
-	var info_width := clampf(screen_size.x * 0.18, 180.0, 270.0)
-	floor_label.position = Vector2(screen_size.x * 0.5 - info_width - 8.0, 14.0)
-	floor_label.size = Vector2(info_width, 36.0)
-	room_label.position = Vector2(screen_size.x * 0.5 + 8.0, 14.0)
-	room_label.size = Vector2(info_width, 36.0)
-	var center_width := clampf(screen_size.x * 0.48, 380.0, 650.0)
-	status_label.position = Vector2(screen_size.x * 0.5 - center_width * 0.5, 48.0)
-	status_label.size = Vector2(center_width, 48.0)
+	for label: Label in [health_label, pickup_label, minimap_label, floor_label, room_label, status_label, reward_label]:
+		label.add_theme_color_override("font_color", Color(0.97, 0.92, 0.82))
+		label.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.025, 0.98))
+		label.add_theme_constant_override("outline_size", maxi(3, int(round(4.0 * ui_scale))))
+	var hud_height := clampf(94.0 * ui_scale, 90.0, 124.0)
+	hud_backdrop.position = Vector2.ZERO
+	hud_backdrop.size = Vector2(screen_size.x, hud_height)
+	var left_width := clampf(screen_size.x * 0.30, 370.0, 520.0)
+	var map_width := clampf(screen_size.x * 0.27, 330.0, 480.0)
+	health_label.position = Vector2(margin_x, 10.0 * ui_scale)
+	health_label.size = Vector2(left_width, 38.0 * ui_scale)
+	pickup_label.position = Vector2(margin_x, 51.0 * ui_scale)
+	pickup_label.size = Vector2(left_width, 34.0 * ui_scale)
+	minimap_label.position = Vector2(screen_size.x - map_width - margin_x, 8.0 * ui_scale)
+	minimap_label.size = Vector2(map_width, 76.0 * ui_scale)
+	var info_width := clampf(screen_size.x * 0.12, 150.0, 240.0)
+	floor_label.position = Vector2(screen_size.x * 0.5 - info_width - 7.0, 10.0 * ui_scale)
+	floor_label.size = Vector2(info_width, 34.0 * ui_scale)
+	room_label.position = Vector2(screen_size.x * 0.5 + 7.0, 10.0 * ui_scale)
+	room_label.size = Vector2(info_width, 34.0 * ui_scale)
+	var center_width := clampf(screen_size.x * 0.38, 410.0, 680.0)
+	status_label.position = Vector2(screen_size.x * 0.5 - center_width * 0.5, 49.0 * ui_scale)
+	status_label.size = Vector2(center_width, 42.0 * ui_scale)
 	reward_label.position = Vector2(screen_size.x * 0.5 - center_width * 0.5, screen_size.y * 0.58)
 	reward_label.size = Vector2(center_width, 40.0)
 	var choice_size := Vector2(clampf(screen_size.x * 0.22, 250.0, 350.0), clampf(screen_size.y * 0.14, 90.0, 130.0))
@@ -507,7 +533,7 @@ func _on_viewport_size_changed() -> void:
 func _update_room_rect() -> void:
 	var s := get_viewport_rect().size
 	var side := clampf(s.x * 0.028, 24.0, 52.0)
-	var top := clampf(s.y * 0.10, 60.0, 96.0)
+	var top := clampf(s.y * 0.145, 104.0, 132.0)
 	var bottom := clampf(s.y * 0.04, 18.0, 42.0)
 	room_rect = Rect2(Vector2(side, top), Vector2(maxf(1.0, s.x - side * 2.0), maxf(1.0, s.y - top - bottom)))
 
