@@ -26,7 +26,7 @@ func _ready() -> void:
 	collision_mask = 11
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
-	circle.radius = 34.0 if kind == EnemyKind.BOSS else 24.0
+	circle.radius = 38.0 if kind == EnemyKind.BOSS else 23.0
 	shape.shape = circle
 	add_child(shape)
 	_orbit_sign = -1.0 if get_instance_id() % 2 == 0 else 1.0
@@ -110,7 +110,7 @@ func set_movement_bounds(bounds: Rect2) -> void:
 	clamp_to_bounds()
 
 func clamp_to_bounds() -> void:
-	var radius := 36.0 if kind == EnemyKind.BOSS else BODY_RADIUS
+	var radius := 40.0 if kind == EnemyKind.BOSS else BODY_RADIUS
 	position.x = clampf(position.x, movement_bounds.position.x + radius, movement_bounds.position.x + movement_bounds.size.x - radius)
 	position.y = clampf(position.y, movement_bounds.position.y + radius, movement_bounds.position.y + movement_bounds.size.y - radius)
 
@@ -125,20 +125,104 @@ func take_damage(amount: int) -> void:
 		queue_free()
 
 func _draw() -> void:
-	var radius := 36.0 if kind == EnemyKind.BOSS else BODY_RADIUS
-	var body_color := Color(0.55, 0.16, 0.18)
+	var flash := _hit_flash > 0.0
 	match kind:
+		EnemyKind.CHASER:
+			_draw_chaser(flash)
 		EnemyKind.DASHER:
-			body_color = Color(0.72, 0.34, 0.12)
+			_draw_dasher(flash)
 		EnemyKind.ORBITER:
-			body_color = Color(0.35, 0.20, 0.62)
+			_draw_orbiter(flash)
 		EnemyKind.BOSS:
-			body_color = Color(0.40, 0.07, 0.10)
-	if _hit_flash > 0.0:
-		body_color = Color(1.0, 0.88, 0.82)
-	draw_circle(Vector2.ZERO, radius, body_color)
-	draw_circle(Vector2(-radius * 0.32, -5), 4.0, Color.BLACK)
-	draw_circle(Vector2(radius * 0.32, -5), 4.0, Color.BLACK)
-	draw_line(Vector2(-8, 10), Vector2(8, 10), Color(0.15, 0.02, 0.02), 3.0)
-	if kind == EnemyKind.BOSS:
-		draw_arc(Vector2.ZERO, radius + 7.0, 0.0, TAU, 36, Color(0.75, 0.15, 0.12), 4.0)
+			_draw_boss(flash)
+
+func _draw_chaser(flash: bool) -> void:
+	var outline := Color(0.11, 0.035, 0.03)
+	var flesh := Color(1.0, 0.86, 0.80) if flash else Color(0.56, 0.16, 0.18)
+	var dark := Color(0.29, 0.07, 0.08)
+	draw_ellipse(Vector2(0, 19), Vector2(22, 8), Color(0.03,0.02,0.02,0.28))
+	draw_rect(Rect2(-23,-22,46,40), outline)
+	draw_rect(Rect2(-19,-25,38,43), outline)
+	draw_rect(Rect2(-17,-21,34,35), flesh)
+	draw_rect(Rect2(-13,-25,26,5), flesh)
+	draw_rect(Rect2(-22,-9,6,14), flesh)
+	draw_rect(Rect2(16,-9,6,14), flesh)
+	draw_rect(Rect2(-12,-12,7,8), Color.BLACK)
+	draw_rect(Rect2(5,-12,7,8), Color.BLACK)
+	draw_rect(Rect2(-6,2,12,5), dark)
+	draw_rect(Rect2(-10,9,20,4), dark)
+	draw_rect(Rect2(-14,14,9,12), dark)
+	draw_rect(Rect2(5,14,9,12), dark)
+
+func _draw_dasher(flash: bool) -> void:
+	var outline := Color(0.13, 0.065, 0.025)
+	var hide := Color(1.0, 0.88, 0.78) if flash else Color(0.73, 0.34, 0.12)
+	var horn := Color(0.78, 0.69, 0.48)
+	draw_ellipse(Vector2(0,19),Vector2(24,8),Color(0.03,0.02,0.01,0.28))
+	# low, aggressive silhouette
+	draw_rect(Rect2(-25,-15,50,31),outline)
+	draw_rect(Rect2(-21,-19,42,36),hide)
+	draw_polygon(PackedVector2Array([Vector2(-20,-17),Vector2(-31,-29),Vector2(-16,-25)]),PackedColorArray([horn]))
+	draw_polygon(PackedVector2Array([Vector2(20,-17),Vector2(31,-29),Vector2(16,-25)]),PackedColorArray([horn]))
+	draw_rect(Rect2(-14,-10,9,7),Color.BLACK)
+	draw_rect(Rect2(5,-10,9,7),Color.BLACK)
+	draw_rect(Rect2(-5,-1,10,8),Color(0.27,0.08,0.03))
+	draw_rect(Rect2(-18,13,12,10),outline)
+	draw_rect(Rect2(6,13,12,10),outline)
+	if _dash_timer > 1.15:
+		draw_line(Vector2(-28,4),Vector2(-39,9),Color(0.86,0.50,0.16,0.75),4.0)
+		draw_line(Vector2(28,4),Vector2(39,9),Color(0.86,0.50,0.16,0.75),4.0)
+
+func _draw_orbiter(flash: bool) -> void:
+	var outline := Color(0.075,0.045,0.12)
+	var body := Color(1.0,0.9,0.84) if flash else Color(0.35,0.20,0.62)
+	var inner := Color(0.18,0.09,0.31)
+	draw_ellipse(Vector2(0,18),Vector2(22,7),Color(0.02,0.015,0.03,0.28))
+	draw_rect(Rect2(-21,-21,42,42),outline)
+	draw_rect(Rect2(-17,-24,34,46),outline)
+	draw_rect(Rect2(-15,-20,30,38),body)
+	draw_rect(Rect2(-11,-24,22,5),body)
+	# one huge eye gives this family a unique read
+	draw_rect(Rect2(-11,-13,22,17),Color(0.80,0.74,0.68))
+	draw_rect(Rect2(-5,-10,10,12),Color.BLACK)
+	draw_rect(Rect2(-2,-8,3,4),Color(0.70,0.58,0.88))
+	draw_rect(Rect2(-8,8,16,6),inner)
+	draw_line(Vector2(-19,-2),Vector2(-30,-8),body,5.0)
+	draw_line(Vector2(19,-2),Vector2(30,8),body,5.0)
+
+func _draw_boss(flash: bool) -> void:
+	var outline := Color(0.08,0.02,0.025)
+	var flesh := Color(1.0,0.86,0.80) if flash else Color(0.40,0.07,0.10)
+	var flesh2 := Color(0.57,0.12,0.13)
+	var wound := Color(0.20,0.015,0.02)
+	draw_ellipse(Vector2(0,37),Vector2(43,12),Color(0.02,0.01,0.01,0.38))
+	# oversized torso and irregular head
+	draw_rect(Rect2(-44,-18,88,56),outline)
+	draw_rect(Rect2(-38,-24,76,65),outline)
+	draw_rect(Rect2(-32,-30,64,71),flesh)
+	draw_rect(Rect2(-23,-36,46,9),flesh2)
+	draw_rect(Rect2(-42,-6,10,27),flesh2)
+	draw_rect(Rect2(32,-6,10,27),flesh2)
+	# asymmetrical face
+	draw_rect(Rect2(-21,-16,15,13),Color.BLACK)
+	draw_rect(Rect2(9,-13,12,10),Color.BLACK)
+	draw_rect(Rect2(-17,-12,4,4),Color(0.78,0.18,0.17))
+	draw_rect(Rect2(12,-10,3,3),Color(0.78,0.18,0.17))
+	draw_rect(Rect2(-7,-1,14,8),wound)
+	draw_rect(Rect2(-18,12,36,9),wound)
+	draw_rect(Rect2(-13,15,5,7),Color(0.83,0.73,0.55))
+	draw_rect(Rect2(5,15,5,7),Color(0.83,0.73,0.55))
+	# arms / claws
+	draw_rect(Rect2(-51,4,13,24),outline)
+	draw_rect(Rect2(38,4,13,24),outline)
+	draw_rect(Rect2(-49,7,10,18),flesh2)
+	draw_rect(Rect2(39,7,10,18),flesh2)
+	# pulse ring
+	draw_arc(Vector2.ZERO,46.0+sin(_age*3.0)*2.0,0.0,TAU,40,Color(0.70,0.10,0.10,0.55),4.0)
+
+func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
+	var points := PackedVector2Array()
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		points.append(center + Vector2(cos(a) * radii.x, sin(a) * radii.y))
+	draw_colored_polygon(points, color)
