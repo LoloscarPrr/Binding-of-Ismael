@@ -92,3 +92,4 @@ jobs:
           name: Binding-of-Ismael-debug-apk
           path: build/android/Binding-of-Ismael-debug.apk
           if-no-files-found: error
+          retention-days: 3
