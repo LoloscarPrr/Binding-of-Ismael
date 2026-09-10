@@ -12,7 +12,7 @@ var player: IsmaelPlayer
 var left_stick: VirtualStick
 var right_stick: VirtualStick
 var hud_backdrop: Panel
-var health_label: Label
+var health_hud: IsmaelHealthHud
 var pickup_label: Label
 var minimap_label: Label
 var status_label: Label
@@ -361,8 +361,8 @@ func _create_touch_ui() -> void:
 	layer.add_child(left_stick)
 	right_stick = VirtualStick.new()
 	layer.add_child(right_stick)
-	health_label = Label.new()
-	layer.add_child(health_label)
+	health_hud = IsmaelHealthHud.new()
+	layer.add_child(health_hud)
 	pickup_label = Label.new()
 	layer.add_child(pickup_label)
 	minimap_label = Label.new()
@@ -414,14 +414,13 @@ func _layout_touch_ui() -> void:
 	var resource_font := maxi(18, int(round(20.0 * ui_scale)))
 	var small_font := maxi(18, int(round(20.0 * ui_scale)))
 	var normal_font := maxi(24, int(round(27.0 * ui_scale)))
-	health_label.add_theme_font_size_override("font_size", normal_font)
 	pickup_label.add_theme_font_size_override("font_size", resource_font)
 	minimap_label.add_theme_font_size_override("font_size", resource_font)
 	floor_label.add_theme_font_size_override("font_size", small_font)
 	room_label.add_theme_font_size_override("font_size", small_font)
 	status_label.add_theme_font_size_override("font_size", normal_font)
 	reward_label.add_theme_font_size_override("font_size", small_font)
-	for label: Label in [health_label, pickup_label, minimap_label, floor_label, room_label, status_label, reward_label]:
+	for label: Label in [pickup_label, minimap_label, floor_label, room_label, status_label, reward_label]:
 		label.add_theme_color_override("font_color", Color(0.97, 0.92, 0.82))
 		label.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.025, 0.98))
 		label.add_theme_constant_override("outline_size", maxi(3, int(round(4.0 * ui_scale))))
@@ -430,8 +429,10 @@ func _layout_touch_ui() -> void:
 	hud_backdrop.size = Vector2(screen_size.x, hud_height)
 	var left_width := clampf(screen_size.x * 0.30, 370.0, 520.0)
 	var map_width := clampf(screen_size.x * 0.27, 330.0, 480.0)
-	health_label.position = Vector2(margin_x, 10.0 * ui_scale)
-	health_label.size = Vector2(left_width, 38.0 * ui_scale)
+	health_hud.icon_size = 28.0 * ui_scale
+	health_hud.icon_gap = 7.0 * ui_scale
+	health_hud.position = Vector2(margin_x, 8.0 * ui_scale)
+	health_hud.size = Vector2(left_width, 39.0 * ui_scale)
 	pickup_label.position = Vector2(margin_x, 51.0 * ui_scale)
 	pickup_label.size = Vector2(left_width, 34.0 * ui_scale)
 	minimap_label.position = Vector2(screen_size.x - map_width - margin_x, 8.0 * ui_scale)
@@ -444,8 +445,10 @@ func _layout_touch_ui() -> void:
 	var center_width := clampf(screen_size.x * 0.38, 410.0, 680.0)
 	status_label.position = Vector2(screen_size.x * 0.5 - center_width * 0.5, 49.0 * ui_scale)
 	status_label.size = Vector2(center_width, 42.0 * ui_scale)
-	reward_label.position = Vector2(screen_size.x * 0.5 - center_width * 0.5, screen_size.y * 0.58)
-	reward_label.size = Vector2(center_width, 40.0)
+	var end_screen_visible := _run_complete or _game_over
+	var reward_y_ratio := 0.46 if end_screen_visible else 0.58
+	reward_label.position = Vector2(screen_size.x * 0.5 - center_width * 0.5, screen_size.y * reward_y_ratio)
+	reward_label.size = Vector2(center_width, 44.0 * ui_scale)
 	var choice_size := Vector2(clampf(screen_size.x * 0.22, 250.0, 350.0), clampf(screen_size.y * 0.14, 90.0, 130.0))
 	reward_left.size = choice_size
 	reward_right.size = choice_size
@@ -454,7 +457,14 @@ func _layout_touch_ui() -> void:
 	reward_left.add_theme_font_size_override("font_size", small_font)
 	reward_right.add_theme_font_size_override("font_size", small_font)
 	restart_button.size = Vector2(280.0, 76.0) * ui_scale
-	restart_button.position = screen_size * 0.5 - restart_button.size * 0.5 + Vector2(0, 72.0 * ui_scale)
+	if end_screen_visible:
+		restart_button.position = Vector2(
+			screen_size.x * 0.5 - restart_button.size.x * 0.5,
+			screen_size.y * 0.62
+		)
+	else:
+		restart_button.position = screen_size * 0.5 - restart_button.size * 0.5 + Vector2(0, 72.0 * ui_scale)
+	restart_button.add_theme_font_size_override("font_size", small_font)
 	if is_instance_valid(_door):
 		_door.position = Vector2(room_rect.get_center().x, room_rect.position.y + 26.0)
 
@@ -502,6 +512,7 @@ func _finish_floor() -> void:
 		restart_button.visible = true
 		left_stick.reset()
 		right_stick.reset()
+		_layout_touch_ui()
 		return
 	status_label.text = "GUARDIÁN DERROTADO — PISO %d" % _floor_index
 	reward_label.text = _grant_floor_reward()
@@ -538,11 +549,8 @@ func _update_room_rect() -> void:
 	room_rect = Rect2(Vector2(side, top), Vector2(maxf(1.0, s.x - side * 2.0), maxf(1.0, s.y - top - bottom)))
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
-	if is_instance_valid(health_label):
-		var hearts := ""
-		for i in maximum:
-			hearts += "♥" if i < current else "♡"
-		health_label.text = hearts
+	if is_instance_valid(health_hud):
+		health_hud.set_health(current, maximum)
 
 func _on_player_died() -> void:
 	_game_over = true
@@ -553,6 +561,7 @@ func _on_player_died() -> void:
 	status_label.text = "DERROTA"
 	reward_label.text = ""
 	restart_button.visible = true
+	_layout_touch_ui()
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		enemy.velocity = Vector2.ZERO
 		enemy.set_physics_process(false)
