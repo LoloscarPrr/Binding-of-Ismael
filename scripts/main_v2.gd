@@ -61,7 +61,7 @@ func _on_boss_health_changed(current: int, maximum: int) -> void:
 	boss_hud.set_health(current)
 
 func _on_enemy_defeated(enemy) -> void:
-	var was_boss := enemy is IsmaelEnemy and enemy.kind == IsmaelEnemy.EnemyKind.BOSS
+	var was_boss: bool = enemy is IsmaelEnemy and enemy.kind == IsmaelEnemy.EnemyKind.BOSS
 	super._on_enemy_defeated(enemy)
 	if was_boss and is_instance_valid(boss_hud):
 		boss_hud.hide_boss()
