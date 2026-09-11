@@ -22,6 +22,7 @@ func _draw() -> void:
 	_draw_floor()
 	_draw_room_markings()
 	_draw_debris()
+	_draw_props()
 
 func _draw_wall_shell() -> void:
 	var outer := room_rect.grow(34.0)
@@ -49,8 +50,8 @@ func _draw_wall_shell() -> void:
 func _draw_floor() -> void:
 	var floor_color := Color(0.205, 0.165, 0.135) if floor_index == 1 else Color(0.145, 0.165, 0.17)
 	match room_kind:
-		"recompensa": floor_color = Color(0.205, 0.172, 0.105)
-		"jefe": floor_color = Color(0.185, 0.105, 0.095)
+		"recompensa": floor_color = Color(0.185, 0.155, 0.095)
+		"jefe": floor_color = Color(0.155, 0.085, 0.078)
 		"tesoro": floor_color = Color(0.235, 0.185, 0.095)
 		"tienda": floor_color = Color(0.175, 0.135, 0.085)
 		"maldicion": floor_color = Color(0.105, 0.085, 0.115)
@@ -67,24 +68,42 @@ func _draw_room_markings() -> void:
 	var center := room_rect.get_center()
 	match room_kind:
 		"emboscada":
-			draw_arc(center, minf(room_rect.size.x, room_rect.size.y) * 0.13, 0.0, TAU, 40, Color(0.38,0.11,0.08,0.65), 8.0)
-			for i in range(4):
-				var p := center + Vector2(55.0,0).rotated(float(i)*PI*0.5)
-				draw_circle(p, 7.0, Color(0.42,0.10,0.07,0.55))
+			draw_arc(center, minf(room_rect.size.x, room_rect.size.y) * 0.10, 0.0, TAU, 40, Color(0.38,0.11,0.08,0.42), 5.0)
 		"recompensa":
-			draw_circle(center, 64.0, Color(0.70,0.50,0.16,0.18))
-			draw_arc(center, 64.0, 0.0, TAU, 40, Color(0.78,0.59,0.23,0.7), 6.0)
+			# Marca ritual discreta: evita el aro amarillo gigante de v0.4.0.
+			draw_circle(center, 24.0, Color(0.70,0.50,0.16,0.08))
+			draw_arc(center, 24.0, 0.0, TAU, 32, Color(0.78,0.59,0.23,0.32), 3.0)
 		"jefe":
-			draw_arc(center, minf(room_rect.size.x,room_rect.size.y)*0.24, 0.0, TAU, 56, Color(0.48,0.055,0.045,0.72), 10.0)
-			draw_line(center+Vector2(-80,0), center+Vector2(80,0), Color(0.35,0.04,0.035,0.35), 5.0)
+			# El jefe y su barra son el foco; la marca del suelo queda ambiental.
+			draw_arc(center, 58.0, 0.0, TAU, 48, Color(0.48,0.055,0.045,0.24), 5.0)
+			draw_line(center+Vector2(-38,0), center+Vector2(38,0), Color(0.35,0.04,0.035,0.18), 3.0)
 
 func _draw_debris() -> void:
-	for i in range(15):
+	for i in range(18):
 		var sx := float((room_index * 47 + floor_index * 29 + i * 71) % 997) / 997.0
 		var sy := float((room_index * 83 + floor_index * 41 + i * 43) % 991) / 991.0
 		var p := room_rect.position + Vector2(room_rect.size.x * (0.07 + sx * 0.86), room_rect.size.y * (0.10 + sy * 0.82))
 		var radius := 3.0 + float(i % 4) * 2.0
-		var stain := Color(0.12,0.045,0.035,0.30) if i % 3 == 0 else Color(0.08,0.065,0.05,0.24)
+		var stain := Color(0.12,0.045,0.035,0.34) if i % 3 == 0 else Color(0.08,0.065,0.05,0.26)
 		draw_circle(p, radius, stain)
 		if i % 5 == 0:
-			draw_line(p + Vector2(-7,-2), p + Vector2(7,3), Color(0.09,0.05,0.04,0.28), 2.0)
+			draw_line(p + Vector2(-7,-2), p + Vector2(7,3), Color(0.09,0.05,0.04,0.30), 2.0)
+
+func _draw_props() -> void:
+	# Props simples pero legibles: piedras y vasijas pegadas a los bordes para no obstruir combate.
+	var points := [
+		room_rect.position + Vector2(92, 92),
+		Vector2(room_rect.end.x - 100, room_rect.position.y + 105),
+		Vector2(room_rect.position.x + 118, room_rect.end.y - 92),
+		room_rect.end - Vector2(118, 96)
+	]
+	for i in range(points.size()):
+		var p: Vector2 = points[i]
+		if i % 2 == 0:
+			draw_circle(p + Vector2(3,5), 15.0, Color(0.025,0.02,0.018,0.38))
+			draw_circle(p, 14.0, Color(0.19,0.16,0.14))
+			draw_arc(p, 14.0, PI, TAU, 14, Color(0.32,0.27,0.22), 3.0)
+		else:
+			draw_circle(p + Vector2(2,5), 13.0, Color(0.025,0.02,0.018,0.4))
+			draw_circle(p, 12.0, Color(0.28,0.13,0.09))
+			draw_rect(Rect2(p + Vector2(-8,-15), Vector2(16,6)), Color(0.36,0.18,0.11))
