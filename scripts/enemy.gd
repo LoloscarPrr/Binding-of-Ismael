@@ -6,6 +6,8 @@ signal health_changed(current: int, maximum: int)
 
 const BODY_RADIUS := 25.0
 const SEPARATION_DISTANCE := 72.0
+const ORBITER_WINDUP := 0.34
+const BOSS_WINDUP := 0.52
 
 enum EnemyKind { CHASER, DASHER, ORBITER, BOSS }
 
@@ -21,6 +23,11 @@ var _dash_timer := 0.0
 var _dash_direction := Vector2.ZERO
 var _orbit_sign := 1.0
 var _hit_flash := 0.0
+var _difficulty := 1
+var _attack_cooldown := 1.0
+var _attack_windup := 0.0
+var _attack_windup_total := 0.0
+var _attack_sequence := 0
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -37,6 +44,7 @@ func _ready() -> void:
 
 func configure(enemy_kind: EnemyKind, floor_index: int) -> void:
 	kind = enemy_kind
+	_difficulty = maxi(1, floor_index)
 	match kind:
 		EnemyKind.CHASER:
 			speed = 105.0 + floor_index * 8.0
@@ -51,6 +59,10 @@ func configure(enemy_kind: EnemyKind, floor_index: int) -> void:
 			speed = 92.0 + floor_index * 5.0
 			health = 18 + floor_index * 5
 	max_health = health
+	if kind == EnemyKind.ORBITER:
+		_attack_cooldown = 0.72 + float(get_instance_id() % 4) * 0.12
+	elif kind == EnemyKind.BOSS:
+		_attack_cooldown = 0.95
 	health_changed.emit(health, max_health)
 	queue_redraw()
 
@@ -101,6 +113,8 @@ func _physics_process(delta: float) -> void:
 	var speed_multiplier := 1.0
 	if kind == EnemyKind.DASHER and _dash_timer > 1.15:
 		speed_multiplier = 2.4
+	if _attack_windup > 0.0:
+		speed_multiplier *= 0.22
 	velocity = steering.normalized() * speed * speed_multiplier if steering.length() > 0.01 else Vector2.ZERO
 	move_and_slide()
 	for i in get_slide_collision_count():
@@ -108,6 +122,7 @@ func _physics_process(delta: float) -> void:
 		if collider is IsmaelPlayer:
 			collider.take_contact_damage(1, global_position)
 	clamp_to_bounds()
+	_update_attack(delta)
 	queue_redraw()
 
 func set_movement_bounds(bounds: Rect2) -> void:
@@ -130,6 +145,70 @@ func take_damage(amount: int) -> void:
 		defeated.emit(self)
 		queue_free()
 
+func _update_attack(delta: float) -> void:
+	if kind != EnemyKind.ORBITER and kind != EnemyKind.BOSS:
+		return
+	if _attack_windup > 0.0:
+		_attack_windup = maxf(0.0, _attack_windup - delta)
+		if _attack_windup <= 0.0:
+			_fire_pending_attack()
+		return
+	_attack_cooldown -= delta
+	if _attack_cooldown <= 0.0:
+		_attack_windup_total = BOSS_WINDUP if kind == EnemyKind.BOSS else ORBITER_WINDUP
+		_attack_windup = _attack_windup_total
+
+func _fire_pending_attack() -> void:
+	if not is_instance_valid(target):
+		return
+	if kind == EnemyKind.ORBITER:
+		var aim_direction: Vector2 = global_position.direction_to(target.global_position)
+		_spawn_enemy_shot(aim_direction, 300.0 + float(_difficulty) * 22.0, 0)
+		_attack_cooldown = maxf(1.05, 1.58 - float(_difficulty) * 0.12)
+		return
+	if kind != EnemyKind.BOSS:
+		return
+	var phase_two: bool = health * 2 <= max_health
+	if _attack_sequence % 2 == 0:
+		_fire_boss_fan(phase_two)
+	else:
+		_fire_boss_ring(phase_two)
+	_attack_sequence += 1
+	_attack_cooldown = 0.78 if phase_two else 1.18
+
+func _fire_boss_fan(phase_two: bool) -> void:
+	var aim_direction: Vector2 = global_position.direction_to(target.global_position)
+	var angles: Array[float] = [-0.24, 0.0, 0.24]
+	if phase_two:
+		angles = [-0.38, -0.19, 0.0, 0.19, 0.38]
+	for angle: float in angles:
+		_spawn_enemy_shot(aim_direction.rotated(angle), 350.0 if phase_two else 320.0, 1)
+
+func _fire_boss_ring(phase_two: bool) -> void:
+	var shot_count: int = 12 if phase_two else 8
+	var base_angle: float = _age * 0.72
+	for i in range(shot_count):
+		var angle: float = base_angle + TAU * float(i) / float(shot_count)
+		_spawn_enemy_shot(Vector2.RIGHT.rotated(angle), 300.0 if phase_two else 270.0, 1)
+
+func _spawn_enemy_shot(shot_direction: Vector2, shot_speed: float, shot_variant: int) -> void:
+	if shot_direction.length_squared() < 0.01 or not is_inside_tree():
+		return
+	var projectile := IsmaelEnemyProjectile.new()
+	projectile.configure(shot_direction.normalized(), shot_speed, 1, movement_bounds, shot_variant)
+	get_tree().current_scene.add_child(projectile)
+	var spawn_distance := 57.0 if kind == EnemyKind.BOSS else 34.0
+	projectile.global_position = global_position + shot_direction.normalized() * spawn_distance
+
+func _draw_attack_telegraph() -> void:
+	if _attack_windup <= 0.0 or _attack_windup_total <= 0.0:
+		return
+	var progress: float = 1.0 - _attack_windup / _attack_windup_total
+	var radius: float = (50.0 if kind == EnemyKind.BOSS else 31.0) + progress * 8.0
+	var warning := Color(0.94, 0.16, 0.10, 0.42 + progress * 0.38)
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 36, warning, 5.0)
+	draw_circle(Vector2.ZERO, 4.0 + progress * 5.0, Color(1.0, 0.46, 0.20, 0.22 + progress * 0.35))
+
 func _draw() -> void:
 	var flash := _hit_flash > 0.0
 	match kind:
@@ -141,6 +220,7 @@ func _draw() -> void:
 			_draw_orbiter(flash)
 		EnemyKind.BOSS:
 			_draw_boss(flash)
+	_draw_attack_telegraph()
 
 func _draw_chaser(flash: bool) -> void:
 	var outline := Color(0.11, 0.035, 0.03)

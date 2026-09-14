@@ -77,6 +77,7 @@ func _begin_room(from_door: bool) -> void:
 	_hide_reward_choices()
 	_clear_room_obstacles()
 	_clear_room_pickups()
+	_clear_enemy_projectiles()
 	_clear_room_door()
 	player.position = _room_entry_position(from_door)
 	player.velocity = Vector2.ZERO
@@ -114,6 +115,10 @@ func _clear_room_obstacles() -> void:
 func _clear_room_pickups() -> void:
 	for pickup in get_tree().get_nodes_in_group("room_pickups"):
 		pickup.queue_free()
+
+func _clear_enemy_projectiles() -> void:
+	for projectile in get_tree().get_nodes_in_group("enemy_projectiles"):
+		projectile.queue_free()
 
 func _clear_room_door() -> void:
 	if is_instance_valid(_door): _door.queue_free()
@@ -401,13 +406,13 @@ func _on_player_health_changed(current: int, maximum: int) -> void:
 	if is_instance_valid(health_hud): health_hud.set_health(current,maximum)
 
 func _on_player_died() -> void:
-	_game_over=true; _spawn_generation+=1; _hide_reward_choices(); left_stick.reset(); right_stick.reset(); status_label.text="DERROTA"; reward_label.text=""; restart_button.visible=true; _layout_touch_ui()
+	_game_over=true; _spawn_generation+=1; _hide_reward_choices(); _clear_enemy_projectiles(); left_stick.reset(); right_stick.reset(); status_label.text="DERROTA"; reward_label.text=""; restart_button.visible=true; _layout_touch_ui()
 	for enemy in get_tree().get_nodes_in_group("enemies"): enemy.velocity=Vector2.ZERO; enemy.set_physics_process(false)
 
 func _on_enemy_defeated(_enemy) -> void:
 	_enemies_alive=maxi(0,_enemies_alive-1)
 	if _enemies_alive==0 and not _game_over:
-		_room_cleared=true; _rooms_cleared_total+=1; _set_door_open(true); _spawn_clear_pickup(); status_label.text="GUARDIÁN DERROTADO — RECOGE Y ENTRA" if _room_kind=="jefe" else "SALA LIMPIA — RECOGE Y ENTRA"; queue_redraw()
+		_clear_enemy_projectiles(); _room_cleared=true; _rooms_cleared_total+=1; _set_door_open(true); _spawn_clear_pickup(); status_label.text="GUARDIÁN DERROTADO — RECOGE Y ENTRA" if _room_kind=="jefe" else "SALA LIMPIA — RECOGE Y ENTRA"; queue_redraw()
 
 func _restart_game() -> void: get_tree().reload_current_scene()
 
