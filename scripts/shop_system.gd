@@ -112,17 +112,17 @@ func _on_purchase_requested(item) -> void:
 		return
 
 	var coins := int(scene.get("_coins"))
-	if coins < item.cost:
-		var missing := item.cost - coins
+	if coins < int(item.cost):
+		var missing: int = int(item.cost) - coins
 		var status_label = scene.get("status_label")
 		if is_instance_valid(status_label):
 			status_label.text = "TE FALTAN %d MONEDAS" % missing
 		item.show_unaffordable()
 		return
 
-	scene.set("_coins", coins - item.cost)
+	scene.set("_coins", coins - int(item.cost))
 	if scene.has_method("_apply_reward"):
-		scene.call("_apply_reward", item.reward_id)
+		scene.call("_apply_reward", String(item.reward_id))
 	if scene.has_method("_update_pickup_hud"):
 		scene.call("_update_pickup_hud")
 
@@ -132,7 +132,7 @@ func _on_purchase_requested(item) -> void:
 		status_label.text = "COMPRA REALIZADA"
 	var reward_label = scene.get("reward_label")
 	if is_instance_valid(reward_label):
-		var reward_name := item.display_name
+		var reward_name: String = String(item.display_name)
 		if scene.has_method("_reward_name"):
-			reward_name = String(scene.call("_reward_name", item.reward_id)).replace("\n", " — ")
+			reward_name = String(scene.call("_reward_name", String(item.reward_id))).replace("\n", " — ")
 		reward_label.text = "%s   ·   QUEDAN ¢ %d" % [reward_name, int(scene.get("_coins"))]
