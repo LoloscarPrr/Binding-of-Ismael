@@ -75,6 +75,8 @@ func _convert_current_room_to_shop(scene: Node, floor_index: int) -> void:
 
 	if scene.has_method("_set_door_open"):
 		scene.call("_set_door_open", true)
+	if scene.has_method("_sync_room_visual"):
+		scene.call("_sync_room_visual")
 
 	_spawn_shop_items(scene, floor_index)
 	scene.queue_redraw()
