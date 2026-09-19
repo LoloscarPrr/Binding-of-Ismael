@@ -69,12 +69,12 @@ func _layout_touch_ui() -> void:
 		return
 	var screen_size := get_viewport_rect().size
 	var short_side := minf(screen_size.x,screen_size.y)
-	var pad_side := clampf(short_side*0.36,220.0,286.0)
-	var margin_x := clampf(screen_size.x*0.022,18.0,42.0)
-	var margin_bottom := clampf(screen_size.y*0.018,12.0,28.0)
+	var pad_side := clampf(short_side*0.44,270.0,350.0)
+	var margin_x := clampf(screen_size.x*0.020,16.0,36.0)
+	var margin_bottom := clampf(screen_size.y*0.014,10.0,22.0)
 	left_stick.size = Vector2(pad_side,pad_side)
 	right_stick.size = left_stick.size
-	left_stick.stick_radius = pad_side*0.43
+	left_stick.stick_radius = pad_side*0.42
 	right_stick.stick_radius = left_stick.stick_radius
 	left_stick.position = Vector2(margin_x,screen_size.y-pad_side-margin_bottom)
 	right_stick.position = Vector2(screen_size.x-pad_side-margin_x,screen_size.y-pad_side-margin_bottom)
