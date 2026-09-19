@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.3
+    env:
+      EXPECTED_SIGNER_SHA256: "FA:B5:68:33:BD:3B:FA:F7:DB:00:B6:CC:73:C2:9D:36:DA:C6:AB:29:E6:56:65:07:9F:E8:B4:F2:B0:92:87:8A"
 
     steps:
       - name: Checkout repository
@@ -30,32 +32,45 @@ jobs:
             cp -a /root/.config/godot/. ~/.config/godot/
           fi
 
-      - name: Restore persistent Android debug keystore
+      - name: Restore persistent Android signing key
         uses: actions/cache@v4
         with:
           path: build/ci/debug.keystore
           key: binding-of-ismael-debug-keystore-v1
 
-      - name: Create Android debug keystore when missing
+      - name: Verify persistent signing key
         shell: bash
         run: |
-          mkdir -p build/ci
+          set -euo pipefail
           if [ ! -s build/ci/debug.keystore ]; then
-            keytool -genkeypair -noprompt \
-              -keystore build/ci/debug.keystore \
-              -storetype JKS \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -dname "CN=Binding of Ismael Debug,O=Binding of Ismael,C=CL" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000
+            echo "ERROR: Persistent Android signing key is missing."
+            echo "Refusing to generate a new key because that would break APK updates."
+            exit 1
           fi
-          keytool -list \
+
+          ACTUAL_SHA256="$(keytool -list -v \
             -keystore build/ci/debug.keystore \
             -storepass android \
-            -alias androiddebugkey >/dev/null
+            -alias androiddebugkey \
+            | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' \
+            | head -n 1)"
+
+          echo "Expected signer: $EXPECTED_SIGNER_SHA256"
+          echo "Actual signer:   $ACTUAL_SHA256"
+
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SIGNER_SHA256" ]; then
+            echo "ERROR: Signing key fingerprint changed. Refusing to build."
+            exit 1
+          fi
+
+      - name: Set monotonic Android version code
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUTO_VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
+          sed -i -E "s/^version\/code=.*/version\/code=${AUTO_VERSION_CODE}/" export_presets.cfg
+          echo "Android versionCode=${AUTO_VERSION_CODE}"
+          grep -E '^version/(code|name)=' export_presets.cfg
 
       - name: Validate Godot project
         shell: bash
@@ -67,7 +82,7 @@ jobs:
             exit 1
           fi
 
-      - name: Export debug APK
+      - name: Export signed debug APK
         shell: bash
         run: |
           set -o pipefail
@@ -82,9 +97,21 @@ jobs:
             exit 1
           fi
 
-      - name: Verify APK exists
+      - name: Verify APK signature and file
         shell: bash
-        run: test -s build/android/Binding-of-Ismael-debug.apk
+        run: |
+          set -euo pipefail
+          test -s build/android/Binding-of-Ismael-debug.apk
+
+          APK_SHA256="$(keytool -printcert -jarfile build/android/Binding-of-Ismael-debug.apk \
+            | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' \
+            | head -n 1)"
+
+          echo "APK signer: $APK_SHA256"
+          if [ "$APK_SHA256" != "$EXPECTED_SIGNER_SHA256" ]; then
+            echo "ERROR: Exported APK signer does not match the pinned signing certificate."
+            exit 1
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
