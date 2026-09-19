@@ -72,7 +72,7 @@ func _handle_edit_touch(event: InputEvent) -> bool:
 			return true
 	elif event is InputEventScreenDrag and event.index == _touch_id:
 		var screen_size := get_viewport_rect().size
-		var new_pos := event.position - _drag_offset
+		var new_pos: Vector2 = event.position - _drag_offset
 		new_pos.x = clampf(new_pos.x, 0.0, maxf(0.0, screen_size.x - size.x))
 		new_pos.y = clampf(new_pos.y, 0.0, maxf(0.0, screen_size.y - size.y))
 		position = new_pos
