@@ -23,7 +23,7 @@ var _shoot_cooldown := 0.0
 var _invulnerability := 0.0
 var _knockback_velocity := Vector2.ZERO
 var _last_aim := Vector2.RIGHT
-var _shot_flash := 0.0
+var _shoot_pose := 0.0
 var _visual_recoil := 0.0
 
 func _ready() -> void:
@@ -44,8 +44,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_invulnerability = maxf(0.0, _invulnerability - delta)
-	_shot_flash = maxf(0.0, _shot_flash - delta)
-	_visual_recoil = move_toward(_visual_recoil, 0.0, 92.0 * delta)
+	_shoot_pose = maxf(0.0, _shoot_pose - delta)
+	_visual_recoil = move_toward(_visual_recoil, 0.0, 70.0 * delta)
 	_knockback_velocity = _knockback_velocity.move_toward(Vector2.ZERO, 1250.0 * delta)
 	velocity = move_input.limit_length(1.0) * move_speed + _knockback_velocity
 	move_and_slide()
@@ -69,10 +69,10 @@ func clamp_to_bounds() -> void:
 
 func shoot(direction: Vector2) -> void:
 	_last_aim = direction.normalized()
-	_visual_recoil = 7.0
-	_shot_flash = 0.075
+	_visual_recoil = 4.0
+	_shoot_pose = 0.13
 	var projectile := IsmaelProjectile.new()
-	projectile.position = global_position + direction * 38.0
+	projectile.position = global_position + direction * 28.0
 	projectile.direction = direction
 	projectile.speed = projectile_speed
 	projectile.damage = projectile_damage
@@ -120,8 +120,10 @@ func reset_health() -> void:
 	health_changed.emit(health, max_health)
 
 func _draw() -> void:
+	var pose_strength := clampf(_shoot_pose / 0.13, 0.0, 1.0)
 	var visual_offset := -_last_aim * _visual_recoil
-	draw_set_transform(visual_offset, 0.0, Vector2.ONE)
+	var pose_scale := Vector2(1.0 + 0.025 * pose_strength, 1.0 - 0.035 * pose_strength)
+	draw_set_transform(visual_offset, _last_aim.x * 0.018 * pose_strength, pose_scale)
 	var skin := Color(0.83, 0.70, 0.62)
 	var skin_shadow := Color(0.62, 0.46, 0.40)
 	var outline := Color(0.12, 0.085, 0.075)
@@ -160,10 +162,12 @@ func _draw() -> void:
 	draw_rect(Rect2(-11, -7, 3, 5), Color(0.42, 0.61, 0.72, 0.75))
 	draw_rect(Rect2(8, -7, 3, 5), Color(0.42, 0.61, 0.72, 0.75))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	if _shot_flash > 0.0:
-		var muzzle := _last_aim * 34.0
-		draw_circle(muzzle, 9.0, Color(0.72,0.90,1.0,0.24))
-		draw_circle(muzzle, 4.5, Color(0.88,0.96,1.0,0.72))
+	if _shoot_pose > 0.0:
+		var emission_progress := 1.0 - pose_strength
+		var tear_origin := Vector2(0,-10) + _last_aim * (9.0 + emission_progress * 16.0)
+		draw_circle(tear_origin + Vector2(1.5,2.0), 6.5, Color(0.02,0.08,0.13,0.42))
+		draw_circle(tear_origin, 5.5, Color(0.34,0.72,0.96,0.92))
+		draw_circle(tear_origin + Vector2(-1.8,-1.8), 1.8, Color(0.92,0.98,1.0,0.95))
 
 func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
 	var points := PackedVector2Array()

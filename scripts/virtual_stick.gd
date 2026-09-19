@@ -1,17 +1,21 @@
 extends Control
 class_name VirtualStick
 
+signal layout_changed
+
 @export var stick_radius := 108.0
 @export var knob_radius := 47.0
-@export var deadzone := 0.10
-@export var response_curve := 1.0
-@export var smoothing_speed := 34.0
+@export var deadzone := 0.08
+@export var response_curve := 1.15
+@export var smoothing_speed := 22.0
 @export var floating_origin := false
 
 var value := Vector2.ZERO
 var _target_value := Vector2.ZERO
 var _touch_id := -1
 var _default_center := Vector2.ZERO
+var _edit_mode := false
+var _drag_offset := Vector2.ZERO
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -25,13 +29,24 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 func _process(delta: float) -> void:
+	if _edit_mode:
+		value = Vector2.ZERO
+		_target_value = Vector2.ZERO
+		return
 	var weight := 1.0 - exp(-smoothing_speed * delta)
 	value = value.lerp(_target_value, weight)
-	if value.length() < 0.01 and _target_value == Vector2.ZERO:
+	if value.length() < 0.006 and _target_value == Vector2.ZERO:
 		value = Vector2.ZERO
 	queue_redraw()
 
+func set_edit_mode(enabled: bool) -> void:
+	_edit_mode = enabled
+	reset()
+	queue_redraw()
+
 func handle_touch(event: InputEvent) -> bool:
+	if _edit_mode:
+		return _handle_edit_touch(event)
 	if event is InputEventScreenTouch:
 		if event.pressed and _touch_id == -1 and get_global_rect().has_point(event.position):
 			_touch_id = event.index
@@ -45,6 +60,26 @@ func handle_touch(event: InputEvent) -> bool:
 		return true
 	return false
 
+func _handle_edit_touch(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		if event.pressed and _touch_id == -1 and get_global_rect().has_point(event.position):
+			_touch_id = event.index
+			_drag_offset = event.position - global_position
+			return true
+		elif not event.pressed and event.index == _touch_id:
+			_touch_id = -1
+			layout_changed.emit()
+			return true
+	elif event is InputEventScreenDrag and event.index == _touch_id:
+		var screen_size := get_viewport_rect().size
+		var new_pos := event.position - _drag_offset
+		new_pos.x = clampf(new_pos.x, 0.0, maxf(0.0, screen_size.x - size.x))
+		new_pos.y = clampf(new_pos.y, 0.0, maxf(0.0, screen_size.y - size.y))
+		position = new_pos
+		queue_redraw()
+		return true
+	return false
+
 func reset() -> void:
 	_touch_id = -1
 	_target_value = Vector2.ZERO
@@ -53,56 +88,28 @@ func reset() -> void:
 func _update_target(global_pos: Vector2) -> void:
 	var local_pos := global_pos - global_position
 	var offset := local_pos - _default_center
-	var axis_threshold := maxf(18.0, stick_radius * 0.14)
-	var x := 0.0
-	var y := 0.0
-	if offset.x > axis_threshold:
-		x = 1.0
-	elif offset.x < -axis_threshold:
-		x = -1.0
-	if offset.y > axis_threshold:
-		y = 1.0
-	elif offset.y < -axis_threshold:
-		y = -1.0
-	var next := Vector2(x, y)
-	_target_value = next.normalized() if next.length_squared() > 0.0 else Vector2.ZERO
+	var distance := minf(offset.length(), stick_radius)
+	if distance <= stick_radius * deadzone:
+		_target_value = Vector2.ZERO
+		return
+	var normalized_distance := (distance / stick_radius - deadzone) / (1.0 - deadzone)
+	normalized_distance = clampf(normalized_distance, 0.0, 1.0)
+	var curved_distance := pow(normalized_distance, response_curve)
+	_target_value = offset.normalized() * curved_distance
 
 func _draw() -> void:
 	var center := size * 0.5
-	var button_size := maxf(72.0, stick_radius * 0.72)
-	var spacing := maxf(62.0, stick_radius * 0.58)
-	var plate_radius := stick_radius * 0.96
-	draw_circle(center + Vector2(0, 5), plate_radius, Color(0.015,0.018,0.022,0.18))
-	draw_arc(center, plate_radius, 0.0, TAU, 48, Color(0.78,0.82,0.86,0.065), 2.0)
-	_draw_arrow_button(center, Vector2.UP, Vector2(0,-spacing), button_size, _target_value.y < -0.2)
-	_draw_arrow_button(center, Vector2.DOWN, Vector2(0,spacing), button_size, _target_value.y > 0.2)
-	_draw_arrow_button(center, Vector2.LEFT, Vector2(-spacing,0), button_size, _target_value.x < -0.2)
-	_draw_arrow_button(center, Vector2.RIGHT, Vector2(spacing,0), button_size, _target_value.x > 0.2)
-	var core := button_size * 0.40
-	draw_rect(Rect2(center-Vector2(core,core)*0.5+Vector2(0,4),Vector2(core,core)),Color(0.02,0.025,0.03,0.28))
-	draw_rect(Rect2(center-Vector2(core,core)*0.5,Vector2(core,core)),Color(0.10,0.11,0.12,0.38))
-	draw_rect(Rect2(center-Vector2(core,core)*0.5,Vector2(core,core)),Color(0.74,0.77,0.79,0.09),false,2.0)
-
-func _draw_arrow_button(center: Vector2, direction: Vector2, offset: Vector2, button_size: float, active: bool) -> void:
-	var c := center + offset
-	var half := button_size * 0.5
-	var shadow_rect := Rect2(c-Vector2(half,half)+Vector2(0,5),Vector2(button_size,button_size))
-	var rect := Rect2(c-Vector2(half,half),Vector2(button_size,button_size))
-	draw_rect(shadow_rect,Color(0.005,0.008,0.012,0.26))
-	var fill := Color(0.20,0.22,0.24,0.42) if not active else Color(0.48,0.50,0.51,0.76)
-	var rim := Color(0.82,0.84,0.84,0.13) if not active else Color(0.98,0.91,0.72,0.48)
-	draw_rect(rect,fill)
-	draw_rect(rect,rim,false,2.5)
-	var perp := Vector2(-direction.y,direction.x)
-	var tip := c + direction * button_size * 0.25
-	var back := c - direction * button_size * 0.16
-	var arrow := PackedVector2Array([
-		tip,
-		back + perp * button_size * 0.19,
-		back + perp * button_size * 0.07,
-		c - direction * button_size * 0.28 + perp * button_size * 0.07,
-		c - direction * button_size * 0.28 - perp * button_size * 0.07,
-		back - perp * button_size * 0.07,
-		back - perp * button_size * 0.19
-	])
-	draw_colored_polygon(arrow,Color(0.94,0.94,0.91,0.38 if not active else 0.90))
+	var active_strength := clampf(value.length(), 0.0, 1.0)
+	var base_alpha := 0.15 if not _edit_mode else 0.25
+	var rim_alpha := 0.18 if not _edit_mode else 0.42
+	var knob_alpha := 0.30 + active_strength * 0.22
+	draw_circle(center + Vector2(0,5), stick_radius + 8.0, Color(0.0,0.0,0.0,0.18))
+	draw_circle(center, stick_radius, Color(0.82,0.84,0.86,base_alpha))
+	draw_arc(center, stick_radius, 0.0, TAU, 64, Color(0.92,0.93,0.94,rim_alpha), 3.0)
+	draw_circle(center + value * stick_radius, knob_radius + 4.0, Color(0.0,0.0,0.0,0.22))
+	draw_circle(center + value * stick_radius, knob_radius, Color(0.92,0.93,0.94,knob_alpha))
+	draw_arc(center + value * stick_radius, knob_radius, 0.0, TAU, 48, Color(1.0,1.0,1.0,0.24 + active_strength*0.22), 2.5)
+	if _edit_mode:
+		draw_arc(center, stick_radius + 15.0, 0.0, TAU, 48, Color(1.0,0.76,0.32,0.62), 4.0)
+		draw_line(center + Vector2(-24,0), center + Vector2(24,0), Color(1.0,0.76,0.32,0.46), 2.0)
+		draw_line(center + Vector2(0,-24), center + Vector2(0,24), Color(1.0,0.76,0.32,0.46), 2.0)

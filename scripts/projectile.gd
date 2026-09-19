@@ -8,6 +8,7 @@ var damage := 1
 var _age := 0.0
 
 func _ready() -> void:
+	z_index = 6
 	collision_layer = 4
 	collision_mask = 10
 	var shape := CollisionShape2D.new()
@@ -27,16 +28,18 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 func _draw() -> void:
-	var pulse := 1.0 + sin(_age * 18.0) * 0.08
-	var trail_dir := -direction.normalized()
-	# Soft blue trail and shadow make tears read clearly against brown dungeon floors.
-	draw_circle(trail_dir * 10.0, 5.5 * pulse, Color(0.20, 0.48, 0.72, 0.20))
-	draw_circle(trail_dir * 5.0, 7.0 * pulse, Color(0.25, 0.58, 0.86, 0.28))
-	# Dark outline, blue body and tiny highlight.
-	draw_circle(Vector2(1.5, 2.5), 9.5 * pulse, Color(0.03, 0.08, 0.12, 0.45))
-	draw_circle(Vector2.ZERO, 9.0 * pulse, Color(0.13, 0.42, 0.76))
-	draw_circle(Vector2(-1.0, -1.0), 6.3 * pulse, Color(0.39, 0.72, 0.96))
-	draw_circle(Vector2(-3.0, -3.0), 2.2, Color(0.88, 0.96, 1.0, 0.92))
+	var pulse := 1.0 + sin(_age * 18.0) * 0.06
+	var tear_angle := direction.angle()
+	draw_set_transform(Vector2.ZERO, tear_angle, Vector2.ONE)
+	draw_circle(Vector2(-10.0,0.0), 5.5 * pulse, Color(0.22,0.52,0.78,0.18))
+	draw_circle(Vector2(-5.0,0.0), 7.0 * pulse, Color(0.25,0.60,0.88,0.26))
+	var outline := PackedVector2Array([Vector2(12,0),Vector2(3,-9),Vector2(-10,0),Vector2(3,9)])
+	draw_colored_polygon(outline, Color(0.025,0.09,0.15,0.72))
+	var body := PackedVector2Array([Vector2(10,0),Vector2(3,-7),Vector2(-7,0),Vector2(3,7)])
+	draw_colored_polygon(body, Color(0.25,0.63,0.92))
+	draw_circle(Vector2(2,-2), 3.3, Color(0.65,0.88,1.0,0.86))
+	draw_circle(Vector2(4,-3), 1.5, Color(0.95,0.99,1.0,0.96))
+	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 func _on_body_entered(body: Node) -> void:
 	if body.has_method("take_damage"):
