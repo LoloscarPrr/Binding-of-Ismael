@@ -22,10 +22,10 @@ func _ready() -> void:
 	_polish_hud()
 	_apply_saved_control_positions()
 
-func _begin_room(from_door: bool) -> void:
+func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	if is_instance_valid(boss_hud):
 		boss_hud.hide_boss()
-	super._begin_room(from_door)
+	super._begin_room(entry_direction)
 	_sync_room_visual()
 
 func _create_touch_ui() -> void:
@@ -167,9 +167,10 @@ func _layout_touch_ui() -> void:
 	pickup_label.position = Vector2(28.0,48.0)
 	pickup_label.size = Vector2(left_card_w-40.0,28.0)
 	pickup_label.add_theme_font_size_override("font_size",18)
-	minimap_label.position = Vector2(screen_size.x-right_card_w+2.0,31.0)
-	minimap_label.size = Vector2(right_card_w-34.0,34.0)
-	minimap_label.add_theme_font_size_override("font_size",17)
+	minimap_label.position = Vector2(screen_size.x-right_card_w+8.0,15.0)
+	minimap_label.size = Vector2(right_card_w-44.0,58.0)
+	minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	minimap_label.add_theme_font_size_override("font_size",13)
 	var half_center := center_card_w*0.5
 	floor_label.position = Vector2(screen_size.x*0.5-center_card_w*0.5+8.0,20.0)
 	floor_label.size = Vector2(half_center-12.0,26.0)
@@ -261,25 +262,9 @@ func _position_from_saved_center(center: Vector2, control_size: Vector2) -> Vect
 	return pos
 
 func _update_minimap() -> void:
-	if not is_instance_valid(minimap_label):
+	if not is_instance_valid(minimap_label) or _dungeon == null:
 		return
-	var map_text := ""
-	for i in range(1,TOTAL_ROOMS+1):
-		var symbol := "□"
-		if i < _room_index:
-			symbol = "■"
-		elif i == _room_index:
-			symbol = "◆"
-		if i == TOTAL_ROOMS:
-			symbol += "☠"
-		elif i == 3:
-			symbol += "¢"
-		elif i == 4:
-			symbol += "✦"
-		if i < TOTAL_ROOMS:
-			symbol += "─"
-		map_text += symbol
-	minimap_label.text = map_text
+	minimap_label.text = _dungeon.minimap_text(_current_cell)
 
 func _spawn_boss() -> void:
 	super._spawn_boss()
