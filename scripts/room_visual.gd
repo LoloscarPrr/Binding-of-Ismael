@@ -5,6 +5,14 @@ var room_rect := Rect2()
 var room_kind := "combate"
 var floor_index := 1
 var room_index := 1
+var _age := 0.0
+
+func _ready() -> void:
+	set_process(true)
+
+func _process(delta: float) -> void:
+	_age += delta
+	queue_redraw()
 
 func configure(rect: Rect2, kind: String, floor_number: int, room_number: int) -> void:
 	room_rect = rect
@@ -23,6 +31,8 @@ func _draw() -> void:
 	_draw_room_markings()
 	_draw_debris()
 	_draw_props()
+	_draw_wall_torches()
+	_draw_light_pools()
 	_draw_edge_shadows()
 
 func _draw_wall_shell() -> void:
@@ -110,7 +120,7 @@ func _draw_room_markings() -> void:
 			draw_rect(Rect2(Vector2(room_rect.position.x+room_rect.size.x*0.21,shelf_y-10),Vector2(room_rect.size.x*0.58,9)),Color(0.31,0.15,0.07,0.72))
 
 func _draw_debris() -> void:
-	for i in range(22):
+	for i in range(28):
 		var sx := float((room_index*47+floor_index*29+i*71)%997)/997.0
 		var sy := float((room_index*83+floor_index*41+i*43)%991)/991.0
 		var p := room_rect.position+Vector2(room_rect.size.x*(0.05+sx*0.90),room_rect.size.y*(0.08+sy*0.84))
@@ -121,6 +131,9 @@ func _draw_debris() -> void:
 			var branch := Vector2(11.0+float(i%3)*3.0,4.0).rotated(float(i)*0.77)
 			draw_line(p-branch*0.45,p+branch*0.55,Color(0.055,0.036,0.03,0.44),2.0)
 			draw_line(p+branch*0.1,p+branch*0.1+Vector2(-branch.y,branch.x)*0.30,Color(0.055,0.036,0.03,0.36),1.5)
+		if i%7==0:
+			draw_circle(p+Vector2(4,-3),radius*1.8,Color(0.20,0.025,0.022,0.16))
+			draw_circle(p+Vector2(-3,2),radius*1.1,Color(0.26,0.035,0.028,0.12))
 
 func _draw_props() -> void:
 	var points := [
@@ -149,6 +162,27 @@ func _draw_props() -> void:
 			var p := room_rect.get_center()+Vector2(side*room_rect.size.x*0.32,-room_rect.size.y*0.30)
 			draw_circle(p,13.0,Color(0.12,0.04,0.025))
 			draw_colored_polygon(PackedVector2Array([p+Vector2(-6,-7),p+Vector2(0,-28),p+Vector2(7,-7)]),Color(0.75,0.18,0.06,0.72))
+
+func _draw_wall_torches() -> void:
+	var flicker := 0.86 + sin(_age*7.0)*0.08 + sin(_age*11.3)*0.04
+	var torch_y := room_rect.position.y + 22.0
+	for ratio in [0.22,0.78]:
+		var p := Vector2(room_rect.position.x+room_rect.size.x*ratio,torch_y)
+		draw_rect(Rect2(p+Vector2(-4,-5),Vector2(8,22)),Color(0.10,0.055,0.025))
+		draw_colored_polygon(PackedVector2Array([p+Vector2(-7,-6),p+Vector2(0,-28*flicker),p+Vector2(8,-5),p+Vector2(0,5)]),Color(0.88,0.24,0.05,0.78))
+		draw_colored_polygon(PackedVector2Array([p+Vector2(-4,-6),p+Vector2(0,-20*flicker),p+Vector2(5,-5),p+Vector2(0,1)]),Color(1.0,0.72,0.20,0.88))
+		draw_circle(p+Vector2(0,-10),34.0,Color(0.96,0.42,0.10,0.055))
+
+func _draw_light_pools() -> void:
+	var center := room_rect.get_center()
+	for radius in [290.0,220.0,155.0]:
+		var alpha := 0.018 if radius>250.0 else (0.026 if radius>180.0 else 0.036)
+		draw_circle(center,radius,Color(0.86,0.60,0.34,alpha))
+	for ratio in [0.22,0.78]:
+		var p := Vector2(room_rect.position.x+room_rect.size.x*ratio,room_rect.position.y+58.0)
+		for r in [110.0,80.0,52.0]:
+			var a := 0.018 if r>100.0 else (0.028 if r>70.0 else 0.042)
+			draw_circle(p,r,Color(1.0,0.48,0.12,a))
 
 func _draw_edge_shadows() -> void:
 	var depth := 34.0

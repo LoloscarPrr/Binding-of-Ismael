@@ -25,6 +25,7 @@ var _knockback_velocity := Vector2.ZERO
 var _last_aim := Vector2.RIGHT
 var _shoot_pose := 0.0
 var _visual_recoil := 0.0
+var _anim_time := 0.0
 
 func _ready() -> void:
 	collision_layer = 1
@@ -42,6 +43,7 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		velocity = Vector2.ZERO
 		return
+	_anim_time += delta
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_invulnerability = maxf(0.0, _invulnerability - delta)
 	_shoot_pose = maxf(0.0, _shoot_pose - delta)
@@ -121,53 +123,53 @@ func reset_health() -> void:
 
 func _draw() -> void:
 	var pose_strength := clampf(_shoot_pose / 0.13, 0.0, 1.0)
-	var visual_offset := -_last_aim * _visual_recoil
-	var pose_scale := Vector2(1.0 + 0.025 * pose_strength, 1.0 - 0.035 * pose_strength)
-	draw_set_transform(visual_offset, _last_aim.x * 0.018 * pose_strength, pose_scale)
-	var skin := Color(0.83, 0.70, 0.62)
-	var skin_shadow := Color(0.62, 0.46, 0.40)
-	var outline := Color(0.12, 0.085, 0.075)
-	var shirt := Color(0.54, 0.45, 0.40)
-	if _invulnerability > 0.0 and int(_invulnerability * 12.0) % 2 == 0:
-		skin = Color(1.0, 0.86, 0.86)
-	# shadow
-	draw_ellipse(Vector2(0, 22), Vector2(24, 9), Color(0.03, 0.025, 0.02, 0.35))
-	# legs
-	draw_rect(Rect2(-15, 12, 11, 16), outline)
-	draw_rect(Rect2(4, 12, 11, 16), outline)
-	draw_rect(Rect2(-13, 12, 8, 13), skin_shadow)
-	draw_rect(Rect2(5, 12, 8, 13), skin_shadow)
-	# torso
-	draw_rect(Rect2(-19, -2, 38, 25), outline)
-	draw_rect(Rect2(-16, 0, 32, 20), shirt)
-	# head silhouette
-	draw_rect(Rect2(-24, -29, 48, 36), outline)
-	draw_rect(Rect2(-21, -32, 42, 39), outline)
-	draw_rect(Rect2(-19, -29, 38, 33), skin)
-	draw_rect(Rect2(-15, -32, 30, 4), skin)
-	# ears
-	draw_rect(Rect2(-25, -18, 6, 12), outline)
-	draw_rect(Rect2(19, -18, 6, 12), outline)
-	draw_rect(Rect2(-23, -16, 4, 8), skin_shadow)
-	draw_rect(Rect2(19, -16, 4, 8), skin_shadow)
-	# eyes
-	draw_rect(Rect2(-13, -17, 8, 9), Color(0.035, 0.03, 0.03))
-	draw_rect(Rect2(5, -17, 8, 9), Color(0.035, 0.03, 0.03))
-	draw_rect(Rect2(-11, -15, 2, 3), Color(0.75, 0.80, 0.84))
-	draw_rect(Rect2(9, -15, 2, 3), Color(0.75, 0.80, 0.84))
-	# nose and mouth
-	draw_rect(Rect2(-2, -8, 4, 5), skin_shadow)
-	draw_rect(Rect2(-7, -1, 14, 3), Color(0.24, 0.10, 0.10))
-	# tiny tear streaks
-	draw_rect(Rect2(-11, -7, 3, 5), Color(0.42, 0.61, 0.72, 0.75))
-	draw_rect(Rect2(8, -7, 3, 5), Color(0.42, 0.61, 0.72, 0.75))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var moving_strength := clampf(velocity.length() / maxf(move_speed,1.0),0.0,1.0)
+	var bob := sin(_anim_time*10.0) * 1.8 * moving_strength
+	var visual_offset := -_last_aim * _visual_recoil + Vector2(0,bob)
+	var pose_scale := Vector2(1.0 + 0.025*pose_strength,1.0 - 0.035*pose_strength)
+	draw_set_transform(visual_offset,_last_aim.x*0.018*pose_strength,pose_scale)
+	var skin := Color(0.82,0.69,0.61)
+	var skin_shadow := Color(0.60,0.44,0.38)
+	var outline := Color(0.09,0.065,0.058)
+	var shirt := Color(0.46,0.38,0.35)
+	if _invulnerability > 0.0 and int(_invulnerability*12.0)%2==0:
+		skin = Color(1.0,0.86,0.86)
+	draw_ellipse(Vector2(0,24),Vector2(25,8),Color(0.02,0.018,0.016,0.38))
+	# piernas y torso orgánicos
+	draw_ellipse(Vector2(-8,15),Vector2(8,13),outline)
+	draw_ellipse(Vector2(8,15),Vector2(8,13),outline)
+	draw_ellipse(Vector2(-8,14),Vector2(5.5,10.5),skin_shadow)
+	draw_ellipse(Vector2(8,14),Vector2(5.5,10.5),skin_shadow)
+	draw_ellipse(Vector2(0,5),Vector2(18,18),outline)
+	draw_ellipse(Vector2(0,4),Vector2(15.5,15.5),shirt)
+	# cabeza
+	draw_ellipse(Vector2(0,-14),Vector2(24,22),outline)
+	draw_circle(Vector2(-22,-12),7.0,outline)
+	draw_circle(Vector2(22,-12),7.0,outline)
+	draw_circle(Vector2(-21,-12),5.2,skin_shadow)
+	draw_circle(Vector2(21,-12),5.2,skin_shadow)
+	draw_ellipse(Vector2(0,-15),Vector2(21,19.5),skin)
+	# sombreado inferior de la cara
+	draw_arc(Vector2(0,-13),18.0,0.18,PI-0.18,24,Color(0.47,0.32,0.29,0.22),3.0)
+	var look := _last_aim.limit_length(1.0)*2.8
+	var left_eye := Vector2(-8,-18)+look
+	var right_eye := Vector2(8,-18)+look
+	draw_ellipse(left_eye,Vector2(4.6,5.4),Color(0.025,0.025,0.026))
+	draw_ellipse(right_eye,Vector2(4.6,5.4),Color(0.025,0.025,0.026))
+	draw_circle(left_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
+	draw_circle(right_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
+	# lágrimas en la cara
+	draw_ellipse(Vector2(-8,-9)+look*0.25,Vector2(2.0,5.5),Color(0.34,0.65,0.84,0.68))
+	draw_ellipse(Vector2(8,-9)+look*0.25,Vector2(2.0,5.5),Color(0.34,0.65,0.84,0.68))
+	var mouth_size := Vector2(5.5,3.2+pose_strength*2.4)
+	draw_ellipse(Vector2(0,-3),mouth_size,Color(0.20,0.07,0.075))
+	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 	if _shoot_pose > 0.0:
-		var emission_progress := 1.0 - pose_strength
-		var tear_origin := Vector2(0,-10) + _last_aim * (9.0 + emission_progress * 16.0)
-		draw_circle(tear_origin + Vector2(1.5,2.0), 6.5, Color(0.02,0.08,0.13,0.42))
-		draw_circle(tear_origin, 5.5, Color(0.34,0.72,0.96,0.92))
-		draw_circle(tear_origin + Vector2(-1.8,-1.8), 1.8, Color(0.92,0.98,1.0,0.95))
+		var emission_progress := 1.0-pose_strength
+		var tear_origin := Vector2(0,-12)+_last_aim*(10.0+emission_progress*16.0)
+		draw_circle(tear_origin+Vector2(1.5,2.0),6.3,Color(0.02,0.08,0.13,0.40))
+		draw_circle(tear_origin,5.4,Color(0.34,0.72,0.96,0.92))
+		draw_circle(tear_origin+Vector2(-1.8,-1.8),1.7,Color(0.92,0.98,1.0,0.95))
 
 func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
 	var points := PackedVector2Array()

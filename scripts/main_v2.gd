@@ -5,6 +5,9 @@ const CONTROL_LAYOUT_PATH := "user://control_layout.cfg"
 var room_visual: IsmaelRoomVisual
 var boss_hud: IsmaelBossHud
 var control_edit_button: Button
+var hud_left_card: Panel
+var hud_center_card: Panel
+var hud_right_card: Panel
 var _editing_controls := false
 var _saved_left_center := Vector2(-1.0,-1.0)
 var _saved_right_center := Vector2(-1.0,-1.0)
@@ -48,6 +51,7 @@ func _create_touch_ui() -> void:
 	layer.add_child(reward_right)
 	boss_hud = IsmaelBossHud.new()
 	layer.add_child(boss_hud)
+	_create_hud_cards(layer)
 	control_edit_button = Button.new()
 	control_edit_button.text = "MOVER CONTROLES"
 	control_edit_button.pressed.connect(_toggle_control_edit_mode)
@@ -55,17 +59,47 @@ func _create_touch_ui() -> void:
 	layer.add_child(control_edit_button)
 	_polish_hud()
 
+func _create_hud_cards(layer: CanvasLayer) -> void:
+	hud_left_card = Panel.new()
+	hud_left_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_left_card.z_index = -1
+	layer.add_child(hud_left_card)
+	hud_center_card = Panel.new()
+	hud_center_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_center_card.z_index = -1
+	layer.add_child(hud_center_card)
+	hud_right_card = Panel.new()
+	hud_right_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_right_card.z_index = -1
+	layer.add_child(hud_right_card)
+
+func _hud_card_style(accent: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.018,0.016,0.015,0.72)
+	style.border_color = accent
+	style.set_border_width_all(2)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	style.shadow_color = Color(0.0,0.0,0.0,0.42)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0,4)
+	return style
+
 func _polish_hud() -> void:
 	if not is_instance_valid(hud_backdrop):
 		return
 	var hud_style := StyleBoxFlat.new()
-	hud_style.bg_color = Color(0.025,0.021,0.019,0.93)
-	hud_style.border_color = Color(0.48,0.34,0.20,0.72)
-	hud_style.border_width_bottom = 3
-	hud_style.shadow_color = Color(0.0,0.0,0.0,0.48)
-	hud_style.shadow_size = 8
-	hud_style.shadow_offset = Vector2(0,5)
+	hud_style.bg_color = Color(0.0,0.0,0.0,0.0)
+	hud_style.border_color = Color(0.0,0.0,0.0,0.0)
 	hud_backdrop.add_theme_stylebox_override("panel",hud_style)
+	if is_instance_valid(hud_left_card):
+		hud_left_card.add_theme_stylebox_override("panel",_hud_card_style(Color(0.44,0.25,0.16,0.64)))
+	if is_instance_valid(hud_center_card):
+		hud_center_card.add_theme_stylebox_override("panel",_hud_card_style(Color(0.54,0.39,0.20,0.58)))
+	if is_instance_valid(hud_right_card):
+		hud_right_card.add_theme_stylebox_override("panel",_hud_card_style(Color(0.30,0.38,0.38,0.58)))
 	for label: Label in [pickup_label,minimap_label,floor_label,room_label,status_label,reward_label]:
 		if is_instance_valid(label):
 			label.add_theme_color_override("font_color",Color(0.93,0.88,0.76))
@@ -113,9 +147,42 @@ func _layout_touch_ui() -> void:
 		right_stick.position = _position_from_saved_center(_saved_right_center,right_stick.size)
 	else:
 		right_stick.position = Vector2(screen_size.x-pad_side-margin_x,screen_size.y-pad_side-margin_bottom)
+	var card_y := 12.0
+	var left_card_w := clampf(screen_size.x*0.30,360.0,470.0)
+	var right_card_w := clampf(screen_size.x*0.26,320.0,420.0)
+	var center_card_w := clampf(screen_size.x*0.22,260.0,340.0)
+	if is_instance_valid(hud_left_card):
+		hud_left_card.position = Vector2(14.0,card_y)
+		hud_left_card.size = Vector2(left_card_w,76.0)
+	if is_instance_valid(hud_right_card):
+		hud_right_card.position = Vector2(screen_size.x-right_card_w-14.0,card_y)
+		hud_right_card.size = Vector2(right_card_w,76.0)
+	if is_instance_valid(hud_center_card):
+		hud_center_card.position = Vector2(screen_size.x*0.5-center_card_w*0.5,card_y)
+		hud_center_card.size = Vector2(center_card_w,66.0)
+	health_hud.position = Vector2(28.0,18.0)
+	health_hud.size = Vector2(left_card_w-40.0,32.0)
+	health_hud.icon_size = 25.0
+	health_hud.icon_gap = 5.0
+	pickup_label.position = Vector2(28.0,48.0)
+	pickup_label.size = Vector2(left_card_w-40.0,28.0)
+	pickup_label.add_theme_font_size_override("font_size",18)
+	minimap_label.position = Vector2(screen_size.x-right_card_w+2.0,31.0)
+	minimap_label.size = Vector2(right_card_w-34.0,34.0)
+	minimap_label.add_theme_font_size_override("font_size",17)
+	var half_center := center_card_w*0.5
+	floor_label.position = Vector2(screen_size.x*0.5-center_card_w*0.5+8.0,20.0)
+	floor_label.size = Vector2(half_center-12.0,26.0)
+	room_label.position = Vector2(screen_size.x*0.5+4.0,20.0)
+	room_label.size = Vector2(half_center-12.0,26.0)
+	floor_label.add_theme_font_size_override("font_size",17)
+	room_label.add_theme_font_size_override("font_size",17)
+	status_label.position = Vector2(screen_size.x*0.5-300.0,78.0)
+	status_label.size = Vector2(600.0,38.0)
+	status_label.add_theme_font_size_override("font_size",24)
 	if is_instance_valid(control_edit_button):
-		control_edit_button.size = Vector2(168.0,42.0)
-		control_edit_button.position = Vector2(screen_size.x-184.0,96.0)
+		control_edit_button.size = Vector2(146.0,36.0)
+		control_edit_button.position = Vector2(screen_size.x-160.0,94.0)
 	if is_instance_valid(boss_hud):
 		var width := clampf(screen_size.x*0.44,500.0,760.0)
 		boss_hud.size = Vector2(width,72.0)
