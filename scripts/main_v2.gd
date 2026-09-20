@@ -180,6 +180,16 @@ func _layout_touch_ui() -> void:
 	status_label.position = Vector2(screen_size.x*0.5-300.0,78.0)
 	status_label.size = Vector2(600.0,38.0)
 	status_label.add_theme_font_size_override("font_size",24)
+	if is_instance_valid(reward_left) and is_instance_valid(reward_right):
+		var reward_size := Vector2(clampf(screen_size.x*0.19,250.0,310.0),clampf(screen_size.y*0.34,210.0,250.0))
+		var reward_gap := clampf(screen_size.x*0.055,54.0,84.0)
+		reward_left.size = reward_size
+		reward_right.size = reward_size
+		reward_left.position = Vector2(screen_size.x*0.5-reward_gap*0.5-reward_size.x,screen_size.y*0.29)
+		reward_right.position = Vector2(screen_size.x*0.5+reward_gap*0.5,screen_size.y*0.29)
+		reward_label.position = Vector2(screen_size.x*0.5-260.0,screen_size.y*0.235)
+		reward_label.size = Vector2(520.0,32.0)
+		reward_label.add_theme_font_size_override("font_size",15)
 	if is_instance_valid(control_edit_button):
 		control_edit_button.size = Vector2(146.0,36.0)
 		control_edit_button.position = Vector2(screen_size.x-160.0,94.0)

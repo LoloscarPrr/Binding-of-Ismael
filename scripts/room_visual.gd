@@ -89,6 +89,11 @@ func _draw_floor() -> void:
 			draw_line(tile.position+Vector2(2,2),Vector2(tile.end.x-2,tile.position.y+2),Color(1,0.78,0.55,0.045),1.5)
 			draw_line(Vector2(tile.position.x+2,tile.end.y-2),tile.end-Vector2(2,2),Color(0.02,0.015,0.012,0.18),2.0)
 	draw_rect(room_rect,Color(0.34,0.24,0.17),false,6.0)
+	if room_kind=="recompensa":
+		var banner_y := room_rect.position.y+room_rect.size.y*0.18
+		var banner := Rect2(room_rect.position.x+room_rect.size.x*0.39,banner_y,room_rect.size.x*0.22,8.0)
+		draw_rect(banner,Color(0.32,0.20,0.09,0.38))
+		draw_circle(Vector2(room_rect.get_center().x,banner_y+4.0),5.0,Color(0.78,0.60,0.25,0.55))
 	if room_kind=="tienda":
 		var rug := Rect2(room_rect.position+room_rect.size*Vector2(0.22,0.33),room_rect.size*Vector2(0.56,0.31))
 		draw_rect(rug,Color(0.22,0.055,0.045,0.55))
@@ -107,8 +112,11 @@ func _draw_room_markings() -> void:
 				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
 				draw_line(center+d*31.0,center+d*55.0,Color(0.45,0.08,0.06,0.34),3.0)
 		"recompensa":
-			draw_circle(center,28.0,Color(0.78,0.57,0.16,0.10))
-			draw_arc(center,30.0,0.0,TAU,32,Color(0.84,0.66,0.29,0.42),3.0)
+			var left_mark := room_rect.position+room_rect.size*Vector2(0.37,0.54)
+			var right_mark := room_rect.position+room_rect.size*Vector2(0.63,0.54)
+			for mark: Vector2 in [left_mark,right_mark]:
+				draw_ellipse(mark+Vector2(0,8),Vector2(76,22),Color(0.0,0.0,0.0,0.16))
+				draw_arc(mark,48.0,0.0,TAU,32,Color(0.62,0.48,0.22,0.17),3.0)
 		"jefe":
 			draw_circle(center,72.0,Color(0.38,0.02,0.025,0.11))
 			draw_arc(center,74.0,0.0,TAU,48,Color(0.55,0.05,0.045,0.34),6.0)
@@ -120,7 +128,8 @@ func _draw_room_markings() -> void:
 			draw_rect(Rect2(Vector2(room_rect.position.x+room_rect.size.x*0.21,shelf_y-10),Vector2(room_rect.size.x*0.58,9)),Color(0.31,0.15,0.07,0.72))
 
 func _draw_debris() -> void:
-	for i in range(28):
+	var debris_count := 10 if room_kind=="recompensa" else 28
+	for i in range(debris_count):
 		var sx := float((room_index*47+floor_index*29+i*71)%997)/997.0
 		var sy := float((room_index*83+floor_index*41+i*43)%991)/991.0
 		var p := room_rect.position+Vector2(room_rect.size.x*(0.05+sx*0.90),room_rect.size.y*(0.08+sy*0.84))

@@ -168,9 +168,15 @@ func _open_reward_room(generation: int) -> void:
 	if generation != _spawn_generation or _game_over: return
 	_offered_rewards = _make_reward_choices()
 	status_label.text = "ELIGE UNA OFRENDA"
-	reward_label.text = "Solo puedes tomar una"
-	reward_left.text = _reward_name(_offered_rewards[0])
-	reward_right.text = _reward_name(_offered_rewards[1])
+	reward_label.text = "ELIGE UNA — LA OTRA DESAPARECERÁ"
+	if reward_left.has_method("configure_reward"):
+		reward_left.call("configure_reward",_offered_rewards[0])
+	else:
+		reward_left.text = _reward_name(_offered_rewards[0])
+	if reward_right.has_method("configure_reward"):
+		reward_right.call("configure_reward",_offered_rewards[1])
+	else:
+		reward_right.text = _reward_name(_offered_rewards[1])
 	reward_left.visible = true
 	reward_right.visible = true
 	_transition_locked = true
