@@ -49,6 +49,9 @@ var _offered_rewards: Array[String] = []
 var _coins := 0
 var _bombs := 0
 var _keys := 0
+var _challenge_wave := 0
+var _challenge_waves_total := 2
+var _special_used: Dictionary = {}
 
 func _ready() -> void:
 	_configure_mobile_display()
@@ -82,10 +85,14 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_transition_locked = true
 	_enemies_alive = 0
 	_dungeon.mark_entered(_current_cell)
-	_room_index = _dungeon.ordinal(_current_cell)
+	_room_index = _dungeon.display_ordinal(_current_cell)
 	_room_kind = _dungeon.kind(_current_cell)
 	_room_cleared = _dungeon.is_cleared(_current_cell)
-	room_label.text = "SALA %d / %d" % [_room_index,_dungeon.room_count()]
+	_challenge_wave = 0
+	if _dungeon.is_hidden(_current_cell):
+		room_label.text = "SALA OCULTA"
+	else:
+		room_label.text = "SALA %d / %d" % [_room_index,_dungeon.public_room_count()]
 	floor_label.text = "PISO %d" % _floor_index
 	status_label.text = _room_title()
 	reward_label.text = ""
@@ -112,6 +119,12 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		status_label.text = "TIENDA DEL ERRANTE"
 		reward_label.text = "Explora antes de seguir"
 		return
+	if _room_kind == "sacrificio":
+		_open_sacrifice_room()
+		return
+	if _room_kind in ["secreta","supersecreta"]:
+		_open_hidden_loot_room()
+		return
 	if _room_cleared:
 		_transition_locked = false
 		_set_door_open(true)
@@ -132,6 +145,11 @@ func _room_title() -> String:
 		"recompensa": return "CÁMARA DE OFRENDA"
 		"tienda": return "TIENDA DEL ERRANTE"
 		"emboscada": return "EMBOSCADA"
+		"desafio": return "CÁMARA DE DESAFÍO"
+		"minijefe": return "GUARDIÁN MENOR"
+		"sacrificio": return "ALTAR DE SACRIFICIO"
+		"secreta": return "CÁMARA SECRETA"
+		"supersecreta": return "SANTUARIO OCULTO"
 		_: return "PREPÁRATE"
 
 func _clear_room_obstacles() -> void:
@@ -156,8 +174,12 @@ func _clear_room_doors() -> void:
 
 func _setup_room_doors() -> void:
 	for dir: Vector2i in DIRS:
-		if _dungeon.has_room(_current_cell+dir):
-			_create_room_door(dir)
+		var destination := _current_cell+dir
+		if not _dungeon.has_room(destination):
+			continue
+		if _dungeon.is_hidden(destination) and not _dungeon.is_discovered(destination):
+			continue
+		_create_room_door(dir)
 	if _room_kind == "jefe":
 		_floor_exit_direction = _dungeon.outward_direction(_current_cell)
 		if not _dungeon.has_room(_current_cell+_floor_exit_direction):
@@ -180,6 +202,9 @@ func _create_room_door(direction: Vector2i) -> void:
 	else:
 		door.position = Vector2(room_rect.end.x-25.0,center.y)
 		door.rotation = PI*0.5
+	var destination := _current_cell+direction
+	if _dungeon.has_room(destination) and _dungeon.is_hidden(destination):
+		door.modulate = Color(0.62,0.47,0.30,0.90)
 	door.set_open(_room_cleared)
 	add_child(door)
 	_doors[direction] = door
@@ -209,7 +234,7 @@ func _add_obstacle(ratio: Vector2,size_ratio: Vector2,variant: int = 0) -> void:
 	add_child(obstacle)
 
 func _build_room_layout() -> void:
-	if _room_kind in ["inicio","recompensa","tienda"]:
+	if _room_kind in ["inicio","recompensa","tienda","sacrificio","secreta","supersecreta"]:
 		return
 	var variant: int = 0 if _floor_index == 1 else 1
 	if _room_kind == "jefe":
@@ -220,6 +245,14 @@ func _build_room_layout() -> void:
 		_add_obstacle(Vector2(0.38,0.56),Vector2(0.07,0.12),variant)
 		_add_obstacle(Vector2(0.62,0.56),Vector2(0.07,0.12),variant)
 		_add_obstacle(Vector2(0.50,0.47),Vector2(0.08,0.08),variant)
+		return
+	if _room_kind == "desafio":
+		_add_obstacle(Vector2(0.28,0.50),Vector2(0.06,0.17),2)
+		_add_obstacle(Vector2(0.72,0.50),Vector2(0.06,0.17),2)
+		return
+	if _room_kind == "minijefe":
+		_add_obstacle(Vector2(0.22,0.66),Vector2(0.07,0.10),2)
+		_add_obstacle(Vector2(0.78,0.66),Vector2(0.07,0.10),2)
 		return
 	match _room_index % 4:
 		0:
@@ -305,26 +338,174 @@ func _spawn_room_after_entry(generation: int) -> void:
 		return
 	if _room_kind == "jefe":
 		_spawn_boss()
+	elif _room_kind == "minijefe":
+		_spawn_miniboss()
+	elif _room_kind == "desafio":
+		_challenge_wave = 1
+		_spawn_challenge_wave()
 	else:
 		var depth := _dungeon.distance(_current_cell)
 		var count: int = mini(2+depth+_floor_index,8)
 		if _room_kind == "emboscada":
 			count = mini(count+2,9)
-		var positions: Array[Vector2] = _deterministic_spawn_positions(count)
-		_enemies_alive = positions.size()
-		for i in positions.size():
-			var enemy := IsmaelEnemy.new()
-			var kind_index: int = (i+depth+_floor_index)%3
-			enemy.configure(kind_index as IsmaelEnemy.EnemyKind,_floor_index)
-			enemy.position = positions[i]
-			enemy.target = player
-			enemy.spawn_grace_time = ENEMY_ACTIVATION_DELAY
-			enemy.set_movement_bounds(room_rect)
-			enemy.defeated.connect(_on_enemy_defeated)
-			add_child(enemy)
+		_spawn_enemy_pack(count,depth)
 	_transition_locked = false
-	status_label.text = "" if _room_kind != "jefe" else "GUARDIÁN"
+	if _room_kind == "jefe":
+		status_label.text = "GUARDIÁN"
+	elif _room_kind == "minijefe":
+		status_label.text = "GUARDIÁN MENOR"
+	elif _room_kind == "desafio":
+		status_label.text = "OLEADA 1 / %d" % _challenge_waves_total
+	else:
+		status_label.text = ""
 	queue_redraw()
+
+func _spawn_enemy_pack(count: int,depth: int) -> void:
+	var positions: Array[Vector2] = _deterministic_spawn_positions(count)
+	_enemies_alive = positions.size()
+	for i in positions.size():
+		var enemy := IsmaelEnemy.new()
+		var kind_index: int = (i+depth+_floor_index)%3
+		enemy.configure(kind_index as IsmaelEnemy.EnemyKind,_floor_index)
+		enemy.position = positions[i]
+		enemy.target = player
+		enemy.spawn_grace_time = ENEMY_ACTIVATION_DELAY
+		enemy.set_movement_bounds(room_rect)
+		enemy.defeated.connect(_on_enemy_defeated)
+		add_child(enemy)
+
+func _spawn_challenge_wave() -> void:
+	var depth := _dungeon.distance(_current_cell)+_challenge_wave
+	var count := mini(2+_floor_index+_challenge_wave*2,8)
+	_spawn_enemy_pack(count,depth)
+
+func _spawn_miniboss() -> void:
+	var elite := IsmaelEnemy.new()
+	elite.configure(IsmaelEnemy.EnemyKind.BOSS,_floor_index)
+	elite.health = 10+_floor_index*3
+	elite.max_health = elite.health
+	elite.speed = 112.0+_floor_index*6.0
+	elite.scale = Vector2(0.78,0.78)
+	elite.position = room_rect.position+room_rect.size*Vector2(0.50,0.32)
+	elite.target = player
+	elite.spawn_grace_time = 0.9
+	elite.set_movement_bounds(room_rect)
+	elite.defeated.connect(_on_enemy_defeated)
+	add_child(elite)
+	_enemies_alive = 1
+
+func _special_room_key() -> String:
+	return "%d:%d:%d:%s" % [_floor_index,_current_cell.x,_current_cell.y,_room_kind]
+
+func _open_sacrifice_room() -> void:
+	_mark_current_room_cleared(false)
+	status_label.text = "ALTAR DE SACRIFICIO"
+	reward_label.text = "Acércate al altar si deseas ofrecer vida"
+	var key := _special_room_key()
+	if bool(_special_used.get(key,false)):
+		reward_label.text = "El altar ya recibió tu ofrenda"
+		return
+	var altar := IsmaelSacrificeAltar.new()
+	altar.position = room_rect.get_center()
+	altar.requested.connect(_on_sacrifice_requested)
+	add_child(altar)
+
+func _on_sacrifice_requested(altar: IsmaelSacrificeAltar) -> void:
+	if not is_instance_valid(altar) or altar.used:
+		return
+	if player.health <= 1:
+		altar.show_blocked()
+		status_label.text = "NO PUEDES OFRECER TU ÚLTIMO CORAZÓN"
+		return
+	player.take_damage(1)
+	var key := _special_room_key()
+	_special_used[key] = true
+	altar.mark_used()
+	_coins += 4+_floor_index
+	_keys += 1
+	var rewards: Array[String] = ["movimiento","cadencia","proyectil","dano"]
+	var reward := rewards[abs(_current_cell.x*17+_current_cell.y*31+_floor_index)%rewards.size()]
+	_apply_reward(reward)
+	_update_pickup_hud()
+	status_label.text = "OFRENDA ACEPTADA"
+	reward_label.text = "%s  ·  + MONEDAS Y LLAVE" % _reward_name(reward).replace("\n"," ")
+
+func _open_hidden_loot_room() -> void:
+	_mark_current_room_cleared(false)
+	var key := _special_room_key()
+	if bool(_special_used.get(key,false)):
+		status_label.text = "CÁMARA VACÍA"
+		reward_label.text = ""
+		return
+	_special_used[key] = true
+	if _room_kind == "supersecreta":
+		status_label.text = "SANTUARIO OCULTO"
+		reward_label.text = "Una reserva excepcional"
+		_spawn_pickup_at("heart",Vector2(0.43,0.53))
+		_spawn_pickup_at("key",Vector2(0.50,0.48))
+		_spawn_pickup_at("bomb",Vector2(0.57,0.53))
+		_coins += 5
+		_update_pickup_hud()
+	else:
+		status_label.text = "CÁMARA SECRETA"
+		reward_label.text = "Encontraste una reserva escondida"
+		_spawn_pickup_at("coin",Vector2(0.44,0.52))
+		_spawn_pickup_at("bomb",Vector2(0.56,0.52))
+
+func _spawn_special_bundle(kind: String) -> void:
+	if kind == "minijefe":
+		_spawn_pickup_at("key",Vector2(0.45,0.55))
+		_spawn_pickup_at("heart",Vector2(0.55,0.55))
+		_coins += 3
+	else:
+		_spawn_pickup_at("bomb",Vector2(0.42,0.55))
+		_spawn_pickup_at("coin",Vector2(0.50,0.50))
+		_spawn_pickup_at("key",Vector2(0.58,0.55))
+	_update_pickup_hud()
+
+func _spawn_pickup_at(kind: String,ratio: Vector2) -> void:
+	var pickup := IsmaelPickup.new()
+	pickup.configure(kind)
+	pickup.position = room_rect.position+room_rect.size*ratio
+	pickup.collected.connect(_on_pickup_collected)
+	add_child(pickup)
+
+func _detect_hidden_wall_direction() -> Vector2i:
+	var center := room_rect.get_center()
+	var edge := 66.0
+	var doorway_half := 88.0
+	for dir: Vector2i in DIRS:
+		var destination := _current_cell+dir
+		if not _dungeon.has_room(destination):
+			continue
+		if not _dungeon.is_hidden(destination) or _dungeon.is_discovered(destination):
+			continue
+		if dir == Vector2i(0,-1) and player.position.y < room_rect.position.y+edge and absf(player.position.x-center.x)<doorway_half:
+			return dir
+		if dir == Vector2i(0,1) and player.position.y > room_rect.end.y-edge and absf(player.position.x-center.x)<doorway_half:
+			return dir
+		if dir == Vector2i(-1,0) and player.position.x < room_rect.position.x+edge and absf(player.position.y-center.y)<doorway_half:
+			return dir
+		if dir == Vector2i(1,0) and player.position.x > room_rect.end.x-edge and absf(player.position.y-center.y)<doorway_half:
+			return dir
+	return Vector2i.ZERO
+
+func _try_reveal_hidden_room(direction: Vector2i) -> void:
+	var destination := _current_cell+direction
+	if not _dungeon.has_room(destination) or not _dungeon.is_hidden(destination):
+		return
+	if _bombs <= 0:
+		status_label.text = "PARED SOSPECHOSA — NECESITAS UNA BOMBA"
+		return
+	_bombs -= 1
+	_update_pickup_hud()
+	_dungeon.reveal(destination)
+	_clear_room_doors()
+	_setup_room_doors()
+	_set_door_open(true)
+	_update_minimap()
+	status_label.text = "PARED SECRETA ABIERTA"
+	reward_label.text = "Se consumió 1 bomba"
 
 func _spawn_boss() -> void:
 	var boss := IsmaelEnemy.new()
@@ -553,6 +734,10 @@ func _physics_process(_delta: float) -> void:
 				_finish_floor()
 			else:
 				_travel_to(exit_direction)
+			return
+		var hidden_direction := _detect_hidden_wall_direction()
+		if hidden_direction != Vector2i.ZERO:
+			_try_reveal_hidden_room(hidden_direction)
 
 func _detect_exit_direction() -> Vector2i:
 	var center := room_rect.get_center()
@@ -651,15 +836,31 @@ func _on_player_died() -> void:
 
 func _on_enemy_defeated(_enemy) -> void:
 	_enemies_alive = maxi(0,_enemies_alive-1)
-	if _enemies_alive == 0 and not _game_over:
-		_clear_enemy_projectiles()
-		_mark_current_room_cleared(true)
+	if _enemies_alive != 0 or _game_over:
+		return
+	_clear_enemy_projectiles()
+	if _room_kind == "desafio" and _challenge_wave < _challenge_waves_total:
+		_challenge_wave += 1
+		status_label.text = "OLEADA %d / %d" % [_challenge_wave,_challenge_waves_total]
+		var generation := _spawn_generation
+		await get_tree().create_timer(0.75).timeout
+		if generation == _spawn_generation and not _game_over:
+			_spawn_challenge_wave()
+		return
+	_mark_current_room_cleared(true)
+	if _room_kind == "desafio":
+		_spawn_special_bundle("desafio")
+		status_label.text = "DESAFÍO SUPERADO"
+	elif _room_kind == "minijefe":
+		_spawn_special_bundle("minijefe")
+		status_label.text = "GUARDIÁN MENOR DERROTADO"
+	else:
 		_spawn_clear_pickup()
 		if _room_kind == "jefe":
 			status_label.text = "GUARDIÁN DERROTADO — ENCUENTRA LA SALIDA"
 		else:
 			status_label.text = "SALA LIMPIA"
-		queue_redraw()
+	queue_redraw()
 
 func _restart_game() -> void:
 	get_tree().reload_current_scene()
