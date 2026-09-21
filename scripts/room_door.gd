@@ -3,6 +3,8 @@ class_name IsmaelRoomDoor
 
 var door_size := Vector2(126.0,42.0)
 var is_open := false
+var is_floor_exit := false
+var target_floor := 0
 var _collision: CollisionShape2D
 
 func _ready() -> void:
@@ -21,6 +23,11 @@ func set_open(value: bool) -> void:
 	_apply_state()
 	queue_redraw()
 
+func mark_floor_exit(floor_number: int) -> void:
+	is_floor_exit = true
+	target_floor = floor_number
+	queue_redraw()
+
 func _apply_state() -> void:
 	if is_instance_valid(_collision):
 		_collision.set_deferred("disabled",is_open)
@@ -33,6 +40,13 @@ func _draw() -> void:
 	var stone_light := Color(0.46,0.33,0.21)
 	var wood_dark := Color(0.075,0.032,0.018)
 	var wood_mid := Color(0.27,0.105,0.045)
+	if is_floor_exit:
+		stone_dark = Color(0.105,0.070,0.020)
+		stone_mid = Color(0.39,0.25,0.065)
+		stone_light = Color(0.88,0.63,0.20)
+		wood_dark = Color(0.055,0.028,0.010)
+		wood_mid = Color(0.35,0.18,0.035)
+		draw_circle(Vector2.ZERO,half_w+30.0,Color(0.96,0.58,0.10,0.055))
 	draw_rect(Rect2(-half_w-24,-half_h-26,door_size.x+48,door_size.y+36),Color(0,0,0,0.46))
 	draw_arc(Vector2(0,-half_h+1),half_w+18.0,PI,TAU,40,stone_dark,14.0)
 	draw_arc(Vector2(0,-half_h+1),half_w+13.0,PI,TAU,40,stone_mid,7.0)
@@ -47,6 +61,11 @@ func _draw() -> void:
 		draw_rect(Rect2(-half_w+8,half_h-8,door_size.x-16,8),Color(0.45,0.30,0.16,0.78))
 		draw_line(Vector2(-half_w+10,half_h-10),Vector2(half_w-10,half_h-10),Color(0.95,0.69,0.28,0.28),3.0)
 		draw_colored_polygon(PackedVector2Array([Vector2(-half_w+12,half_h-7),Vector2(half_w-12,half_h-7),Vector2(half_w-28,half_h+20),Vector2(-half_w+28,half_h+20)]),Color(0.64,0.38,0.12,0.09))
+		if is_floor_exit:
+			for i in range(3):
+				var yy := -8.0+float(i)*8.0
+				draw_line(Vector2(-26.0,yy),Vector2(26.0,yy),Color(0.92,0.62,0.18,0.72),3.0)
+			draw_colored_polygon(PackedVector2Array([Vector2(-8,-15),Vector2(8,-15),Vector2(8,4),Vector2(18,4),Vector2(0,18),Vector2(-18,4),Vector2(-8,4)]),Color(1.0,0.78,0.28,0.78))
 		return
 	var rect := Rect2(-half_w+2,-half_h+1,door_size.x-4,door_size.y-2)
 	draw_rect(rect,wood_dark)
@@ -59,3 +78,7 @@ func _draw() -> void:
 		draw_circle(Vector2(x,-7),3.2,Color(0.44,0.34,0.22))
 	draw_circle(Vector2(29,2),6.5,Color(0.60,0.43,0.16))
 	draw_circle(Vector2(29,2),2.2,Color(0.10,0.05,0.025))
+	if is_floor_exit:
+		draw_arc(Vector2.ZERO,16.0,0.0,TAU,24,Color(0.96,0.70,0.20,0.72),3.0)
+		draw_line(Vector2(-9,-2),Vector2(9,-2),Color(0.96,0.70,0.20,0.82),3.0)
+		draw_line(Vector2(0,-11),Vector2(0,8),Color(0.96,0.70,0.20,0.82),3.0)

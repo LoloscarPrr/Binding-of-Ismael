@@ -149,14 +149,14 @@ func _layout_touch_ui() -> void:
 		right_stick.position = Vector2(screen_size.x-pad_side-margin_x,screen_size.y-pad_side-margin_bottom)
 	var card_y := 12.0
 	var left_card_w := clampf(screen_size.x*0.30,360.0,470.0)
-	var right_card_w := clampf(screen_size.x*0.26,320.0,420.0)
+	var right_card_w := clampf(screen_size.x*0.29,350.0,460.0)
 	var center_card_w := clampf(screen_size.x*0.22,260.0,340.0)
 	if is_instance_valid(hud_left_card):
 		hud_left_card.position = Vector2(14.0,card_y)
 		hud_left_card.size = Vector2(left_card_w,76.0)
 	if is_instance_valid(hud_right_card):
 		hud_right_card.position = Vector2(screen_size.x-right_card_w-14.0,card_y)
-		hud_right_card.size = Vector2(right_card_w,76.0)
+		hud_right_card.size = Vector2(right_card_w,82.0)
 	if is_instance_valid(hud_center_card):
 		hud_center_card.position = Vector2(screen_size.x*0.5-center_card_w*0.5,card_y)
 		hud_center_card.size = Vector2(center_card_w,66.0)
@@ -167,10 +167,10 @@ func _layout_touch_ui() -> void:
 	pickup_label.position = Vector2(28.0,48.0)
 	pickup_label.size = Vector2(left_card_w-40.0,28.0)
 	pickup_label.add_theme_font_size_override("font_size",18)
-	minimap_label.position = Vector2(screen_size.x-right_card_w+8.0,15.0)
-	minimap_label.size = Vector2(right_card_w-44.0,58.0)
+	minimap_label.position = Vector2(screen_size.x-right_card_w+4.0,10.0)
+	minimap_label.size = Vector2(right_card_w-36.0,70.0)
 	minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	minimap_label.add_theme_font_size_override("font_size",13)
+	minimap_label.add_theme_font_size_override("font_size",16)
 	var half_center := center_card_w*0.5
 	floor_label.position = Vector2(screen_size.x*0.5-center_card_w*0.5+8.0,20.0)
 	floor_label.size = Vector2(half_center-12.0,26.0)

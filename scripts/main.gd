@@ -27,6 +27,7 @@ var reward_label: Label
 var restart_button: Button
 var reward_left: Button
 var reward_right: Button
+var floor_exit_label: Label
 var room_rect := Rect2()
 
 var _dungeon: IsmaelDungeonMap
@@ -67,6 +68,7 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 	add_child(player)
 	_create_touch_ui()
+	_create_floor_exit_label()
 	_on_player_health_changed(player.health,player.max_health)
 	_update_pickup_hud()
 	_layout_touch_ui()
@@ -101,6 +103,8 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_clear_room_pickups()
 	_clear_enemy_projectiles()
 	_clear_room_doors()
+	if is_instance_valid(floor_exit_label):
+		floor_exit_label.visible = false
 	player.position = _room_entry_position(entry_direction)
 	player.velocity = Vector2.ZERO
 	player.move_input = Vector2.ZERO
@@ -184,6 +188,11 @@ func _setup_room_doors() -> void:
 		_floor_exit_direction = _dungeon.outward_direction(_current_cell)
 		if not _dungeon.has_room(_current_cell+_floor_exit_direction):
 			_create_room_door(_floor_exit_direction)
+			var exit_door: IsmaelRoomDoor = _doors.get(_floor_exit_direction)
+			if is_instance_valid(exit_door):
+				exit_door.mark_floor_exit(_floor_index+1)
+			_position_floor_exit_label(_floor_exit_direction)
+			_refresh_floor_exit_label(_room_cleared)
 
 func _create_room_door(direction: Vector2i) -> void:
 	if _doors.has(direction):
@@ -214,6 +223,8 @@ func _set_door_open(value: bool) -> void:
 		var door: IsmaelRoomDoor = door_variant
 		if is_instance_valid(door):
 			door.set_open(value)
+	if _room_kind == "jefe":
+		_refresh_floor_exit_label(value)
 	queue_redraw()
 
 func _mark_current_room_cleared(count_clear: bool = true) -> void:
@@ -592,6 +603,52 @@ func _update_minimap() -> void:
 	if not is_instance_valid(minimap_label) or _dungeon == null:
 		return
 	minimap_label.text = _dungeon.minimap_text(_current_cell)
+
+func _create_floor_exit_label() -> void:
+	floor_exit_label = Label.new()
+	floor_exit_label.visible = false
+	floor_exit_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	floor_exit_label.z_index = 8
+	floor_exit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	floor_exit_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	floor_exit_label.add_theme_font_size_override("font_size",18)
+	floor_exit_label.add_theme_color_override("font_color",Color(1.0,0.86,0.46))
+	floor_exit_label.add_theme_color_override("font_outline_color",Color(0.04,0.025,0.012,1.0))
+	floor_exit_label.add_theme_constant_override("outline_size",5)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03,0.022,0.016,0.86)
+	style.border_color = Color(0.72,0.48,0.16,0.72)
+	style.set_border_width_all(2)
+	style.corner_radius_top_left = 7
+	style.corner_radius_top_right = 7
+	style.corner_radius_bottom_left = 7
+	style.corner_radius_bottom_right = 7
+	floor_exit_label.add_theme_stylebox_override("normal",style)
+	add_child(floor_exit_label)
+
+func _position_floor_exit_label(direction: Vector2i) -> void:
+	if not is_instance_valid(floor_exit_label):
+		return
+	var center := room_rect.get_center()
+	floor_exit_label.size = Vector2(236.0,38.0)
+	if direction == Vector2i(0,-1):
+		floor_exit_label.position = Vector2(center.x-118.0,room_rect.position.y+58.0)
+	elif direction == Vector2i(0,1):
+		floor_exit_label.position = Vector2(center.x-118.0,room_rect.end.y-96.0)
+	elif direction == Vector2i(-1,0):
+		floor_exit_label.position = Vector2(room_rect.position.x+46.0,center.y-48.0)
+	else:
+		floor_exit_label.position = Vector2(room_rect.end.x-282.0,center.y-48.0)
+	floor_exit_label.visible = true
+
+func _refresh_floor_exit_label(opened: bool) -> void:
+	if not is_instance_valid(floor_exit_label) or _room_kind != "jefe":
+		return
+	floor_exit_label.visible = true
+	if _floor_index < TOTAL_FLOORS:
+		floor_exit_label.text = ("▼ BAJAR AL PISO %d ▼" if opened else "SALIDA AL PISO %d") % (_floor_index+1)
+	else:
+		floor_exit_label.text = "▼ SALIDA FINAL ▼" if opened else "SALIDA FINAL"
 
 func _create_touch_ui() -> void:
 	var layer := CanvasLayer.new()
