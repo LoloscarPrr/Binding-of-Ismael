@@ -71,6 +71,11 @@ func _floor_color() -> Color:
 		"recompensa": color = Color(0.17,0.135,0.073)
 		"jefe": color = Color(0.13,0.060,0.058)
 		"tienda": color = Color(0.155,0.112,0.065)
+		"desafio": color = Color(0.145,0.075,0.055)
+		"minijefe": color = Color(0.115,0.055,0.065)
+		"sacrificio": color = Color(0.125,0.045,0.052)
+		"secreta": color = Color(0.095,0.105,0.085)
+		"supersecreta": color = Color(0.075,0.075,0.105)
 	return color
 
 func _draw_floor() -> void:
@@ -126,9 +131,37 @@ func _draw_room_markings() -> void:
 			var shelf_y := room_rect.position.y+room_rect.size.y*0.25
 			draw_rect(Rect2(Vector2(room_rect.position.x+room_rect.size.x*0.20,shelf_y),Vector2(room_rect.size.x*0.60,12)),Color(0.09,0.04,0.025,0.68))
 			draw_rect(Rect2(Vector2(room_rect.position.x+room_rect.size.x*0.21,shelf_y-10),Vector2(room_rect.size.x*0.58,9)),Color(0.31,0.15,0.07,0.72))
+		"desafio":
+			draw_arc(center,88.0,0.0,TAU,48,Color(0.72,0.19,0.08,0.48),7.0)
+			for a in range(0,360,45):
+				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
+				draw_line(center+d*54.0,center+d*82.0,Color(0.55,0.12,0.06,0.34),4.0)
+		"minijefe":
+			draw_circle(center,84.0,Color(0.26,0.02,0.035,0.13))
+			draw_arc(center,86.0,0.0,TAU,48,Color(0.56,0.06,0.09,0.44),7.0)
+			draw_colored_polygon(PackedVector2Array([
+				center+Vector2(-22,-18),
+				center+Vector2(0,-58),
+				center+Vector2(22,-18),
+				center+Vector2(0,20)
+			]),Color(0.48,0.06,0.08,0.22))
+		"sacrificio":
+			draw_circle(center,62.0,Color(0.30,0.015,0.025,0.18))
+			draw_arc(center,64.0,0.0,TAU,40,Color(0.64,0.08,0.10,0.42),5.0)
+			for a in range(0,360,72):
+				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
+				draw_line(center+d*24.0,center+d*55.0,Color(0.48,0.06,0.08,0.38),3.0)
+		"secreta":
+			draw_arc(center,70.0,0.0,TAU,36,Color(0.44,0.52,0.30,0.22),4.0)
+			draw_circle(center,10.0,Color(0.62,0.68,0.44,0.16))
+		"supersecreta":
+			for a in range(0,360,60):
+				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
+				draw_line(center+d*18.0,center+d*64.0,Color(0.48,0.42,0.72,0.22),3.0)
+			draw_arc(center,72.0,0.0,TAU,42,Color(0.54,0.46,0.78,0.32),4.0)
 
 func _draw_debris() -> void:
-	var debris_count := 10 if room_kind=="recompensa" else 28
+	var debris_count := 10 if room_kind in ["recompensa","secreta","supersecreta","sacrificio"] else 28
 	for i in range(debris_count):
 		var sx := float((room_index*47+floor_index*29+i*71)%997)/997.0
 		var sy := float((room_index*83+floor_index*41+i*43)%991)/991.0
@@ -161,6 +194,21 @@ func _draw_props() -> void:
 		else:
 			draw_circle(p,13.0,Color(0.24,0.09,0.06))
 			draw_rect(Rect2(p+Vector2(-9,-16),Vector2(18,6)),Color(0.36,0.16,0.09))
+	if room_kind=="desafio":
+		for ratio in [0.18,0.82]:
+			var p := room_rect.position+room_rect.size*Vector2(ratio,0.28)
+			draw_circle(p,10.0,Color(0.24,0.03,0.025))
+			draw_colored_polygon(PackedVector2Array([p+Vector2(-5,-4),p+Vector2(0,-20),p+Vector2(6,-4)]),Color(0.82,0.23,0.06,0.70))
+	if room_kind=="sacrificio":
+		for ratio in [0.34,0.66]:
+			var p := room_rect.position+room_rect.size*Vector2(ratio,0.34)
+			draw_circle(p,8.0,Color(0.19,0.025,0.03))
+			draw_line(p+Vector2(0,-16),p+Vector2(0,10),Color(0.38,0.08,0.08),4.0)
+	if room_kind=="secreta" or room_kind=="supersecreta":
+		for ratio in [0.22,0.78]:
+			var p := room_rect.position+room_rect.size*Vector2(ratio,0.22)
+			draw_circle(p,7.0,Color(0.12,0.13,0.10))
+			draw_circle(p,3.0,Color(0.48,0.54,0.32,0.42))
 	if room_kind=="tienda":
 		for ratio in [0.31,0.50,0.69]:
 			var p := room_rect.position+room_rect.size*Vector2(ratio,0.68)
