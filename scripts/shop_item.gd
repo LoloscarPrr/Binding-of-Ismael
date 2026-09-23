@@ -11,6 +11,9 @@ var _label: Label
 var _age := 0.0
 var _feedback := 0.0
 var _unaffordable := false
+var _armed := false
+var _contact_token := 0
+const CONTACT_CONFIRMATION := 0.16
 
 func configure(reward_value: String, cost_value: int, name_value: String) -> void:
 	reward_id = reward_value
@@ -45,7 +48,9 @@ func _ready() -> void:
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
 	body_entered.connect(_on_body_entered)
+	body_exited.connect(_on_body_exited)
 	set_process(true)
+	call_deferred("_arm_after_spawn")
 	_refresh_label()
 	queue_redraw()
 
@@ -54,11 +59,33 @@ func _process(delta: float) -> void:
 	_feedback = maxf(0.0,_feedback-delta)
 	queue_redraw()
 
+func _arm_after_spawn() -> void:
+	await get_tree().physics_frame
+	_armed = true
+	for body in get_overlapping_bodies():
+		if body is IsmaelPlayer:
+			_armed = false
+			break
+
 func _on_body_entered(body: Node) -> void:
-	if sold:
+	if sold or not _armed or not body is IsmaelPlayer:
 		return
-	if body is IsmaelPlayer:
-		purchase_requested.emit(self)
+	_contact_token += 1
+	var token := _contact_token
+	await get_tree().create_timer(CONTACT_CONFIRMATION).timeout
+	if sold or token != _contact_token or not is_instance_valid(body):
+		return
+	if not overlaps_body(body):
+		return
+	_armed = false
+	purchase_requested.emit(self)
+
+func _on_body_exited(body: Node) -> void:
+	if not body is IsmaelPlayer:
+		return
+	_contact_token += 1
+	if not sold:
+		_armed = true
 
 func mark_sold() -> void:
 	if sold:

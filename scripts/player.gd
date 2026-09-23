@@ -14,6 +14,14 @@ const BODY_RADIUS := 28.0
 @export var projectile_damage := 1
 @export var contact_knockback := 430.0
 
+var homing_strength := 0.0
+var projectile_pierce := 0
+var burst_count := 1
+var room_heal_interval := 0
+var floor_shield_enabled := false
+var floor_shield_charges := 0
+var _rooms_since_heal := 0
+
 var move_input := Vector2.ZERO
 var aim_input := Vector2.ZERO
 var health := 6
@@ -73,12 +81,28 @@ func shoot(direction: Vector2) -> void:
 	_last_aim = direction.normalized()
 	_visual_recoil = 4.0
 	_shoot_pose = 0.13
+	_spawn_projectile(direction)
+	if burst_count > 1:
+		_fire_burst_followups(direction.normalized(),burst_count-1)
+
+func _spawn_projectile(direction: Vector2) -> void:
+	if is_dead:
+		return
 	var projectile := IsmaelProjectile.new()
-	projectile.position = global_position + direction * 28.0
-	projectile.direction = direction
+	projectile.position = global_position + direction.normalized()*28.0
+	projectile.direction = direction.normalized()
 	projectile.speed = projectile_speed
 	projectile.damage = projectile_damage
+	projectile.homing_strength = homing_strength
+	projectile.pierce_remaining = projectile_pierce
 	get_tree().current_scene.add_child(projectile)
+
+func _fire_burst_followups(direction: Vector2,count: int) -> void:
+	for _i in count:
+		await get_tree().create_timer(0.055).timeout
+		if is_dead:
+			return
+		_spawn_projectile(direction)
 
 func take_contact_damage(amount: int, source_position: Vector2) -> void:
 	if is_dead or _invulnerability > 0.0:
@@ -91,6 +115,11 @@ func take_contact_damage(amount: int, source_position: Vector2) -> void:
 
 func take_damage(amount: int) -> void:
 	if is_dead or _invulnerability > 0.0:
+		return
+	if floor_shield_charges > 0:
+		floor_shield_charges -= 1
+		_invulnerability = minf(invulnerability_time,0.40)
+		queue_redraw()
 		return
 	health = maxi(0, health - amount)
 	_invulnerability = invulnerability_time
@@ -113,6 +142,19 @@ func add_max_health(amount: int) -> void:
 	max_health += amount
 	health = mini(max_health, health + amount)
 	health_changed.emit(health, max_health)
+
+func notify_room_cleared() -> void:
+	if room_heal_interval <= 0 or is_dead:
+		return
+	_rooms_since_heal += 1
+	if _rooms_since_heal >= room_heal_interval:
+		_rooms_since_heal = 0
+		heal(1)
+
+func refill_floor_shield() -> void:
+	if floor_shield_enabled:
+		floor_shield_charges = 1
+		queue_redraw()
 
 func reset_health() -> void:
 	is_dead = false
@@ -164,6 +206,9 @@ func _draw() -> void:
 	var mouth_size := Vector2(5.5,3.2+pose_strength*2.4)
 	draw_ellipse(Vector2(0,-3),mouth_size,Color(0.20,0.07,0.075))
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+	if floor_shield_charges > 0:
+		draw_arc(Vector2.ZERO,34.0,-PI*0.92,PI*0.92,34,Color(0.78,0.84,0.88,0.72),3.5)
+		draw_circle(Vector2(25,-20),4.2,Color(0.88,0.78,0.48,0.90))
 	if _shoot_pose > 0.0:
 		var emission_progress := 1.0-pose_strength
 		var tear_origin := Vector2(0,-12)+_last_aim*(10.0+emission_progress*16.0)

@@ -8,6 +8,8 @@ var control_edit_button: Button
 var hud_left_card: Panel
 var hud_center_card: Panel
 var hud_right_card: Panel
+var minimap_touch_zone: Button
+var _minimap_expanded := false
 var _editing_controls := false
 var _saved_left_center := Vector2(-1.0,-1.0)
 var _saved_right_center := Vector2(-1.0,-1.0)
@@ -37,21 +39,17 @@ func _create_touch_ui() -> void:
 	right_stick.smoothing_speed = 27.0
 	left_stick.layout_changed.connect(_on_control_layout_changed)
 	right_stick.layout_changed.connect(_on_control_layout_changed)
-	if is_instance_valid(reward_left):
-		reward_left.queue_free()
-	if is_instance_valid(reward_right):
-		reward_right.queue_free()
-	reward_left = IsmaelRewardPedestal.new()
-	reward_left.visible = false
-	reward_left.pressed.connect(_choose_reward.bind(0))
-	layer.add_child(reward_left)
-	reward_right = IsmaelRewardPedestal.new()
-	reward_right.visible = false
-	reward_right.pressed.connect(_choose_reward.bind(1))
-	layer.add_child(reward_right)
 	boss_hud = IsmaelBossHud.new()
 	layer.add_child(boss_hud)
 	_create_hud_cards(layer)
+	minimap_touch_zone = Button.new()
+	minimap_touch_zone.text = ""
+	minimap_touch_zone.flat = true
+	minimap_touch_zone.focus_mode = Control.FOCUS_NONE
+	minimap_touch_zone.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	minimap_touch_zone.z_index = 4
+	minimap_touch_zone.pressed.connect(_toggle_minimap)
+	layer.add_child(minimap_touch_zone)
 	control_edit_button = Button.new()
 	control_edit_button.text = "MOVER CONTROLES"
 	control_edit_button.pressed.connect(_toggle_control_edit_mode)
@@ -111,6 +109,9 @@ func _polish_hud() -> void:
 		pickup_label.add_theme_color_override("font_color",Color(0.94,0.81,0.54))
 	if is_instance_valid(minimap_label):
 		minimap_label.add_theme_color_override("font_color",Color(0.78,0.82,0.80))
+		minimap_label.modulate.a = 1.0 if _minimap_expanded else 0.30
+	if is_instance_valid(hud_right_card):
+		hud_right_card.modulate.a = 1.0 if _minimap_expanded else 0.26
 	if is_instance_valid(control_edit_button):
 		control_edit_button.add_theme_font_size_override("font_size",16)
 		control_edit_button.add_theme_color_override("font_color",Color(0.94,0.88,0.74))
@@ -155,8 +156,14 @@ func _layout_touch_ui() -> void:
 		hud_left_card.position = Vector2(14.0,card_y)
 		hud_left_card.size = Vector2(left_card_w,76.0)
 	if is_instance_valid(hud_right_card):
-		hud_right_card.position = Vector2(screen_size.x-right_card_w-14.0,card_y)
-		hud_right_card.size = Vector2(right_card_w,82.0)
+		if _minimap_expanded:
+			var expanded_w := clampf(screen_size.x*0.39,430.0,560.0)
+			var expanded_h := clampf(screen_size.y*0.43,260.0,350.0)
+			hud_right_card.position = Vector2(screen_size.x-expanded_w-14.0,card_y)
+			hud_right_card.size = Vector2(expanded_w,expanded_h)
+		else:
+			hud_right_card.position = Vector2(screen_size.x-right_card_w-14.0,card_y)
+			hud_right_card.size = Vector2(right_card_w,82.0)
 	if is_instance_valid(hud_center_card):
 		hud_center_card.position = Vector2(screen_size.x*0.5-center_card_w*0.5,card_y)
 		hud_center_card.size = Vector2(center_card_w,66.0)
@@ -167,10 +174,26 @@ func _layout_touch_ui() -> void:
 	pickup_label.position = Vector2(28.0,48.0)
 	pickup_label.size = Vector2(left_card_w-40.0,28.0)
 	pickup_label.add_theme_font_size_override("font_size",18)
-	minimap_label.position = Vector2(screen_size.x-right_card_w+4.0,10.0)
-	minimap_label.size = Vector2(right_card_w-36.0,70.0)
-	minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	minimap_label.add_theme_font_size_override("font_size",16)
+	if _minimap_expanded and is_instance_valid(hud_right_card):
+		minimap_label.position = hud_right_card.position+Vector2(18.0,18.0)
+		minimap_label.size = hud_right_card.size-Vector2(36.0,36.0)
+		minimap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		minimap_label.add_theme_font_size_override("font_size",23)
+	else:
+		minimap_label.position = Vector2(screen_size.x-right_card_w+4.0,10.0)
+		minimap_label.size = Vector2(right_card_w-36.0,70.0)
+		minimap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		minimap_label.add_theme_font_size_override("font_size",16)
+	if is_instance_valid(minimap_touch_zone) and is_instance_valid(hud_right_card):
+		minimap_touch_zone.position = hud_right_card.position
+		minimap_touch_zone.size = hud_right_card.size
+		minimap_touch_zone.tooltip_text = "Cerrar mapa" if _minimap_expanded else "Expandir mapa"
+	if is_instance_valid(minimap_label):
+		minimap_label.modulate.a = 1.0 if _minimap_expanded else 0.30
+	if is_instance_valid(hud_right_card):
+		hud_right_card.modulate.a = 1.0 if _minimap_expanded else 0.26
 	var half_center := center_card_w*0.5
 	floor_label.position = Vector2(screen_size.x*0.5-center_card_w*0.5+8.0,20.0)
 	floor_label.size = Vector2(half_center-12.0,26.0)
@@ -181,16 +204,9 @@ func _layout_touch_ui() -> void:
 	status_label.position = Vector2(screen_size.x*0.5-300.0,78.0)
 	status_label.size = Vector2(600.0,38.0)
 	status_label.add_theme_font_size_override("font_size",24)
-	if is_instance_valid(reward_left) and is_instance_valid(reward_right):
-		var reward_size := Vector2(clampf(screen_size.x*0.19,250.0,310.0),clampf(screen_size.y*0.34,210.0,250.0))
-		var reward_gap := clampf(screen_size.x*0.055,54.0,84.0)
-		reward_left.size = reward_size
-		reward_right.size = reward_size
-		reward_left.position = Vector2(screen_size.x*0.5-reward_gap*0.5-reward_size.x,screen_size.y*0.29)
-		reward_right.position = Vector2(screen_size.x*0.5+reward_gap*0.5,screen_size.y*0.29)
-		reward_label.position = Vector2(screen_size.x*0.5-260.0,screen_size.y*0.235)
-		reward_label.size = Vector2(520.0,32.0)
-		reward_label.add_theme_font_size_override("font_size",15)
+	reward_label.position = Vector2(screen_size.x*0.5-320.0,screen_size.y*0.20)
+	reward_label.size = Vector2(640.0,34.0)
+	reward_label.add_theme_font_size_override("font_size",15)
 	if is_instance_valid(control_edit_button):
 		control_edit_button.size = Vector2(146.0,36.0)
 		control_edit_button.position = Vector2(screen_size.x-160.0,94.0)
@@ -198,6 +214,32 @@ func _layout_touch_ui() -> void:
 		var width := clampf(screen_size.x*0.44,500.0,760.0)
 		boss_hud.size = Vector2(width,72.0)
 		boss_hud.position = Vector2(screen_size.x*0.5-width*0.5,screen_size.y-88.0)
+
+func _input(event: InputEvent) -> void:
+	if _minimap_expanded and is_instance_valid(minimap_touch_zone):
+		var pointer := Vector2(-10000.0,-10000.0)
+		var pressed := false
+		if event is InputEventScreenTouch:
+			pointer = event.position
+			pressed = event.pressed
+		elif event is InputEventMouseButton:
+			pointer = event.position
+			pressed = event.pressed and event.button_index == MOUSE_BUTTON_LEFT
+		if pressed:
+			var map_rect := Rect2(minimap_touch_zone.position,minimap_touch_zone.size)
+			if not map_rect.has_point(pointer):
+				_set_minimap_expanded(false)
+	super._input(event)
+
+func _toggle_minimap() -> void:
+	_set_minimap_expanded(not _minimap_expanded)
+
+func _set_minimap_expanded(value: bool) -> void:
+	if _minimap_expanded == value:
+		return
+	_minimap_expanded = value
+	_layout_touch_ui()
+	_polish_hud()
 
 func _physics_process(delta: float) -> void:
 	if _editing_controls:

@@ -28,7 +28,8 @@ func _reward_cleared_rooms(scene: Node) -> void:
 		return
 	var newly_cleared := cleared_total-_last_cleared_total
 	_last_cleared_total = cleared_total
-	var coins := int(scene.get("_coins"))+newly_cleared*CLEAR_ROOM_COIN_REWARD
+	var bonus_per_room := int(scene.get("_coin_bonus_per_clear"))
+	var coins := int(scene.get("_coins"))+newly_cleared*(CLEAR_ROOM_COIN_REWARD+bonus_per_room)
 	scene.set("_coins",coins)
 	if scene.has_method("_update_pickup_hud"):
 		scene.call("_update_pickup_hud")
@@ -69,15 +70,15 @@ func _spawn_shop_items(scene: Node,floor_index: int,shop_key: String) -> void:
 	var stock: Array[Dictionary]
 	if floor_index == 1:
 		stock = [
-			{"reward":"curacion","cost":3,"name":"VENDA"},
-			{"reward":"cadencia","cost":5,"name":"PULSO"},
-			{"reward":"dano","cost":7,"name":"MARCA"}
+			{"reward":"curacion","cost":4,"name":"VENDA"},
+			{"reward":"cadencia","cost":6,"name":"RELOJ"},
+			{"reward":"monedero","cost":8,"name":"MONEDERO"}
 		]
 	else:
 		stock = [
-			{"reward":"movimiento","cost":4,"name":"PASO"},
-			{"reward":"proyectil","cost":5,"name":"IMPULSO"},
-			{"reward":"vida","cost":7,"name":"CORAZÓN"}
+			{"reward":"movimiento","cost":5,"name":"BOTAS"},
+			{"reward":"perforante","cost":7,"name":"AGUJA"},
+			{"reward":"escudo","cost":9,"name":"ROSARIO"}
 		]
 
 	var x_slots: Array[float] = [0.31,0.50,0.69]

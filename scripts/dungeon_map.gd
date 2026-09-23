@@ -212,6 +212,10 @@ func _assign_room_kinds() -> void:
 		excluded.append(challenge)
 
 	var miniboss := _pick_regular_cell(excluded,3)
+	if miniboss == Vector2i.ZERO:
+		miniboss = _pick_regular_cell(excluded,2)
+	if miniboss == Vector2i.ZERO:
+		miniboss = _pick_regular_cell(excluded,1)
 	if miniboss != Vector2i.ZERO:
 		_set_kind(miniboss,"minijefe")
 		excluded.append(miniboss)
@@ -337,6 +341,14 @@ func outward_direction(cell: Vector2i) -> Vector2i:
 		if not rooms.has(cell+dir):
 			return dir
 	return Vector2i(0,-1)
+
+func reveal_public_rooms() -> void:
+	for cell: Vector2i in order:
+		if is_hidden(cell):
+			continue
+		var data: Dictionary = rooms[cell]
+		data["discovered"] = true
+		rooms[cell] = data
 
 func minimap_text(current: Vector2i) -> String:
 	var visible: Array[Vector2i] = []

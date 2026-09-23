@@ -5,7 +5,10 @@ const ROOM_ENTRY_DELAY := 0.65
 const FLOOR_TRANSITION_DELAY := 1.35
 const ENEMY_ACTIVATION_DELAY := 0.70
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
-const REWARD_POOL: Array[String] = ["movimiento","cadencia","vida","curacion","proyectil","dano"]
+const REWARD_POOL: Array[String] = [
+	"vida","curacion","movimiento","cadencia","proyectil","dano",
+	"buscadora","perforante","escudo","rafaga","mapa","monedero"
+]
 const DIRS: Array[Vector2i] = [
 	Vector2i(0,-1),
 	Vector2i(1,0),
@@ -53,6 +56,9 @@ var _keys := 0
 var _challenge_wave := 0
 var _challenge_waves_total := 2
 var _special_used: Dictionary = {}
+var _reward_offers: Dictionary = {}
+var _map_reveal_active := false
+var _coin_bonus_per_clear := 0
 
 func _ready() -> void:
 	_configure_mobile_display()
@@ -235,6 +241,8 @@ func _mark_current_room_cleared(count_clear: bool = true) -> void:
 	_set_door_open(true)
 	if count_clear and not was_cleared:
 		_rooms_cleared_total += 1
+		if is_instance_valid(player) and player.has_method("notify_room_cleared"):
+			player.notify_room_cleared()
 	_update_minimap()
 
 func _add_obstacle(ratio: Vector2,size_ratio: Vector2,variant: int = 0) -> void:
@@ -283,20 +291,29 @@ func _open_reward_room(generation: int) -> void:
 	await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 	if generation != _spawn_generation or _game_over:
 		return
-	_offered_rewards = _make_reward_choices()
+	var room_key := _reward_room_key()
+	if _reward_offers.has(room_key):
+		_offered_rewards.clear()
+		for value in _reward_offers[room_key]:
+			_offered_rewards.append(String(value))
+	else:
+		_offered_rewards = _make_reward_choices()
+		_reward_offers[room_key] = _offered_rewards.duplicate()
 	status_label.text = "ELIGE UNA OFRENDA"
-	reward_label.text = "ELIGE UNA — LA OTRA DESAPARECERÁ"
-	if reward_left.has_method("configure_reward"):
-		reward_left.call("configure_reward",_offered_rewards[0])
-	else:
-		reward_left.text = _reward_name(_offered_rewards[0])
-	if reward_right.has_method("configure_reward"):
-		reward_right.call("configure_reward",_offered_rewards[1])
-	else:
-		reward_right.text = _reward_name(_offered_rewards[1])
-	reward_left.visible = true
-	reward_right.visible = true
-	_transition_locked = true
+	reward_label.text = "CAMINA SOBRE UN OBJETO — EL OTRO DESAPARECERÁ"
+	_spawn_reward_pedestal(_offered_rewards[0],room_rect.position+room_rect.size*Vector2(0.38,0.53))
+	_spawn_reward_pedestal(_offered_rewards[1],room_rect.position+room_rect.size*Vector2(0.62,0.53))
+	_transition_locked = false
+
+func _reward_room_key() -> String:
+	return "%d:%d:%d" % [_floor_index,_current_cell.x,_current_cell.y]
+
+func _spawn_reward_pedestal(reward: String, world_position: Vector2) -> void:
+	var pedestal := IsmaelWorldRewardPedestal.new()
+	pedestal.configure_reward(reward,_reward_name(reward))
+	pedestal.position = world_position
+	pedestal.claimed.connect(_on_reward_pedestal_claimed)
+	add_child(pedestal)
 
 func _make_reward_choices() -> Array[String]:
 	var available: Array[String] = []
@@ -308,21 +325,28 @@ func _make_reward_choices() -> Array[String]:
 
 func _reward_name(reward: String) -> String:
 	match reward:
-		"movimiento": return "PASO LIGERO\n+ MOVIMIENTO"
-		"cadencia": return "PULSO RÁPIDO\n+ CADENCIA"
-		"vida": return "CORAZÓN VOTIVO\n+ VIDA MÁXIMA"
-		"curacion": return "VENDA RITUAL\n+ CURACIÓN"
-		"proyectil": return "IMPULSO\n+ VELOCIDAD DE TIRO"
-		"dano": return "MARCA ROJA\n+ DAÑO"
+		"vida": return "CORAZÓN VOTIVO\n+1 VIDA MÁXIMA"
+		"curacion": return "VENDA RITUAL\nCURA 1 CADA 3 SALAS"
+		"movimiento": return "BOTAS GASTADAS\n+ MOVIMIENTO"
+		"cadencia": return "RELOJ ROTO\n+ CADENCIA"
+		"proyectil": return "LÁGRIMA DE VIDRIO\n+ VELOCIDAD DE LÁGRIMA"
+		"dano": return "OJO ROJO\n+ DAÑO"
+		"buscadora": return "OJO DE POLILLA\nLÁGRIMAS BUSCADORAS"
+		"perforante": return "AGUJA HUECA\nLÁGRIMAS PERFORANTES"
+		"escudo": return "ROSARIO DE HIERRO\nBLOQUEA 1 GOLPE POR PISO"
+		"rafaga": return "GUANTE NERVIOSO\nRÁFAGA DE 3 LÁGRIMAS"
+		"mapa": return "MAPA QUEMADO\nREVELA EL PISO"
+		"monedero": return "MONEDERO VIEJO\n+ ECONOMÍA POR SALA"
 		_: return reward
 
-func _choose_reward(index: int) -> void:
-	if index < 0 or index >= _offered_rewards.size():
+func _on_reward_pedestal_claimed(reward: String) -> void:
+	if _room_cleared or not _offered_rewards.has(reward):
 		return
-	var reward: String = _offered_rewards[index]
 	_apply_reward(reward)
 	_last_reward = reward
-	_hide_reward_choices()
+	for pedestal in get_tree().get_nodes_in_group("reward_offerings"):
+		if is_instance_valid(pedestal):
+			pedestal.queue_free()
 	status_label.text = "OFRENDA RECOGIDA"
 	reward_label.text = _reward_name(reward).replace("\n"," — ")
 	_mark_current_room_cleared(false)
@@ -330,18 +354,42 @@ func _choose_reward(index: int) -> void:
 
 func _apply_reward(reward: String) -> void:
 	match reward:
-		"movimiento": player.move_speed += 24.0
-		"cadencia": player.fire_rate = maxf(0.09,player.fire_rate-0.022)
-		"vida": player.add_max_health(1)
-		"curacion": player.heal(3)
-		"proyectil": player.projectile_speed += 120.0
-		"dano": player.projectile_damage += 1
+		"vida":
+			player.add_max_health(1)
+		"curacion":
+			player.room_heal_interval = 3
+			player.heal(1)
+		"movimiento":
+			player.move_speed += 24.0
+		"cadencia":
+			player.fire_rate = maxf(0.09,player.fire_rate-0.022)
+		"proyectil":
+			player.projectile_speed += 120.0
+		"dano":
+			player.projectile_damage += 1
+		"buscadora":
+			player.homing_strength = maxf(player.homing_strength,4.8)
+		"perforante":
+			player.projectile_pierce = maxi(player.projectile_pierce,1)
+		"escudo":
+			player.floor_shield_enabled = true
+			player.refill_floor_shield()
+		"rafaga":
+			player.burst_count = maxi(player.burst_count,3)
+		"mapa":
+			_map_reveal_active = true
+			if _dungeon != null:
+				_dungeon.reveal_public_rooms()
+				_update_minimap()
+		"monedero":
+			_coins += 5
+			_coin_bonus_per_clear = maxi(_coin_bonus_per_clear,1)
+			_update_pickup_hud()
 
 func _hide_reward_choices() -> void:
-	if is_instance_valid(reward_left):
-		reward_left.visible = false
-	if is_instance_valid(reward_right):
-		reward_right.visible = false
+	for pedestal in get_tree().get_nodes_in_group("reward_offerings"):
+		if is_instance_valid(pedestal):
+			pedestal.queue_free()
 
 func _spawn_room_after_entry(generation: int) -> void:
 	await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
@@ -686,14 +734,6 @@ func _create_touch_ui() -> void:
 	reward_label = Label.new()
 	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(reward_label)
-	reward_left = Button.new()
-	reward_left.visible = false
-	reward_left.pressed.connect(_choose_reward.bind(0))
-	layer.add_child(reward_left)
-	reward_right = Button.new()
-	reward_right.visible = false
-	reward_right.pressed.connect(_choose_reward.bind(1))
-	layer.add_child(reward_right)
 	restart_button = Button.new()
 	restart_button.text = "NUEVO RECORRIDO"
 	restart_button.visible = false
@@ -755,11 +795,6 @@ func _layout_touch_ui() -> void:
 	var reward_y_ratio := 0.46 if end_screen_visible else 0.58
 	reward_label.position = Vector2(screen_size.x*0.5-center_width*0.5,screen_size.y*reward_y_ratio)
 	reward_label.size = Vector2(center_width,44.0*ui_scale)
-	var choice_size := Vector2(clampf(screen_size.x*0.22,250.0,350.0),clampf(screen_size.y*0.14,90.0,130.0))
-	reward_left.size = choice_size
-	reward_right.size = choice_size
-	reward_left.position = Vector2(screen_size.x*0.5-choice_size.x-18.0,screen_size.y*0.38)
-	reward_right.position = Vector2(screen_size.x*0.5+18.0,screen_size.y*0.38)
 	restart_button.size = Vector2(280.0,76.0)*ui_scale
 	restart_button.position = Vector2(screen_size.x*0.5-restart_button.size.x*0.5,screen_size.y*(0.62 if end_screen_visible else 0.5))
 	restart_button.add_theme_font_size_override("font_size",small_font)
@@ -844,6 +879,10 @@ func _floor_transition() -> void:
 		return
 	_floor_index += 1
 	_dungeon.generate(_floor_index)
+	if _map_reveal_active:
+		_dungeon.reveal_public_rooms()
+	if is_instance_valid(player) and player.floor_shield_enabled:
+		player.refill_floor_shield()
 	_current_cell = Vector2i.ZERO
 	_begin_room(Vector2i.ZERO)
 
