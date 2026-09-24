@@ -60,6 +60,9 @@ func _draw() -> void:
 			draw_circle(Vector2.ZERO,15.0,Color(0.92,0.67,0.10))
 			draw_circle(Vector2.ZERO,10.0,Color(0.62,0.37,0.045),false,3.0)
 			draw_line(Vector2(-3,-8),Vector2(-3,8),Color(1.0,0.84,0.34,0.62),2.0)
+		_:
+			draw_colored_polygon(PackedVector2Array([Vector2(0,-18),Vector2(18,0),Vector2(0,18),Vector2(-18,0)]),Color(0.70,0.54,0.25))
+			draw_circle(Vector2.ZERO,7.0,Color(0.10,0.08,0.07))
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:

@@ -149,6 +149,7 @@ func _layout_touch_ui() -> void:
 	else:
 		right_stick.position = Vector2(screen_size.x-pad_side-margin_x,screen_size.y-pad_side-margin_bottom)
 	var card_y := 12.0
+	var map_card_y := 54.0
 	var left_card_w := clampf(screen_size.x*0.30,360.0,470.0)
 	var right_card_w := clampf(screen_size.x*0.29,350.0,460.0)
 	var center_card_w := clampf(screen_size.x*0.22,260.0,340.0)
@@ -159,10 +160,10 @@ func _layout_touch_ui() -> void:
 		if _minimap_expanded:
 			var expanded_w := clampf(screen_size.x*0.39,430.0,560.0)
 			var expanded_h := clampf(screen_size.y*0.43,260.0,350.0)
-			hud_right_card.position = Vector2(screen_size.x-expanded_w-14.0,card_y)
+			hud_right_card.position = Vector2(screen_size.x-expanded_w-14.0,map_card_y)
 			hud_right_card.size = Vector2(expanded_w,expanded_h)
 		else:
-			hud_right_card.position = Vector2(screen_size.x-right_card_w-14.0,card_y)
+			hud_right_card.position = Vector2(screen_size.x-right_card_w-14.0,map_card_y)
 			hud_right_card.size = Vector2(right_card_w,82.0)
 	if is_instance_valid(hud_center_card):
 		hud_center_card.position = Vector2(screen_size.x*0.5-center_card_w*0.5,card_y)
@@ -208,8 +209,9 @@ func _layout_touch_ui() -> void:
 	reward_label.size = Vector2(640.0,34.0)
 	reward_label.add_theme_font_size_override("font_size",15)
 	if is_instance_valid(control_edit_button):
-		control_edit_button.size = Vector2(146.0,36.0)
-		control_edit_button.position = Vector2(screen_size.x-160.0,94.0)
+		control_edit_button.size = Vector2(146.0,34.0)
+		control_edit_button.position = Vector2(screen_size.x-160.0,10.0)
+		control_edit_button.z_index = 7
 	if is_instance_valid(boss_hud):
 		var width := clampf(screen_size.x*0.44,500.0,760.0)
 		boss_hud.size = Vector2(width,72.0)
