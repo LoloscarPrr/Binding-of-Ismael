@@ -251,6 +251,56 @@ func _physics_process(delta: float) -> void:
 		return
 	super._physics_process(delta)
 
+func _finish_floor() -> void:
+	super._finish_floor()
+	if _run_complete:
+		_apply_completion_ui()
+
+func _apply_completion_ui() -> void:
+	_minimap_expanded = false
+	_editing_controls = false
+	if is_instance_valid(left_stick):
+		left_stick.reset()
+		left_stick.set_edit_mode(false)
+		left_stick.visible = false
+	if is_instance_valid(right_stick):
+		right_stick.reset()
+		right_stick.set_edit_mode(false)
+		right_stick.visible = false
+	for node in [hud_backdrop,health_hud,pickup_label,minimap_label,floor_label,room_label,hud_left_card,hud_center_card,hud_right_card,minimap_touch_zone,control_edit_button]:
+		if is_instance_valid(node):
+			node.visible = false
+	if is_instance_valid(floor_exit_label):
+		floor_exit_label.visible = false
+	if is_instance_valid(boss_hud):
+		boss_hud.hide_boss()
+	if is_instance_valid(status_label):
+		status_label.visible = true
+		status_label.text = "RECORRIDO COMPLETADO"
+	if is_instance_valid(reward_label):
+		reward_label.visible = true
+		reward_label.text = "ISMAEL SOBREVIVIÓ A LOS GUARDIANES"
+	if is_instance_valid(restart_button):
+		restart_button.visible = true
+	_layout_completion_ui()
+
+func _layout_completion_ui() -> void:
+	var screen_size := get_viewport_rect().size
+	if is_instance_valid(status_label):
+		status_label.position = Vector2(screen_size.x*0.5-360.0,screen_size.y*0.17)
+		status_label.size = Vector2(720.0,56.0)
+		status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		status_label.add_theme_font_size_override("font_size",30)
+	if is_instance_valid(reward_label):
+		reward_label.position = Vector2(screen_size.x*0.5-360.0,screen_size.y*0.27)
+		reward_label.size = Vector2(720.0,42.0)
+		reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		reward_label.add_theme_font_size_override("font_size",18)
+	if is_instance_valid(restart_button):
+		restart_button.size = Vector2(300.0,76.0)
+		restart_button.position = Vector2(screen_size.x*0.5-150.0,screen_size.y*0.56)
+		restart_button.add_theme_font_size_override("font_size",20)
+
 func _toggle_control_edit_mode() -> void:
 	_editing_controls = not _editing_controls
 	left_stick.set_edit_mode(_editing_controls)
@@ -336,6 +386,8 @@ func _on_enemy_defeated(enemy) -> void:
 func _on_viewport_size_changed() -> void:
 	super._on_viewport_size_changed()
 	_sync_room_visual()
+	if _run_complete:
+		_apply_completion_ui()
 
 func _sync_room_visual() -> void:
 	if is_instance_valid(room_visual):
