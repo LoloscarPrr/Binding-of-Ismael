@@ -9,6 +9,8 @@ var hud_left_card: Panel
 var hud_center_card: Panel
 var hud_right_card: Panel
 var minimap_touch_zone: Button
+var _left_touch_zone := Rect2()
+var _right_touch_zone := Rect2()
 var _minimap_expanded := false
 var _editing_controls := false
 var _saved_left_center := Vector2(-1.0,-1.0)
@@ -131,23 +133,52 @@ func _layout_touch_ui() -> void:
 		return
 	var screen_size := get_viewport_rect().size
 	var short_side := minf(screen_size.x,screen_size.y)
-	var pad_side := clampf(short_side*0.40,250.0,326.0)
-	var margin_x := clampf(screen_size.x*0.020,16.0,36.0)
-	var margin_bottom := clampf(screen_size.y*0.014,10.0,22.0)
-	left_stick.size = Vector2(pad_side,pad_side)
-	right_stick.size = left_stick.size
-	left_stick.stick_radius = pad_side*0.34
+	# El área táctil sigue siendo grande, pero el círculo visible queda casi
+	# completamente fuera de la Combat Safe Area.
+	var pad_side := clampf(short_side*0.36,238.0,300.0)
+	var stick_size := Vector2(pad_side,pad_side)
+	left_stick.size = stick_size
+	right_stick.size = stick_size
+	left_stick.stick_radius = pad_side*0.36
 	right_stick.stick_radius = left_stick.stick_radius
-	left_stick.knob_radius = pad_side*0.14
+	left_stick.knob_radius = pad_side*0.155
 	right_stick.knob_radius = left_stick.knob_radius
+
+	var min_center_y := maxf(pad_side*0.5+8.0,room_rect.end.y-pad_side*0.20)
+	var max_center_y := screen_size.y-pad_side*0.5-8.0
+	if max_center_y < min_center_y:
+		min_center_y = max_center_y
+	var left_min_x := pad_side*0.5+8.0
+	var left_max_x := minf(screen_size.x*0.40,room_rect.position.x+pad_side*0.88)
+	var right_min_x := maxf(screen_size.x*0.60,room_rect.end.x-pad_side*0.88)
+	var right_max_x := screen_size.x-pad_side*0.5-8.0
+	_left_touch_zone = Rect2(
+		Vector2(left_min_x,min_center_y),
+		Vector2(maxf(1.0,left_max_x-left_min_x),maxf(1.0,max_center_y-min_center_y))
+	)
+	_right_touch_zone = Rect2(
+		Vector2(right_min_x,min_center_y),
+		Vector2(maxf(1.0,right_max_x-right_min_x),maxf(1.0,max_center_y-min_center_y))
+	)
+	left_stick.set_edit_center_bounds(_left_touch_zone)
+	right_stick.set_edit_center_bounds(_right_touch_zone)
+
 	if _has_saved_center(_saved_left_center):
-		left_stick.position = _position_from_saved_center(_saved_left_center,left_stick.size)
+		left_stick.position = _position_from_saved_center(_saved_left_center,left_stick.size,true)
 	else:
-		left_stick.position = Vector2(margin_x,screen_size.y-pad_side-margin_bottom)
+		var left_center := Vector2(
+			room_rect.position.x+pad_side*0.22,
+			minf(max_center_y,room_rect.end.y+pad_side*0.17)
+		)
+		left_stick.position = _position_from_center(left_center,left_stick.size,true)
 	if _has_saved_center(_saved_right_center):
-		right_stick.position = _position_from_saved_center(_saved_right_center,right_stick.size)
+		right_stick.position = _position_from_saved_center(_saved_right_center,right_stick.size,false)
 	else:
-		right_stick.position = Vector2(screen_size.x-pad_side-margin_x,screen_size.y-pad_side-margin_bottom)
+		var right_center := Vector2(
+			room_rect.end.x-pad_side*0.22,
+			minf(max_center_y,room_rect.end.y+pad_side*0.17)
+		)
+		right_stick.position = _position_from_center(right_center,right_stick.size,false)
 	var card_y := 12.0
 	var map_card_y := 54.0
 	var left_card_w := clampf(screen_size.x*0.30,360.0,470.0)
@@ -307,8 +338,8 @@ func _toggle_control_edit_mode() -> void:
 	right_stick.set_edit_mode(_editing_controls)
 	control_edit_button.text = "GUARDAR" if _editing_controls else "MOVER CONTROLES"
 	if _editing_controls:
-		status_label.text = "ARRASTRA LOS STICKS A DONDE QUIERAS"
-		reward_label.text = "Pulsa GUARDAR cuando termines"
+		status_label.text = "AJUSTA LOS STICKS EN LAS ZONAS INFERIORES"
+		reward_label.text = "El centro del combate queda protegido · pulsa GUARDAR al terminar"
 	else:
 		_store_control_centers()
 		_save_control_layout()
@@ -318,6 +349,7 @@ func _toggle_control_edit_mode() -> void:
 func _on_control_layout_changed() -> void:
 	if not _editing_controls:
 		return
+	_clamp_sticks_to_touch_zones()
 	_store_control_centers()
 	_save_control_layout()
 
@@ -348,12 +380,28 @@ func _apply_saved_control_positions() -> void:
 func _has_saved_center(center: Vector2) -> bool:
 	return center.x >= 0.0 and center.x <= 1.0 and center.y >= 0.0 and center.y <= 1.0
 
-func _position_from_saved_center(center: Vector2, control_size: Vector2) -> Vector2:
+func _position_from_saved_center(center: Vector2, control_size: Vector2, is_left: bool) -> Vector2:
 	var screen_size := get_viewport_rect().size
-	var pos := center*screen_size-control_size*0.5
+	return _position_from_center(center*screen_size,control_size,is_left)
+
+func _position_from_center(center: Vector2, control_size: Vector2, is_left: bool) -> Vector2:
+	var zone := _left_touch_zone if is_left else _right_touch_zone
+	if zone.size.x > 0.0 and zone.size.y > 0.0:
+		center.x = clampf(center.x,zone.position.x,zone.end.x)
+		center.y = clampf(center.y,zone.position.y,zone.end.y)
+	var screen_size := get_viewport_rect().size
+	var pos := center-control_size*0.5
 	pos.x = clampf(pos.x,0.0,maxf(0.0,screen_size.x-control_size.x))
 	pos.y = clampf(pos.y,0.0,maxf(0.0,screen_size.y-control_size.y))
 	return pos
+
+func _clamp_sticks_to_touch_zones() -> void:
+	if is_instance_valid(left_stick):
+		var center := left_stick.position+left_stick.size*0.5
+		left_stick.position = _position_from_center(center,left_stick.size,true)
+	if is_instance_valid(right_stick):
+		var center := right_stick.position+right_stick.size*0.5
+		right_stick.position = _position_from_center(center,right_stick.size,false)
 
 func _update_minimap() -> void:
 	if not is_instance_valid(minimap_label) or _dungeon == null:

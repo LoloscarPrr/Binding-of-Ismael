@@ -5,6 +5,9 @@ const ROOM_ENTRY_DELAY := 0.65
 const FLOOR_TRANSITION_DELAY := 1.35
 const ENEMY_ACTIVATION_DELAY := 0.70
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
+const COMBAT_SIDE_RATIO := 0.085
+const COMBAT_TOP_RATIO := 0.155
+const COMBAT_BOTTOM_EDGE_RATIO := 0.75
 const REWARD_POOL: Array[String] = [
 	"vida","curacion","movimiento","cadencia","proyectil","dano",
 	"buscadora","perforante","escudo","rafaga","mapa","monedero"
@@ -906,10 +909,14 @@ func _on_viewport_size_changed() -> void:
 
 func _update_room_rect() -> void:
 	var s := get_viewport_rect().size
-	var side := clampf(s.x*0.035,30.0,64.0)
-	var top := clampf(s.y*0.14,100.0,128.0)
-	var bottom := clampf(s.y*0.055,28.0,50.0)
-	room_rect = Rect2(Vector2(side,top),Vector2(maxf(1.0,s.x-side*2.0),maxf(1.0,s.y-top-bottom)))
+	# Phase 3.7A: el combate vive en un rectángulo central y deja
+	# márgenes reales para pulgares, sticks y el HUD móvil.
+	var side := clampf(s.x*COMBAT_SIDE_RATIO,88.0,190.0)
+	var top := clampf(s.y*COMBAT_TOP_RATIO,108.0,150.0)
+	var bottom_edge := clampf(s.y*COMBAT_BOTTOM_EDGE_RATIO,top+340.0,s.y-165.0)
+	var width := maxf(1.0,s.x-side*2.0)
+	var height := maxf(1.0,bottom_edge-top)
+	room_rect = Rect2(Vector2(side,top),Vector2(width,height))
 
 func _on_player_health_changed(current: int,maximum: int) -> void:
 	if is_instance_valid(health_hud):

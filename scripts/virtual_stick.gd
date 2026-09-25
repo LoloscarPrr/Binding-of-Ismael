@@ -16,6 +16,7 @@ var _touch_id := -1
 var _default_center := Vector2.ZERO
 var _edit_mode := false
 var _drag_offset := Vector2.ZERO
+var _edit_center_bounds := Rect2()
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -43,6 +44,9 @@ func set_edit_mode(enabled: bool) -> void:
 	_edit_mode = enabled
 	reset()
 	queue_redraw()
+
+func set_edit_center_bounds(bounds: Rect2) -> void:
+	_edit_center_bounds = bounds
 
 func handle_touch(event: InputEvent) -> bool:
 	if _edit_mode:
@@ -73,8 +77,13 @@ func _handle_edit_touch(event: InputEvent) -> bool:
 	elif event is InputEventScreenDrag and event.index == _touch_id:
 		var screen_size := get_viewport_rect().size
 		var new_pos: Vector2 = event.position - _drag_offset
-		new_pos.x = clampf(new_pos.x, 0.0, maxf(0.0, screen_size.x - size.x))
-		new_pos.y = clampf(new_pos.y, 0.0, maxf(0.0, screen_size.y - size.y))
+		var new_center := new_pos+size*0.5
+		if _edit_center_bounds.size.x > 0.0 and _edit_center_bounds.size.y > 0.0:
+			new_center.x = clampf(new_center.x,_edit_center_bounds.position.x,_edit_center_bounds.end.x)
+			new_center.y = clampf(new_center.y,_edit_center_bounds.position.y,_edit_center_bounds.end.y)
+			new_pos = new_center-size*0.5
+		new_pos.x = clampf(new_pos.x,0.0,maxf(0.0,screen_size.x-size.x))
+		new_pos.y = clampf(new_pos.y,0.0,maxf(0.0,screen_size.y-size.y))
 		position = new_pos
 		queue_redraw()
 		return true
