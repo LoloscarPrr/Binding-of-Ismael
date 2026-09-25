@@ -9,6 +9,7 @@ var hud_left_card: Panel
 var hud_center_card: Panel
 var hud_right_card: Panel
 var minimap_touch_zone: Button
+var combat_side_hud: IsmaelCombatSideHud
 var _left_touch_zone := Rect2()
 var _right_touch_zone := Rect2()
 var _minimap_expanded := false
@@ -44,6 +45,10 @@ func _create_touch_ui() -> void:
 	boss_hud = IsmaelBossHud.new()
 	layer.add_child(boss_hud)
 	_create_hud_cards(layer)
+	combat_side_hud = IsmaelCombatSideHud.new()
+	combat_side_hud.configure(self,player)
+	combat_side_hud.z_index = -1
+	layer.add_child(combat_side_hud)
 	minimap_touch_zone = Button.new()
 	minimap_touch_zone.text = ""
 	minimap_touch_zone.flat = true
@@ -96,6 +101,11 @@ func _polish_hud() -> void:
 	hud_backdrop.add_theme_stylebox_override("panel",hud_style)
 	if is_instance_valid(hud_left_card):
 		hud_left_card.add_theme_stylebox_override("panel",_hud_card_style(Color(0.44,0.25,0.16,0.64)))
+		hud_left_card.visible = false
+	if is_instance_valid(health_hud):
+		health_hud.visible = false
+	if is_instance_valid(pickup_label):
+		pickup_label.visible = false
 	if is_instance_valid(hud_center_card):
 		hud_center_card.add_theme_stylebox_override("panel",_hud_card_style(Color(0.54,0.39,0.20,0.58)))
 	if is_instance_valid(hud_right_card):
@@ -179,6 +189,9 @@ func _layout_touch_ui() -> void:
 			minf(max_center_y,room_rect.end.y+pad_side*0.17)
 		)
 		right_stick.position = _position_from_center(right_center,right_stick.size,false)
+	if is_instance_valid(combat_side_hud):
+		combat_side_hud.visible = not _run_complete
+		combat_side_hud.set_layout(room_rect,screen_size)
 	var card_y := 12.0
 	var map_card_y := 54.0
 	var left_card_w := clampf(screen_size.x*0.30,360.0,470.0)
@@ -298,7 +311,7 @@ func _apply_completion_ui() -> void:
 		right_stick.reset()
 		right_stick.set_edit_mode(false)
 		right_stick.visible = false
-	for node in [hud_backdrop,health_hud,pickup_label,minimap_label,floor_label,room_label,hud_left_card,hud_center_card,hud_right_card,minimap_touch_zone,control_edit_button]:
+	for node in [hud_backdrop,health_hud,pickup_label,minimap_label,floor_label,room_label,hud_left_card,hud_center_card,hud_right_card,minimap_touch_zone,control_edit_button,combat_side_hud]:
 		if is_instance_valid(node):
 			node.visible = false
 	if is_instance_valid(floor_exit_label):
