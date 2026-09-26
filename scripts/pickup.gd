@@ -3,11 +3,16 @@ class_name IsmaelPickup
 
 signal collected(kind: String)
 
+const AssetRegistry = preload("res://src/infrastructure/assets/asset_registry.gd")
+
 var kind := "coin"
 var _age := 0.0
+var _sprite: Sprite2D
+var _uses_asset := false
 
 func configure(kind_value: String) -> void:
 	kind = kind_value
+	_refresh_asset()
 	queue_redraw()
 
 func _ready() -> void:
@@ -21,12 +26,23 @@ func _ready() -> void:
 	circle.radius = 22.0
 	collision.shape = circle
 	add_child(collision)
+	_sprite = Sprite2D.new()
+	_sprite.z_index = 2
+	add_child(_sprite)
+	_refresh_asset()
 	body_entered.connect(_on_body_entered)
 	set_process(true)
 	queue_redraw()
 
+func _refresh_asset() -> void:
+	if not is_instance_valid(_sprite):
+		return
+	_uses_asset = AssetRegistry.configure_sprite(_sprite,"pickup",kind,52.0)
+
 func _process(delta: float) -> void:
 	_age += delta
+	if is_instance_valid(_sprite):
+		_sprite.position = Vector2(0,sin(_age*3.4)*3.5)
 	queue_redraw()
 
 func _on_body_entered(body: Node) -> void:
@@ -39,6 +55,8 @@ func _draw() -> void:
 	var pulse := 0.5+0.5*sin(_age*4.2)
 	draw_ellipse(Vector2(0,20),Vector2(22,7),Color(0,0,0,0.30))
 	draw_circle(Vector2(0,bob),27.0+2.0*pulse,Color(0.92,0.69,0.22,0.045+0.035*pulse))
+	if _uses_asset:
+		return
 	draw_set_transform(Vector2(0,bob),0.0,Vector2.ONE)
 	match kind:
 		"heart":

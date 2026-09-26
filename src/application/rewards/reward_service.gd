@@ -33,4 +33,6 @@ func apply(reward_id: String, player: Node, inventory) -> Dictionary:
 			inventory.coin_bonus_per_clear = maxi(int(inventory.coin_bonus_per_clear),1)
 		_:
 			result["changed"] = false
+	if is_instance_valid(player) and player.has_method("sync_domain_state_from_runtime"):
+		player.call("sync_domain_state_from_runtime")
 	return result
