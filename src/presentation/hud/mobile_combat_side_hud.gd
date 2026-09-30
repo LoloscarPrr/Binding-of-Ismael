@@ -8,13 +8,21 @@ func set_layout(rect: Rect2, screen_size: Vector2) -> void:
 	viewport_size = screen_size
 	position = Vector2.ZERO
 	size = screen_size
-	var outer_gap := clampf(screen_size.x*0.0045,5.0,8.0)
-	var left_width := maxf(82.0,rect.position.x-outer_gap*2.0)
-	var right_width := maxf(82.0,screen_size.x-rect.end.x-outer_gap*2.0)
-	var panel_y := rect.position.y+6.0
-	var panel_h := maxf(190.0,rect.size.y-12.0)
-	left_panel = Rect2(Vector2(outer_gap,panel_y),Vector2(left_width,panel_h))
-	right_panel = Rect2(Vector2(rect.end.x+outer_gap,panel_y),Vector2(right_width,panel_h))
+
+	# Keep the side columns narrow and centered inside the real exterior gutters.
+	# On ultra-wide Redmi layouts the extra width remains breathing room instead of
+	# stretching VIDA / STATS into oversized panels.
+	var left_gutter := maxf(1.0,rect.position.x)
+	var right_gutter := maxf(1.0,screen_size.x-rect.end.x)
+	var left_width := clampf(left_gutter-20.0,112.0,184.0)
+	var right_width := clampf(right_gutter-20.0,112.0,184.0)
+	var left_x := maxf(6.0,(left_gutter-left_width)*0.5)
+	var right_x := rect.end.x+maxf(6.0,(right_gutter-right_width)*0.5)
+	var panel_inset_y := clampf(rect.size.y*0.035,12.0,22.0)
+	var panel_y := rect.position.y+panel_inset_y
+	var panel_h := maxf(190.0,rect.size.y-panel_inset_y*2.0)
+	left_panel = Rect2(Vector2(left_x,panel_y),Vector2(left_width,panel_h))
+	right_panel = Rect2(Vector2(right_x,panel_y),Vector2(right_width,panel_h))
 	queue_redraw()
 
 func _draw() -> void:

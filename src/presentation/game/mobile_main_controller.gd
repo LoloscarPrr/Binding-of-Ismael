@@ -8,8 +8,6 @@ const ControlLayoutRepository = preload("res://src/infrastructure/persistence/co
 const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 const MobileCombatSideHud = preload("res://src/presentation/hud/mobile_combat_side_hud.gd")
 
-const MOBILE_COMBAT_FRAME_SCALE := 0.80
-
 var _clean_inventory = RunInventory.new()
 var _economy_service = EconomyService.new(_clean_inventory)
 var _reward_service = RewardService.new()
@@ -46,7 +44,7 @@ func _polish_hud() -> void:
 	if is_instance_valid(minimap_label):
 		minimap_label.modulate.a = 1.0 if _minimap_expanded else 0.54
 	if is_instance_valid(hud_center_card):
-		hud_center_card.modulate.a = 0.86
+		hud_center_card.modulate.a = 0.88
 
 func _top_map_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -59,20 +57,29 @@ func _top_map_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_right = 8
 	return style
 
-# Presentation owns the Mobile Combat Frame dimensions. The inherited gameplay
-# systems continue consuming room_rect exactly as before; only the visible safe
-# frame is uniformly reduced and moved slightly upward to free exterior HUD and
-# thumb space without changing combat rules.
+# Presentation owns the mobile combat viewport geometry. The gameplay systems
+# keep consuming the same room_rect contract, while this controller reserves
+# real exterior space for side HUD, thumbs and the lower run-information shelf.
 func _update_room_rect() -> void:
-	super._update_room_rect()
 	var screen_size := get_viewport_rect().size
 	if screen_size.x <= 1.0 or screen_size.y <= 1.0:
+		room_rect = Rect2()
 		return
-	var base_rect := room_rect
-	var framed_size := base_rect.size*MOBILE_COMBAT_FRAME_SCALE
-	var framed_center := base_rect.get_center()
-	framed_center.y -= clampf(screen_size.y*0.011,7.0,12.0)
-	room_rect = Rect2(framed_center-framed_size*0.5,framed_size)
+
+	var top_edge := clampf(screen_size.y*0.09,60.0,86.0)
+	var bottom_reserved := clampf(screen_size.y*0.30,205.0,250.0)
+	var bottom_edge := screen_size.y-bottom_reserved
+	var combat_height := maxf(1.0,bottom_edge-top_edge)
+
+	# Keep substantial gutters at 1280x720, while aspect-limiting the room on
+	# wider Redmi-class screens so extra width becomes useful HUD space.
+	var minimum_gutter := clampf(screen_size.x*0.14,184.0,340.0)
+	var available_width := maxf(1.0,screen_size.x-minimum_gutter*2.0)
+	var preferred_width := screen_size.x*0.74
+	var aspect_limited_width := combat_height*2.65
+	var combat_width := minf(available_width,minf(preferred_width,aspect_limited_width))
+	var left_edge := screen_size.x*0.5-combat_width*0.5
+	room_rect = Rect2(Vector2(left_edge,top_edge),Vector2(combat_width,combat_height))
 
 func _layout_touch_ui() -> void:
 	super._layout_touch_ui()
@@ -82,33 +89,33 @@ func _layout_touch_ui() -> void:
 	if screen_size.x <= 1.0 or screen_size.y <= 1.0:
 		return
 
-	# Legacy cards no longer own resources or the minimap. The dedicated side HUD
-	# occupies the exterior margins of the Mobile Combat Frame.
+	# The old cards stay hidden. The dedicated side HUD owns the vertical gutters.
 	if is_instance_valid(hud_left_card):
 		hud_left_card.visible = false
 	if is_instance_valid(hud_right_card):
 		hud_right_card.visible = false
 
-	# Bottom thumb zones: keep the visible sticks entirely outside room_rect while
-	# preserving persisted positions by clamping them into the new safe zones.
+	# Lower control shelf. Both complete Control rects live below room_rect, so
+	# fingers, stick rims and knobs never cover the combat floor or doors.
 	if is_instance_valid(left_stick) and is_instance_valid(right_stick):
 		var short_side := minf(screen_size.x,screen_size.y)
-		var pad_side := clampf(short_side*0.295,204.0,248.0)
+		var pad_side := clampf(short_side*0.265,186.0,216.0)
 		var stick_size := Vector2(pad_side,pad_side)
 		left_stick.size = stick_size
 		right_stick.size = stick_size
-		left_stick.stick_radius = pad_side*0.385
+		left_stick.stick_radius = pad_side*0.355
 		right_stick.stick_radius = left_stick.stick_radius
-		left_stick.knob_radius = pad_side*0.17
+		left_stick.knob_radius = pad_side*0.155
 		right_stick.knob_radius = left_stick.knob_radius
 
-		var min_center_y := room_rect.end.y+left_stick.stick_radius+12.0
+		var min_center_y := maxf(room_rect.end.y+pad_side*0.5+10.0,pad_side*0.5+8.0)
 		var max_center_y := screen_size.y-pad_side*0.5-8.0
 		if max_center_y < min_center_y:
 			min_center_y = max_center_y
+
 		var left_min_x := pad_side*0.5+8.0
-		var left_max_x := minf(screen_size.x*0.36,room_rect.position.x+pad_side*0.45)
-		var right_min_x := maxf(screen_size.x*0.64,room_rect.end.x-pad_side*0.45)
+		var left_max_x := maxf(left_min_x,screen_size.x*0.34)
+		var right_min_x := minf(screen_size.x-pad_side*0.5-8.0,screen_size.x*0.66)
 		var right_max_x := screen_size.x-pad_side*0.5-8.0
 		_left_touch_zone = Rect2(
 			Vector2(left_min_x,min_center_y),
@@ -124,59 +131,73 @@ func _layout_touch_ui() -> void:
 		if _has_saved_center(_saved_left_center):
 			left_stick.position = _position_from_saved_center(_saved_left_center,left_stick.size,true)
 		else:
-			var left_center_x := clampf(room_rect.position.x*0.56,left_min_x,left_max_x)
-			left_stick.position = _position_from_center(Vector2(left_center_x,max_center_y),left_stick.size,true)
+			var left_center := Vector2(
+				clampf(room_rect.position.x+pad_side*0.34,left_min_x,left_max_x),
+				max_center_y
+			)
+			left_stick.position = _position_from_center(left_center,left_stick.size,true)
 		if _has_saved_center(_saved_right_center):
 			right_stick.position = _position_from_saved_center(_saved_right_center,right_stick.size,false)
 		else:
-			var right_center_x := clampf(screen_size.x-room_rect.position.x*0.56,right_min_x,right_max_x)
-			right_stick.position = _position_from_center(Vector2(right_center_x,max_center_y),right_stick.size,false)
+			var right_center := Vector2(
+				clampf(room_rect.end.x-pad_side*0.34,right_min_x,right_max_x),
+				max_center_y
+			)
+			right_stick.position = _position_from_center(right_center,right_stick.size,false)
 
 	if is_instance_valid(combat_side_hud):
 		combat_side_hud.visible = not _run_complete
 		combat_side_hud.set_layout(room_rect,screen_size)
 
-	# One coherent top strip: PISO/SALA | compact minimap | MOVER CONTROLES.
-	var top_y := 7.0
-	var gap := clampf(screen_size.x*0.009,10.0,14.0)
+	# PISO / SALA now belongs to the lower shelf between both sticks, exactly where
+	# the thumbs do not need to travel. This frees the top edge for context + map.
+	var run_card_w := clampf(room_rect.size.x*0.40,300.0,390.0)
+	var run_card_h := 58.0
+	var run_card_y := minf(screen_size.y-run_card_h-18.0,room_rect.end.y+62.0)
+	var run_card_x := screen_size.x*0.5-run_card_w*0.5
+	if is_instance_valid(hud_center_card):
+		hud_center_card.position = Vector2(run_card_x,run_card_y)
+		hud_center_card.size = Vector2(run_card_w,run_card_h)
+		hud_center_card.visible = not _run_complete
+
+	var half_run := run_card_w*0.5
+	room_label.position = Vector2(run_card_x+8.0,run_card_y+16.0)
+	room_label.size = Vector2(half_run-12.0,30.0)
+	floor_label.position = Vector2(run_card_x+half_run+4.0,run_card_y+16.0)
+	floor_label.size = Vector2(half_run-12.0,30.0)
+	room_label.add_theme_font_size_override("font_size",18)
+	floor_label.add_theme_font_size_override("font_size",18)
+	room_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	floor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	# Top strip: contextual text on the left/center, horizontal minimap on the
+	# upper-right edge of the combat frame, and MOVER CONTROLES in the outer gutter.
+	var top_y := 6.0
 	var button_w := 152.0
 	var button_h := 36.0
 	var button_x := screen_size.x-button_w-14.0
-	var info_w := clampf(screen_size.x*0.215,250.0,310.0)
-	var compact_map_w := clampf(screen_size.x*0.30,320.0,430.0)
-	var compact_map_h := clampf(screen_size.y*0.088,58.0,66.0)
-	var compact_group_w := info_w+gap+compact_map_w
-	var group_shift := clampf(screen_size.x*0.035,32.0,56.0)
-	var group_x := screen_size.x*0.5-compact_group_w*0.5-group_shift
-	group_x = clampf(group_x,14.0,maxf(14.0,button_x-gap-compact_group_w))
-	var map_x := group_x+info_w+gap
-
-	if is_instance_valid(hud_center_card):
-		hud_center_card.position = Vector2(group_x,top_y+9.0)
-		hud_center_card.size = Vector2(info_w,44.0)
-		hud_center_card.visible = not _run_complete
-
-	var half_info := info_w*0.5
-	floor_label.position = Vector2(group_x+8.0,top_y+18.0)
-	floor_label.size = Vector2(half_info-12.0,26.0)
-	room_label.position = Vector2(group_x+half_info+4.0,top_y+18.0)
-	room_label.size = Vector2(half_info-12.0,26.0)
-	floor_label.add_theme_font_size_override("font_size",16)
-	room_label.add_theme_font_size_override("font_size",16)
+	var compact_map_w := clampf(room_rect.size.x*0.38,300.0,420.0)
+	var compact_map_h := clampf(screen_size.y*0.075,52.0,58.0)
+	var compact_map_x := room_rect.end.x-compact_map_w
 
 	var map_w := compact_map_w
 	var map_h := compact_map_h
+	var map_x := compact_map_x
 	if _minimap_expanded:
-		var available_w := maxf(1.0,button_x-gap-map_x)
-		map_w = minf(clampf(screen_size.x*0.46,500.0,720.0),available_w)
-		map_h = clampf(screen_size.y*0.30,200.0,270.0)
+		map_w = clampf(screen_size.x*0.46,500.0,720.0)
+		map_w = minf(map_w,maxf(300.0,room_rect.size.x*0.78))
+		map_h = clampf(screen_size.y*0.30,210.0,285.0)
+		map_x = room_rect.end.x-map_w
+	map_x = minf(map_x,button_x-map_w-12.0)
+	map_x = maxf(12.0,map_x)
+
 	hud_top_map_card.position = Vector2(map_x,top_y)
 	hud_top_map_card.size = Vector2(map_w,map_h)
 	hud_top_map_card.visible = not _run_complete
 	hud_top_map_card.modulate.a = 0.96 if _minimap_expanded else 0.46
 
-	minimap_label.position = hud_top_map_card.position+Vector2(8.0,6.0)
-	minimap_label.size = hud_top_map_card.size-Vector2(16.0,12.0)
+	minimap_label.position = hud_top_map_card.position+Vector2(8.0,5.0)
+	minimap_label.size = hud_top_map_card.size-Vector2(16.0,10.0)
 	minimap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	minimap_label.add_theme_font_size_override("font_size",17 if _minimap_expanded else 10)
@@ -194,26 +215,26 @@ func _layout_touch_ui() -> void:
 		control_edit_button.position = Vector2(button_x,top_y+10.0)
 		control_edit_button.z_index = 7
 
-	# Dedicated contextual band below the top strip. It ends before room_rect, so
-	# SALA LIMPIA, room names and subtitles can never land over the top doorway.
-	var compact_band_bottom := top_y+compact_map_h
-	var status_y := maxf(compact_band_bottom+7.0,room_rect.position.y-58.0)
-	var context_w := clampf(room_rect.size.x*0.66,460.0,640.0)
-	var context_x := screen_size.x*0.5-context_w*0.5
-	if _minimap_expanded:
-		context_w = maxf(300.0,map_x-28.0)
-		context_x = 14.0
-	status_label.position = Vector2(context_x,status_y)
+	# Reserved message lane above the room. It is physically outside room_rect,
+	# therefore SALA LIMPIA, SANTUARIO OCULTO and subtitles cannot cover the door.
+	var context_x := room_rect.position.x+10.0
+	var context_right := map_x-14.0
+	var context_w := maxf(250.0,context_right-context_x)
+	if context_x+context_w > map_x-8.0:
+		context_w = maxf(220.0,map_x-context_x-12.0)
+	status_label.position = Vector2(context_x,top_y+2.0)
 	status_label.size = Vector2(context_w,27.0)
-	status_label.add_theme_font_size_override("font_size",19)
-	reward_label.position = Vector2(context_x,status_y+27.0)
-	reward_label.size = Vector2(context_w,22.0)
-	reward_label.add_theme_font_size_override("font_size",13)
+	status_label.add_theme_font_size_override("font_size",18 if not _minimap_expanded else 16)
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reward_label.position = Vector2(context_x,top_y+29.0)
+	reward_label.size = Vector2(context_w,21.0)
+	reward_label.add_theme_font_size_override("font_size",12)
+	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	if is_instance_valid(boss_hud):
 		var boss_width := clampf(room_rect.size.x*0.58,430.0,620.0)
-		boss_hud.size = Vector2(boss_width,58.0)
-		boss_hud.position = Vector2(screen_size.x*0.5-boss_width*0.5,minf(screen_size.y-66.0,room_rect.end.y+10.0))
+		boss_hud.size = Vector2(boss_width,46.0)
+		boss_hud.position = Vector2(screen_size.x*0.5-boss_width*0.5,room_rect.end.y+7.0)
 
 func _apply_completion_ui() -> void:
 	super._apply_completion_ui()
