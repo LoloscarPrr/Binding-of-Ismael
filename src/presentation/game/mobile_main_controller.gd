@@ -95,8 +95,9 @@ func _layout_touch_ui() -> void:
 	if is_instance_valid(hud_right_card):
 		hud_right_card.visible = false
 
-	# Lower control shelf. Both complete Control rects live below room_rect, so
-	# fingers, stick rims and knobs never cover the combat floor or doors.
+	# The default layout still starts in the lower shelf, but edit mode is fully
+	# free: either stick may be dragged anywhere on screen. The only constraint is
+	# keeping the complete Control rect inside the physical viewport.
 	if is_instance_valid(left_stick) and is_instance_valid(right_stick):
 		var short_side := minf(screen_size.x,screen_size.y)
 		var pad_side := clampf(short_side*0.265,186.0,216.0)
@@ -108,40 +109,35 @@ func _layout_touch_ui() -> void:
 		left_stick.knob_radius = pad_side*0.155
 		right_stick.knob_radius = left_stick.knob_radius
 
-		var min_center_y := maxf(room_rect.end.y+pad_side*0.5+10.0,pad_side*0.5+8.0)
-		var max_center_y := screen_size.y-pad_side*0.5-8.0
-		if max_center_y < min_center_y:
-			min_center_y = max_center_y
-
-		var left_min_x := pad_side*0.5+8.0
-		var left_max_x := maxf(left_min_x,screen_size.x*0.34)
-		var right_min_x := minf(screen_size.x-pad_side*0.5-8.0,screen_size.x*0.66)
-		var right_max_x := screen_size.x-pad_side*0.5-8.0
-		_left_touch_zone = Rect2(
-			Vector2(left_min_x,min_center_y),
-			Vector2(maxf(1.0,left_max_x-left_min_x),maxf(1.0,max_center_y-min_center_y))
+		var free_min := Vector2(pad_side*0.5+4.0,pad_side*0.5+4.0)
+		var free_max := Vector2(
+			screen_size.x-pad_side*0.5-4.0,
+			screen_size.y-pad_side*0.5-4.0
 		)
-		_right_touch_zone = Rect2(
-			Vector2(right_min_x,min_center_y),
-			Vector2(maxf(1.0,right_max_x-right_min_x),maxf(1.0,max_center_y-min_center_y))
-		)
-		left_stick.set_edit_center_bounds(_left_touch_zone)
-		right_stick.set_edit_center_bounds(_right_touch_zone)
+		var free_zone := Rect2(free_min,Vector2(
+			maxf(1.0,free_max.x-free_min.x),
+			maxf(1.0,free_max.y-free_min.y)
+		))
+		_left_touch_zone = free_zone
+		_right_touch_zone = free_zone
+		left_stick.set_edit_center_bounds(free_zone)
+		right_stick.set_edit_center_bounds(free_zone)
 
+		var default_y := free_max.y
 		if _has_saved_center(_saved_left_center):
 			left_stick.position = _position_from_saved_center(_saved_left_center,left_stick.size,true)
 		else:
 			var left_center := Vector2(
-				clampf(room_rect.position.x+pad_side*0.34,left_min_x,left_max_x),
-				max_center_y
+				clampf(room_rect.position.x+pad_side*0.34,free_min.x,free_max.x),
+				default_y
 			)
 			left_stick.position = _position_from_center(left_center,left_stick.size,true)
 		if _has_saved_center(_saved_right_center):
 			right_stick.position = _position_from_saved_center(_saved_right_center,right_stick.size,false)
 		else:
 			var right_center := Vector2(
-				clampf(room_rect.end.x-pad_side*0.34,right_min_x,right_max_x),
-				max_center_y
+				clampf(room_rect.end.x-pad_side*0.34,free_min.x,free_max.x),
+				default_y
 			)
 			right_stick.position = _position_from_center(right_center,right_stick.size,false)
 
