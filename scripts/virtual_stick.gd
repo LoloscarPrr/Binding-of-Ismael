@@ -9,6 +9,7 @@ signal layout_changed
 @export var response_curve := 1.15
 @export var smoothing_speed := 22.0
 @export var floating_origin := false
+@export var visual_scale := 1.16
 
 var value := Vector2.ZERO
 var _target_value := Vector2.ZERO
@@ -112,13 +113,16 @@ func _draw() -> void:
 	var base_alpha := 0.15 if not _edit_mode else 0.25
 	var rim_alpha := 0.18 if not _edit_mode else 0.42
 	var knob_alpha := 0.30 + active_strength * 0.22
-	draw_circle(center + Vector2(0,5), stick_radius + 8.0, Color(0.0,0.0,0.0,0.18))
-	draw_circle(center, stick_radius, Color(0.82,0.84,0.86,base_alpha))
-	draw_arc(center, stick_radius, 0.0, TAU, 64, Color(0.92,0.93,0.94,rim_alpha), 3.0)
-	draw_circle(center + value * stick_radius, knob_radius + 4.0, Color(0.0,0.0,0.0,0.22))
-	draw_circle(center + value * stick_radius, knob_radius, Color(0.92,0.93,0.94,knob_alpha))
-	draw_arc(center + value * stick_radius, knob_radius, 0.0, TAU, 48, Color(1.0,1.0,1.0,0.24 + active_strength*0.22), 2.5)
+	var visual_stick_radius := stick_radius * visual_scale
+	var visual_knob_radius := knob_radius * visual_scale
+	var visual_offset := value * visual_stick_radius
+	draw_circle(center + Vector2(0,5), visual_stick_radius + 8.0, Color(0.0,0.0,0.0,0.18))
+	draw_circle(center, visual_stick_radius, Color(0.82,0.84,0.86,base_alpha))
+	draw_arc(center, visual_stick_radius, 0.0, TAU, 64, Color(0.92,0.93,0.94,rim_alpha), 3.0)
+	draw_circle(center + visual_offset, visual_knob_radius + 4.0, Color(0.0,0.0,0.0,0.22))
+	draw_circle(center + visual_offset, visual_knob_radius, Color(0.92,0.93,0.94,knob_alpha))
+	draw_arc(center + visual_offset, visual_knob_radius, 0.0, TAU, 48, Color(1.0,1.0,1.0,0.24 + active_strength*0.22), 2.5)
 	if _edit_mode:
-		draw_arc(center, stick_radius + 15.0, 0.0, TAU, 48, Color(1.0,0.76,0.32,0.62), 4.0)
-		draw_line(center + Vector2(-24,0), center + Vector2(24,0), Color(1.0,0.76,0.32,0.46), 2.0)
-		draw_line(center + Vector2(0,-24), center + Vector2(0,24), Color(1.0,0.76,0.32,0.46), 2.0)
+		draw_arc(center, visual_stick_radius + 15.0, 0.0, TAU, 48, Color(1.0,0.76,0.32,0.62), 4.0)
+		draw_line(center + Vector2(-24,0)*visual_scale, center + Vector2(24,0)*visual_scale, Color(1.0,0.76,0.32,0.46), 2.0)
+		draw_line(center + Vector2(0,-24)*visual_scale, center + Vector2(0,24)*visual_scale, Color(1.0,0.76,0.32,0.46), 2.0)
