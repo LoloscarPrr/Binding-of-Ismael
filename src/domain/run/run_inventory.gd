@@ -24,6 +24,15 @@ func spend_coins(amount: int) -> bool:
 	coins -= amount
 	return true
 
+func can_spend_keys(amount: int) -> bool:
+	return amount >= 0 and keys >= amount
+
+func spend_keys(amount: int) -> bool:
+	if not can_spend_keys(amount):
+		return false
+	keys -= amount
+	return true
+
 func snapshot() -> Dictionary:
 	return {
 		"coins":coins,

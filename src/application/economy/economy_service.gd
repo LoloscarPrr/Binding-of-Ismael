@@ -33,3 +33,6 @@ func grant_room_clear() -> int:
 
 func spend_coins(amount: int) -> bool:
 	return inventory.spend_coins(amount)
+
+func spend_keys(amount: int) -> bool:
+	return inventory.spend_keys(amount)

@@ -1,12 +1,13 @@
 extends RefCounted
 class_name IsmaelRoomLootState
 
-# Run-scoped domain state for physical pickups that have spawned but have not
-# been collected yet. Presentation can rebuild the corresponding scene nodes
-# whenever the player re-enters a room without duplicating rewards.
+# Run-scoped domain state for physical pickups and room chests. Presentation
+# rebuilds scene nodes from this state whenever the player re-enters a room.
 
 var _pending_by_room: Dictionary = {}
+var _chest_by_room: Dictionary = {}
 var _next_pickup_id := 1
+var _next_chest_id := 1
 
 func register_pickup(room_key: String, kind: String, ratio: Vector2) -> int:
 	var pickup_id := _next_pickup_id
@@ -42,3 +43,41 @@ func consume_pickup(room_key: String, pickup_id: int) -> void:
 
 func has_pending_pickups(room_key: String) -> bool:
 	return not pending_pickups(room_key).is_empty()
+
+func register_chest(room_key: String, chest_kind: String, ratio: Vector2) -> int:
+	if _chest_by_room.has(room_key):
+		var existing: Dictionary = _chest_by_room[room_key]
+		return int(existing.get("id",-1))
+	var chest_id := _next_chest_id
+	_next_chest_id += 1
+	_chest_by_room[room_key] = {
+		"id":chest_id,
+		"kind":chest_kind,
+		"ratio":ratio,
+		"opened":false,
+		"loot_spawned":false
+	}
+	return chest_id
+
+func has_chest(room_key: String) -> bool:
+	return _chest_by_room.has(room_key)
+
+func chest_state(room_key: String) -> Dictionary:
+	if not _chest_by_room.has(room_key):
+		return {}
+	var state: Dictionary = _chest_by_room[room_key]
+	return state.duplicate(true)
+
+func mark_chest_opened(room_key: String) -> void:
+	if not _chest_by_room.has(room_key):
+		return
+	var state: Dictionary = _chest_by_room[room_key]
+	state["opened"] = true
+	_chest_by_room[room_key] = state
+
+func mark_chest_loot_spawned(room_key: String) -> void:
+	if not _chest_by_room.has(room_key):
+		return
+	var state: Dictionary = _chest_by_room[room_key]
+	state["loot_spawned"] = true
+	_chest_by_room[room_key] = state
