@@ -1,17 +1,82 @@
 extends "res://src/presentation/game/mobile_main_controller.gd"
 
-# Presentation-only control customization layer.
-# Keeps gameplay and domain/application logic untouched while allowing each
-# virtual stick to have an independent position and size on mobile.
+const RoomLootState = preload("res://src/domain/run/room_loot_state.gd")
+
+# Presentation-only control customization layer plus reconstruction of physical
+# room pickups from run-scoped domain state. Gameplay rewards are still applied
+# by the inherited application/economy services.
 
 var _saved_left_size_ratio := -1.0
 var _saved_right_size_ratio := -1.0
+var _room_loot_state = RoomLootState.new()
 
 func _create_touch_ui() -> void:
 	super._create_touch_ui()
 	if is_instance_valid(control_edit_button):
 		control_edit_button.text = "EDITAR CONTROLES"
 		control_edit_button.add_theme_font_size_override("font_size",14)
+
+func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
+	super._begin_room(entry_direction)
+	_restore_pending_room_pickups()
+
+func _spawn_pickup_at(kind: String,ratio: Vector2) -> void:
+	var room_key := _loot_room_key()
+	var pickup_id := _room_loot_state.register_pickup(room_key,kind,ratio)
+	_spawn_tracked_pickup(kind,ratio,room_key,pickup_id)
+
+func _spawn_clear_pickup() -> void:
+	if _room_kind in ["inicio","recompensa","tienda"]:
+		return
+	var kind := "coin"
+	if _room_kind == "jefe":
+		kind = "key"
+	else:
+		match (_rooms_cleared_total+_floor_index)%4:
+			0: kind = "heart"
+			1: kind = "coin"
+			2: kind = "bomb"
+			3: kind = "key"
+	_spawn_pickup_at(kind,Vector2(0.50,0.60))
+
+func _spawn_tracked_pickup(kind: String,ratio: Vector2,room_key: String,pickup_id: int) -> void:
+	var pickup := IsmaelPickup.new()
+	pickup.configure(kind)
+	pickup.position = room_rect.position+room_rect.size*ratio
+	pickup.set_meta("room_loot_room_key",room_key)
+	pickup.set_meta("room_loot_id",pickup_id)
+	pickup.collected.connect(_on_persistent_pickup_collected.bind(room_key,pickup_id))
+	add_child(pickup)
+
+func _restore_pending_room_pickups() -> void:
+	if _dungeon == null:
+		return
+	var room_key := _loot_room_key()
+	var live_ids: Dictionary = {}
+	for node in get_tree().get_nodes_in_group("room_pickups"):
+		if not is_instance_valid(node) or node.is_queued_for_deletion():
+			continue
+		if String(node.get_meta("room_loot_room_key","")) != room_key:
+			continue
+		live_ids[int(node.get_meta("room_loot_id",-1))] = true
+	for entry_variant in _room_loot_state.pending_pickups(room_key):
+		var entry: Dictionary = entry_variant
+		var pickup_id := int(entry.get("id",-1))
+		if live_ids.has(pickup_id):
+			continue
+		_spawn_tracked_pickup(
+			String(entry.get("kind","coin")),
+			entry.get("ratio",Vector2(0.50,0.60)),
+			room_key,
+			pickup_id
+		)
+
+func _on_persistent_pickup_collected(kind: String,room_key: String,pickup_id: int) -> void:
+	_room_loot_state.consume_pickup(room_key,pickup_id)
+	_on_pickup_collected(kind)
+
+func _loot_room_key() -> String:
+	return "%d:%d:%d" % [_floor_index,_current_cell.x,_current_cell.y]
 
 func _layout_touch_ui() -> void:
 	super._layout_touch_ui()
