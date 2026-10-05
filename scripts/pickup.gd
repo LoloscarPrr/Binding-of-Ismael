@@ -54,7 +54,10 @@ func _draw() -> void:
 	var bob := sin(_age*3.4)*3.5
 	var pulse := 0.5+0.5*sin(_age*4.2)
 	draw_ellipse(Vector2(0,20),Vector2(22,7),Color(0,0,0,0.30))
-	draw_circle(Vector2(0,bob),27.0+2.0*pulse,Color(0.92,0.69,0.22,0.045+0.035*pulse))
+	var glow := Color(0.92,0.69,0.22,0.045+0.035*pulse)
+	if kind == "soul":
+		glow = Color(0.30,0.72,1.0,0.08+0.05*pulse)
+	draw_circle(Vector2(0,bob),27.0+2.0*pulse,glow)
 	if _uses_asset:
 		return
 	draw_set_transform(Vector2(0,bob),0.0,Vector2.ONE)
@@ -64,6 +67,13 @@ func _draw() -> void:
 			draw_circle(Vector2(8,-4),10.0,Color(0.84,0.05,0.08))
 			draw_colored_polygon(PackedVector2Array([Vector2(-17,1),Vector2(17,1),Vector2(0,22)]),Color(0.78,0.035,0.06))
 			draw_circle(Vector2(-7,-7),3.0,Color(1.0,0.65,0.62,0.72))
+		"soul":
+			var soul := Color(0.25,0.66,0.96)
+			draw_circle(Vector2(-8,-4),10.0,soul)
+			draw_circle(Vector2(8,-4),10.0,soul)
+			draw_colored_polygon(PackedVector2Array([Vector2(-17,1),Vector2(17,1),Vector2(0,22)]),soul.darkened(0.08))
+			draw_circle(Vector2(-7,-7),3.0,Color(0.84,0.96,1.0,0.82))
+			draw_arc(Vector2(0,1),24.0,0.0,TAU,24,Color(0.48,0.84,1.0,0.50),2.5)
 		"key":
 			draw_circle(Vector2(-8,0),10.0,Color(0.88,0.74,0.34),false,5.0)
 			draw_line(Vector2(2,0),Vector2(21,0),Color(0.88,0.74,0.34),6.0)
@@ -74,6 +84,11 @@ func _draw() -> void:
 			draw_arc(Vector2.ZERO,15.0,0.0,TAU,24,Color(0.36,0.38,0.42),3.0)
 			draw_line(Vector2(8,-11),Vector2(16,-21),Color(0.52,0.32,0.14),4.0)
 			draw_circle(Vector2(18,-23),3.5,Color(0.92,0.40,0.08))
+		"coin5":
+			draw_circle(Vector2.ZERO,18.0,Color(0.96,0.72,0.12))
+			draw_circle(Vector2.ZERO,13.0,Color(0.68,0.41,0.05),false,3.5)
+			draw_line(Vector2(-4,-10),Vector2(-4,10),Color(1.0,0.90,0.44,0.72),2.5)
+			draw_string(ThemeDB.fallback_font,Vector2(-5,6),"5",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(0.30,0.18,0.03))
 		"coin":
 			draw_circle(Vector2.ZERO,15.0,Color(0.92,0.67,0.10))
 			draw_circle(Vector2.ZERO,10.0,Color(0.62,0.37,0.045),false,3.0)
