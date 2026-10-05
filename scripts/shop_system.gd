@@ -1,6 +1,7 @@
 extends Node
 
 const ShopItemScript = preload("res://scripts/shop_item.gd")
+const ShopConsumableItemScript = preload("res://scripts/shop_consumable_item.gd")
 const ItemCatalog = preload("res://src/domain/items/item_catalog.gd")
 const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 
@@ -42,33 +43,50 @@ func _prepare_shop(scene: Node, floor_index: int, shop_key: String) -> void:
 		status_label.text = "TIENDA DEL ERRANTE"
 	var reward_label = scene.get("reward_label")
 	if is_instance_valid(reward_label):
-		reward_label.text = "Acércate a un objeto para comprarlo"
+		reward_label.text = "Mejoras arriba · recursos abajo · camina sobre un objeto para comprar"
 	_spawn_shop_items(scene,floor_index,shop_key)
 	scene.queue_redraw()
 
 func _spawn_shop_items(scene: Node, floor_index: int, shop_key: String) -> void:
 	var room_rect: Rect2 = scene.get("room_rect")
 	var stock: Array[Dictionary] = ItemCatalog.shop_stock(floor_index)
-	var x_slots: Array[float] = [0.31,0.50,0.69]
+	var slots: Array[Vector2] = [
+		Vector2(0.28,0.35),Vector2(0.50,0.35),Vector2(0.72,0.35),
+		Vector2(0.28,0.66),Vector2(0.50,0.66),Vector2(0.72,0.66)
+	]
 	for i in stock.size():
+		if i >= slots.size():
+			break
 		var item_key := "%s:%d" % [shop_key,i]
 		if bool(_sold_items.get(item_key,false)):
 			continue
 		var data: Dictionary = stock[i]
-		var item = ShopItemScript.new()
-		var reward_id := String(data["reward"])
-		item.configure(reward_id,int(data["cost"]),String(data["name"]))
-		item.position = room_rect.position+room_rect.size*Vector2(x_slots[i],0.47)
-		item.purchase_requested.connect(_on_purchase_requested.bind(item_key))
-		ItemAssetView.attach(item,"reward",reward_id,66.0,Vector2(0,-7),3)
+		var item_type := String(data.get("type","reward"))
+		var item_id := String(data.get("reward",""))
+		var item = ShopConsumableItemScript.new() if item_type=="pickup" else ShopItemScript.new()
+		item.configure(item_id,int(data["cost"]),String(data["name"]))
+		item.position = room_rect.position+room_rect.size*slots[i]
+		item.purchase_requested.connect(_on_purchase_requested.bind(item_key,item_type,item_id))
+		ItemAssetView.attach(item,item_type,item_id,60.0,Vector2(0,-7),3)
 		scene.add_child(item)
 
-func _on_purchase_requested(item, item_key: String) -> void:
+func _on_purchase_requested(item, item_key: String, item_type: String, item_id: String) -> void:
 	if not is_instance_valid(item) or item.sold:
 		return
 	var scene := get_tree().current_scene
 	if not is_instance_valid(scene):
 		return
+
+	# Un corazón de tienda cura; no debe cobrar si Ismael ya está a vida completa.
+	if item_type=="pickup" and item_id=="heart" and not _player_needs_health(scene):
+		var full_status = scene.get("status_label")
+		if is_instance_valid(full_status):
+			full_status.text = "VIDA LLENA"
+		var full_reward = scene.get("reward_label")
+		if is_instance_valid(full_reward):
+			full_reward.text = "No gastaste monedas · vuelve si recibes daño"
+		return
+
 	var coins := _scene_coin_count(scene)
 	if coins<int(item.cost):
 		var missing := int(item.cost)-coins
@@ -80,8 +98,14 @@ func _on_purchase_requested(item, item_key: String) -> void:
 	if not _spend_scene_coins(scene,int(item.cost)):
 		item.show_unaffordable()
 		return
-	if scene.has_method("_apply_reward"):
-		scene.call("_apply_reward",String(item.reward_id))
+
+	if item_type=="pickup":
+		if scene.has_method("_on_pickup_collected"):
+			scene.call("_on_pickup_collected",item_id)
+	else:
+		if scene.has_method("_apply_reward"):
+			scene.call("_apply_reward",item_id)
+
 	_sold_items[item_key] = true
 	item.mark_sold()
 	var status_label = scene.get("status_label")
@@ -89,10 +113,25 @@ func _on_purchase_requested(item, item_key: String) -> void:
 		status_label.text = "COMPRA REALIZADA"
 	var reward_label = scene.get("reward_label")
 	if is_instance_valid(reward_label):
-		var reward_name := String(item.display_name)
-		if scene.has_method("_reward_name"):
-			reward_name = String(scene.call("_reward_name",String(item.reward_id))).replace("\n"," — ")
-		reward_label.text = "%s   ·   QUEDAN ¢ %d" % [reward_name,_scene_coin_count(scene)]
+		var purchase_name := String(item.display_name)
+		if item_type=="reward" and scene.has_method("_reward_name"):
+			purchase_name = String(scene.call("_reward_name",item_id)).replace("\n"," — ")
+		elif item_type=="pickup":
+			purchase_name = _pickup_purchase_text(item_id)
+		reward_label.text = "%s   ·   QUEDAN ¢ %d" % [purchase_name,_scene_coin_count(scene)]
+
+func _player_needs_health(scene: Node) -> bool:
+	var player = scene.get("player")
+	if not is_instance_valid(player):
+		return true
+	return int(player.get("health")) < int(player.get("max_health"))
+
+func _pickup_purchase_text(item_id: String) -> String:
+	match item_id:
+		"heart": return "CORAZÓN — VIDA RECUPERADA"
+		"bomb": return "BOMBA — +1 BOMBA"
+		"key": return "LLAVE — +1 LLAVE"
+		_: return ItemCatalog.pickup_name(item_id)
 
 func _scene_coin_count(scene: Node) -> int:
 	if scene.has_method("get_run_coins"):

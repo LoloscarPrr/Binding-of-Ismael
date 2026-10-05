@@ -45,14 +45,29 @@ static func reward_full_name(id: String) -> String:
 	var effect := String(definition.get("effect",""))
 	return title if effect.is_empty() else "%s\n%s" % [title,effect]
 
+static func pickup_definition(id: String) -> Dictionary:
+	if PICKUPS.has(id):
+		return Dictionary(PICKUPS[id]).duplicate(true)
+	return {"title":id.to_upper()}
+
+static func pickup_name(id: String) -> String:
+	return String(pickup_definition(id).get("title",id.to_upper()))
+
 static func shop_stock(floor_index: int) -> Array[Dictionary]:
 	var stock: Array[Dictionary] = []
 	if floor_index <= 1:
-		stock.append({"reward":"curacion","cost":4,"name":"VENDA"})
-		stock.append({"reward":"cadencia","cost":6,"name":"RELOJ"})
-		stock.append({"reward":"monedero","cost":8,"name":"MONEDERO"})
+		stock.append({"type":"reward","reward":"curacion","cost":4,"name":"VENDA"})
+		stock.append({"type":"reward","reward":"cadencia","cost":6,"name":"RELOJ"})
+		stock.append({"type":"reward","reward":"monedero","cost":8,"name":"MONEDERO"})
 	else:
-		stock.append({"reward":"movimiento","cost":5,"name":"BOTAS"})
-		stock.append({"reward":"perforante","cost":7,"name":"AGUJA"})
-		stock.append({"reward":"escudo","cost":9,"name":"ROSARIO"})
+		stock.append({"type":"reward","reward":"movimiento","cost":5,"name":"BOTAS"})
+		stock.append({"type":"reward","reward":"perforante","cost":7,"name":"AGUJA"})
+		stock.append({"type":"reward","reward":"escudo","cost":9,"name":"ROSARIO"})
+
+	# Consumibles básicos: un puesto de cada tipo por tienda y por piso.
+	# Los precios son deliberadamente menores que los objetos permanentes para
+	# que comprar recursos sea una decisión útil durante una run, no un lujo.
+	stock.append({"type":"pickup","reward":"heart","cost":3,"name":"CORAZÓN"})
+	stock.append({"type":"pickup","reward":"bomb","cost":3,"name":"BOMBA"})
+	stock.append({"type":"pickup","reward":"key","cost":4,"name":"LLAVE"})
 	return stock
