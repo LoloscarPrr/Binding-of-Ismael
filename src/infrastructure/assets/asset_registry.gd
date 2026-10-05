@@ -17,7 +17,15 @@ const ITEM_TEXTURES := {
 	"reward:escudo":"res://assets/items/rewards/rosary.svg",
 	"reward:rafaga":"res://assets/items/rewards/glove.svg",
 	"reward:mapa":"res://assets/items/rewards/map.svg",
-	"reward:monedero":"res://assets/items/rewards/purse.svg"
+	"reward:monedero":"res://assets/items/rewards/purse.svg",
+	"reward:doble":"res://assets/items/rewards/tear.svg",
+	"reward:carne":"res://assets/items/pickups/heart.svg",
+	"reward:adrenalina":"res://assets/items/rewards/boots.svg",
+	"reward:lente":"res://assets/items/rewards/red_eye.svg",
+	"reward:alma":"res://assets/items/rewards/rosary.svg",
+	"reward:polvora":"res://assets/items/pickups/bomb.svg",
+	"reward:llavero":"res://assets/items/pickups/key.svg",
+	"reward:fortuna":"res://assets/items/rewards/purse.svg"
 }
 
 static func texture_for(category: String, item_id: String) -> Texture2D:
