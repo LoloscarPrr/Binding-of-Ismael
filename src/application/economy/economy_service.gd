@@ -18,12 +18,22 @@ func collect_pickup(kind: String, player: Node) -> bool:
 		"coin":
 			inventory.add_coins(1)
 			return true
+		"coin5":
+			inventory.add_coins(5)
+			return true
 		"bomb":
 			inventory.add_bombs(1)
 			return true
 		"key":
 			inventory.add_keys(1)
 			return true
+		"soul":
+			if is_instance_valid(player):
+				player.set("floor_shield_charges",int(player.get("floor_shield_charges"))+1)
+				if player.has_method("sync_domain_state_from_runtime"):
+					player.call("sync_domain_state_from_runtime")
+				player.queue_redraw()
+				return true
 	return false
 
 func grant_room_clear() -> int:
