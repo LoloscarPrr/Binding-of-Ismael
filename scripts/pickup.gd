@@ -87,8 +87,8 @@ func _draw() -> void:
 		"coin5":
 			draw_circle(Vector2.ZERO,18.0,Color(0.96,0.72,0.12))
 			draw_circle(Vector2.ZERO,13.0,Color(0.68,0.41,0.05),false,3.5)
-			draw_line(Vector2(-4,-10),Vector2(-4,10),Color(1.0,0.90,0.44,0.72),2.5)
-			draw_string(ThemeDB.fallback_font,Vector2(-5,6),"5",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(0.30,0.18,0.03))
+			draw_circle(Vector2.ZERO,7.0,Color(0.96,0.76,0.18),false,2.5)
+			draw_line(Vector2(-5,-10),Vector2(-5,10),Color(1.0,0.90,0.44,0.72),2.5)
 		"coin":
 			draw_circle(Vector2.ZERO,15.0,Color(0.92,0.67,0.10))
 			draw_circle(Vector2.ZERO,10.0,Color(0.62,0.37,0.045),false,3.0)
