@@ -7,12 +7,21 @@ const COLLISION_RADIUS := 31.0
 
 var rock_id := -1
 var variant := 0
+var contains_loot := false
 var _destroyed := false
 var _collision: CollisionShape2D
 
-func configure(id_value: int, visual_variant: int = 0) -> void:
+func configure(
+	id_value: int,
+	visual_variant: int = 0,
+	loot_hint: bool = false,
+	size_scale: float = 1.0
+) -> void:
 	rock_id = id_value
 	variant = posmod(visual_variant,3)
+	contains_loot = loot_hint
+	var resolved_scale := clampf(size_scale,0.84,1.18)
+	scale = Vector2(resolved_scale,resolved_scale)
 
 func _ready() -> void:
 	add_to_group("room_rocks")
@@ -29,7 +38,7 @@ func _ready() -> void:
 func blast_hit(blast_center: Vector2, blast_radius: float) -> bool:
 	if _destroyed:
 		return false
-	var effective_radius := blast_radius+COLLISION_RADIUS*0.45
+	var effective_radius := blast_radius+COLLISION_RADIUS*scale.x*0.45
 	if global_position.distance_to(blast_center) > effective_radius:
 		return false
 	_destroyed = true
@@ -73,6 +82,14 @@ func _draw() -> void:
 	draw_line(Vector2(5,3),Vector2(16,9),light,2.4)
 	draw_line(Vector2(-17,4),Vector2(-7,11),Color(0.16,0.14,0.13),2.0)
 	draw_circle(Vector2(-12,-15),4.0,Color(light.r,light.g,light.b,0.28))
+	if contains_loot:
+		# A subtle warm mineral vein hints that this rock may be worth bombing.
+		# It is intentionally readable without guaranteeing a specific drop type.
+		var glow := 0.62+sin(Time.get_ticks_msec()*0.004+float(rock_id))*0.16
+		draw_line(Vector2(-14,-4),Vector2(-4,2),Color(0.92,0.64,0.24,glow),2.6)
+		draw_line(Vector2(-4,2),Vector2(5,-2),Color(0.92,0.64,0.24,glow),2.6)
+		draw_line(Vector2(5,-2),Vector2(13,5),Color(0.92,0.64,0.24,glow),2.2)
+		draw_circle(Vector2(10,-14),2.5,Color(1.0,0.82,0.38,0.72))
 
 func draw_ellipse(center: Vector2, radii: Vector2, color: Color) -> void:
 	var points := PackedVector2Array()
