@@ -31,6 +31,26 @@ func apply(reward_id: String, player: Node, inventory) -> Dictionary:
 		"monedero":
 			inventory.add_coins(5)
 			inventory.coin_bonus_per_clear = maxi(int(inventory.coin_bonus_per_clear),1)
+		"doble":
+			player.set("burst_count",maxi(int(player.get("burst_count")),2))
+		"carne":
+			player.call("add_max_health",2)
+		"adrenalina":
+			player.set("move_speed",float(player.get("move_speed"))+36.0)
+			player.set("fire_rate",maxf(0.085,float(player.get("fire_rate"))-0.016))
+		"lente":
+			player.set("projectile_damage",int(player.get("projectile_damage"))+1)
+			player.set("projectile_speed",float(player.get("projectile_speed"))+90.0)
+		"alma":
+			player.set("floor_shield_enabled",true)
+			player.set("floor_shield_charges",int(player.get("floor_shield_charges"))+2)
+		"polvora":
+			inventory.add_bombs(5)
+		"llavero":
+			inventory.add_keys(3)
+		"fortuna":
+			inventory.add_coins(8)
+			inventory.coin_bonus_per_clear = maxi(int(inventory.coin_bonus_per_clear),2)
 		_:
 			result["changed"] = false
 	if is_instance_valid(player) and player.has_method("sync_domain_state_from_runtime"):
