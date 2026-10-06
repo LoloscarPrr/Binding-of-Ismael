@@ -67,7 +67,7 @@ func _on_body_entered(body: Node) -> void:
 		if _hit_ids.has(body_id):
 			return
 		_hit_ids[body_id] = true
-		body.take_damage(damage)
+		body.take_damage(damage,global_position)
 		if pierce_remaining > 0:
 			pierce_remaining -= 1
 			return
