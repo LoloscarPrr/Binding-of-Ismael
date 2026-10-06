@@ -23,6 +23,8 @@ var _dash_timer := 0.0
 var _dash_direction := Vector2.ZERO
 var _orbit_sign := 1.0
 var _hit_flash := 0.0
+var _impact_velocity := Vector2.ZERO
+var _hit_recoil := 0.0
 var _difficulty := 1
 var _attack_cooldown := 1.0
 var _attack_windup := 0.0
@@ -69,6 +71,8 @@ func configure(enemy_kind: EnemyKind, floor_index: int) -> void:
 func _physics_process(delta: float) -> void:
 	_age += delta
 	_hit_flash = maxf(0.0, _hit_flash - delta)
+	_hit_recoil = maxf(0.0,_hit_recoil-delta)
+	_impact_velocity = _impact_velocity.move_toward(Vector2.ZERO,1750.0*delta)
 	if spawn_grace_time > 0.0:
 		spawn_grace_time = maxf(0.0, spawn_grace_time - delta)
 		velocity = Vector2.ZERO
@@ -115,7 +119,8 @@ func _physics_process(delta: float) -> void:
 		speed_multiplier = 2.4
 	if _attack_windup > 0.0:
 		speed_multiplier *= 0.22
-	velocity = steering.normalized() * speed * speed_multiplier if steering.length() > 0.01 else Vector2.ZERO
+	var locomotion := steering.normalized() * speed * speed_multiplier if steering.length() > 0.01 else Vector2.ZERO
+	velocity = locomotion+_impact_velocity
 	move_and_slide()
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider()
@@ -134,11 +139,17 @@ func clamp_to_bounds() -> void:
 	position.x = clampf(position.x, movement_bounds.position.x + radius, movement_bounds.position.x + movement_bounds.size.x - radius)
 	position.y = clampf(position.y, movement_bounds.position.y + radius, movement_bounds.position.y + movement_bounds.size.y - radius)
 
-func take_damage(amount: int) -> void:
+func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	if health <= 0:
 		return
 	health -= amount
-	_hit_flash = 0.11
+	_hit_flash = 0.15
+	_hit_recoil = 0.12
+	if source_position != Vector2.ZERO:
+		var away := source_position.direction_to(global_position)
+		if away.length_squared()>0.01:
+			var impulse := 235.0 if kind != EnemyKind.BOSS else 105.0
+			_impact_velocity += away.normalized()*impulse
 	health_changed.emit(maxi(health, 0), max_health)
 	queue_redraw()
 	if health <= 0:
