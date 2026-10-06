@@ -3,7 +3,7 @@ extends Node2D
 const TOTAL_FLOORS := 2
 const ROOM_ENTRY_DELAY := 0.65
 const FLOOR_TRANSITION_DELAY := 1.35
-const ENEMY_ACTIVATION_DELAY := 0.70
+const ENEMY_ACTIVATION_DELAY := 0.88
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
 const COMBAT_SIDE_RATIO := 0.085
 const COMBAT_TOP_RATIO := 0.155
@@ -604,7 +604,7 @@ func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
 		slots.append(slots.pop_front())
 	var result: Array[Vector2] = []
 	var minimum_separation: float = maxf(105.0,minf(room_rect.size.x,room_rect.size.y)*MIN_ENEMY_SEPARATION_RATIO)
-	var player_safe_radius: float = maxf(room_rect.size.y*0.36,250.0)
+	var player_safe_radius: float = maxf(room_rect.size.y*0.42,280.0)
 	for ratio: Vector2 in slots:
 		if result.size() >= count:
 			break
