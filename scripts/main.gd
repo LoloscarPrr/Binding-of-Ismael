@@ -395,6 +395,15 @@ func _hide_reward_choices() -> void:
 			pedestal.queue_free()
 
 func _spawn_room_after_entry(generation: int) -> void:
+	if _room_kind not in ["jefe","minijefe","desafio"]:
+		status_label.text = "OBSERVA LA SALA"
+		reward_label.text = "Los enemigos aparecerán antes de activarse"
+	elif _room_kind == "desafio":
+		reward_label.text = "Prepárate para la primera oleada"
+	elif _room_kind == "minijefe":
+		reward_label.text = "Lee su movimiento antes de entrar"
+	elif _room_kind == "jefe":
+		reward_label.text = "El guardián anunciará cada ataque peligroso"
 	await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 	if generation != _spawn_generation or _game_over:
 		return
@@ -412,6 +421,7 @@ func _spawn_room_after_entry(generation: int) -> void:
 			count = mini(count+2,9)
 		_spawn_enemy_pack(count,depth)
 	_transition_locked = false
+	reward_label.text = ""
 	if _room_kind == "jefe":
 		status_label.text = "GUARDIÁN"
 	elif _room_kind == "minijefe":
