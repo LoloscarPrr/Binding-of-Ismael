@@ -13,7 +13,9 @@ const BODY_RADIUS := 28.0
 @export var invulnerability_time := 0.75
 @export var projectile_speed := 760.0
 @export var projectile_damage := 1
-@export var contact_knockback := 430.0
+@export var contact_knockback := 460.0
+@export var movement_acceleration := 2350.0
+@export var movement_deceleration := 3100.0
 
 var homing_strength := 0.0
 var projectile_pierce := 0
@@ -31,6 +33,8 @@ var _state = PlayerState.new()
 var _shoot_cooldown := 0.0
 var _invulnerability := 0.0
 var _knockback_velocity := Vector2.ZERO
+var _movement_velocity := Vector2.ZERO
+var _damage_recoil := 0.0
 var _last_aim := Vector2.RIGHT
 var _shoot_pose := 0.0
 var _visual_recoil := 0.0
@@ -86,8 +90,12 @@ func _physics_process(delta: float) -> void:
 	_invulnerability = maxf(0.0,_invulnerability-delta)
 	_shoot_pose = maxf(0.0,_shoot_pose-delta)
 	_visual_recoil = move_toward(_visual_recoil,0.0,70.0*delta)
-	_knockback_velocity = _knockback_velocity.move_toward(Vector2.ZERO,1250.0*delta)
-	velocity = move_input.limit_length(1.0)*move_speed+_knockback_velocity
+	_damage_recoil = maxf(0.0,_damage_recoil-delta)
+	_knockback_velocity = _knockback_velocity.move_toward(Vector2.ZERO,1500.0*delta)
+	var desired_movement := move_input.limit_length(1.0)*move_speed
+	var movement_rate := movement_acceleration if desired_movement.length_squared()>0.01 else movement_deceleration
+	_movement_velocity = _movement_velocity.move_toward(desired_movement,movement_rate*delta)
+	velocity = _movement_velocity+_knockback_velocity
 	move_and_slide()
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider()
@@ -156,12 +164,14 @@ func take_damage(amount: int) -> void:
 		return
 	_sync_runtime_from_domain()
 	_invulnerability = invulnerability_time
+	_damage_recoil = 0.16
 	health_changed.emit(health,max_health)
 	if _state.is_defeated():
 		is_dead = true
 		move_input = Vector2.ZERO
 		aim_input = Vector2.ZERO
 		velocity = Vector2.ZERO
+		_movement_velocity = Vector2.ZERO
 		_knockback_velocity = Vector2.ZERO
 		died.emit()
 
@@ -199,7 +209,9 @@ func reset_health() -> void:
 	_state.reset_health()
 	_sync_runtime_from_domain()
 	_invulnerability = 0.0
+	_movement_velocity = Vector2.ZERO
 	_knockback_velocity = Vector2.ZERO
+	_damage_recoil = 0.0
 	health_changed.emit(health,max_health)
 
 func _draw() -> void:
@@ -207,7 +219,12 @@ func _draw() -> void:
 	var moving_strength := clampf(velocity.length()/maxf(move_speed,1.0),0.0,1.0)
 	var bob := sin(_anim_time*10.0)*1.8*moving_strength
 	var visual_offset := -_last_aim*_visual_recoil+Vector2(0,bob)
-	var pose_scale := Vector2(1.0+0.025*pose_strength,1.0-0.035*pose_strength)
+	var damage_strength := clampf(_damage_recoil/0.16,0.0,1.0)
+	var pose_scale := Vector2(
+		1.0+0.025*pose_strength+0.07*damage_strength,
+		1.0-0.035*pose_strength-0.06*damage_strength
+	)
+	visual_offset += -_last_aim*(3.0*damage_strength)
 	draw_set_transform(visual_offset,_last_aim.x*0.018*pose_strength,pose_scale)
 	var skin := Color(0.82,0.69,0.61)
 	var skin_shadow := Color(0.60,0.44,0.38)
