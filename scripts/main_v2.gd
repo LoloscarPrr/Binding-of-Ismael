@@ -38,8 +38,12 @@ func _create_touch_ui() -> void:
 	var layer := hud_backdrop.get_parent()
 	left_stick.floating_origin = false
 	right_stick.floating_origin = false
-	left_stick.smoothing_speed = 24.0
-	right_stick.smoothing_speed = 27.0
+	left_stick.deadzone = 0.045
+	right_stick.deadzone = 0.045
+	left_stick.response_curve = 0.92
+	right_stick.response_curve = 0.90
+	left_stick.smoothing_speed = 34.0
+	right_stick.smoothing_speed = 38.0
 	left_stick.layout_changed.connect(_on_control_layout_changed)
 	right_stick.layout_changed.connect(_on_control_layout_changed)
 	boss_hud = IsmaelBossHud.new()
