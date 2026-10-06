@@ -1,6 +1,8 @@
 extends CharacterBody2D
 class_name IsmaelEnemy
 
+const CombatBurst = preload("res://scripts/combat_burst.gd")
+
 signal defeated(enemy)
 signal health_changed(current: int, maximum: int)
 
@@ -89,14 +91,16 @@ func _physics_process(delta: float) -> void:
 		EnemyKind.DASHER:
 			_dash_timer -= delta
 			if _dash_timer <= 0.0:
-				_dash_timer = 1.55
+				_dash_timer = 1.65
 				_dash_direction = to_player
-			if _dash_timer > 1.15:
-				desired = _dash_direction * 2.6
-			elif _dash_timer < 0.35:
+			if _dash_timer > 1.30:
+				desired = Vector2.ZERO
+			elif _dash_timer > 0.55:
+				desired = _dash_direction * 2.8
+			elif _dash_timer < 0.22:
 				desired = Vector2.ZERO
 			else:
-				desired = to_player * 0.35
+				desired = to_player * 0.25
 		EnemyKind.ORBITER:
 			var tangent := Vector2(-to_player.y, to_player.x) * _orbit_sign
 			var distance := global_position.distance_to(target.global_position)
@@ -115,8 +119,11 @@ func _physics_process(delta: float) -> void:
 			separation += offset.normalized() * (1.0 - distance / SEPARATION_DISTANCE)
 	var steering := desired + separation * 1.2
 	var speed_multiplier := 1.0
-	if kind == EnemyKind.DASHER and _dash_timer > 1.15:
-		speed_multiplier = 2.4
+	if kind == EnemyKind.DASHER:
+		if _dash_timer > 1.30:
+			speed_multiplier = 0.0
+		elif _dash_timer > 0.55:
+			speed_multiplier = 2.55
 	if _attack_windup > 0.0:
 		speed_multiplier *= 0.22
 	var locomotion := steering.normalized() * speed * speed_multiplier if steering.length() > 0.01 else Vector2.ZERO
@@ -153,8 +160,17 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	health_changed.emit(maxi(health, 0), max_health)
 	queue_redraw()
 	if health <= 0:
+		_spawn_death_feedback()
 		defeated.emit(self)
 		queue_free()
+
+func _spawn_death_feedback() -> void:
+	if not is_inside_tree():
+		return
+	var burst := CombatBurst.new()
+	burst.configure(kind == EnemyKind.BOSS)
+	get_tree().current_scene.add_child(burst)
+	burst.global_position = global_position
 
 func _update_attack(delta: float) -> void:
 	if kind != EnemyKind.ORBITER and kind != EnemyKind.BOSS:
@@ -212,6 +228,16 @@ func _spawn_enemy_shot(shot_direction: Vector2, shot_speed: float, shot_variant:
 	projectile.global_position = global_position + shot_direction.normalized() * spawn_distance
 
 func _draw_attack_telegraph() -> void:
+	if spawn_grace_time > 0.0:
+		var grace_progress := 1.0-clampf(spawn_grace_time/0.88,0.0,1.0)
+		var spawn_radius := lerpf(48.0,31.0,grace_progress)
+		draw_arc(Vector2.ZERO,spawn_radius,0.0,TAU,32,Color(0.96,0.74,0.24,0.32+grace_progress*0.55),4.0)
+		draw_circle(Vector2.ZERO,5.0+grace_progress*4.0,Color(1.0,0.76,0.28,0.18+grace_progress*0.28))
+	if kind == EnemyKind.DASHER and _dash_timer > 1.30 and _dash_direction.length_squared()>0.01:
+		var charge_progress := clampf((1.65-_dash_timer)/0.35,0.0,1.0)
+		var line_length := lerpf(58.0,92.0,charge_progress)
+		draw_line(Vector2.ZERO,_dash_direction.normalized()*line_length,Color(1.0,0.34,0.10,0.48+charge_progress*0.42),5.0)
+		draw_arc(Vector2.ZERO,35.0+charge_progress*5.0,0.0,TAU,28,Color(1.0,0.26,0.08,0.38+charge_progress*0.42),4.0)
 	if _attack_windup <= 0.0 or _attack_windup_total <= 0.0:
 		return
 	var progress: float = 1.0 - _attack_windup / _attack_windup_total
@@ -268,9 +294,10 @@ func _draw_dasher(flash: bool) -> void:
 	draw_ellipse(Vector2(0,1),Vector2(6,5),Color(0.23,0.06,0.025))
 	draw_ellipse(Vector2(-12,15),Vector2(7,7),outline)
 	draw_ellipse(Vector2(12,15),Vector2(7,7),outline)
-	if _dash_timer > 1.15:
-		draw_line(Vector2(-28,3),Vector2(-42,9),Color(0.90,0.44,0.10,0.72),4.0)
-		draw_line(Vector2(28,3),Vector2(42,9),Color(0.90,0.44,0.10,0.72),4.0)
+	if _dash_timer > 1.30:
+		var warn_alpha := 0.55+0.35*sin(_age*24.0)
+		draw_line(Vector2(-28,3),Vector2(-45,9),Color(1.0,0.34,0.08,warn_alpha),5.0)
+		draw_line(Vector2(28,3),Vector2(45,9),Color(1.0,0.34,0.08,warn_alpha),5.0)
 
 func _draw_orbiter(flash: bool) -> void:
 	var outline := Color(0.065,0.035,0.11)
