@@ -18,9 +18,24 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 	)
 	var positions: Array[Vector2] = _deterministic_spawn_positions(resolved_count)
 	_enemies_alive = positions.size()
-	var pool: Array[String] = FloorCatalog.enemy_pool(_floor_index)
+	var encounter_seed := absi(
+		_floor_index*193
+		+_room_index*47
+		+depth*31
+		+_current_cell.x*92821
+		+_current_cell.y*68917
+		+_challenge_wave*17
+	)
+	var roster := FloorCatalog.encounter_roster(
+		_floor_index,
+		encounter_seed,
+		positions.size(),
+		_room_kind
+	)
+	if is_instance_valid(status_label) and _room_kind in ["combate","emboscada","desafio","maldicion"]:
+		status_label.text = FloorCatalog.encounter_name(_floor_index,encounter_seed,_room_kind)
 	for i in positions.size():
-		var kind_id := pool[posmod(i+depth+_room_index+_floor_index,pool.size())]
+		var kind_id := roster[i]
 		var enemy = _create_floor_enemy(kind_id)
 		enemy.position = positions[i]
 		enemy.target = player
@@ -51,6 +66,8 @@ func _spawn_challenge_wave() -> void:
 		FloorCatalog.enemy_cap(_floor_index)+1
 	)
 	_spawn_enemy_pack(count,depth)
+	if is_instance_valid(reward_label):
+		reward_label.text = "OLEADA %d / %d · cambia la composición" % [_challenge_wave,_challenge_waves_total]
 
 func _spawn_miniboss() -> void:
 	var variant := FloorCatalog.miniboss_variant(_floor_index)
