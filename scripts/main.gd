@@ -429,7 +429,10 @@ func _spawn_room_after_entry(generation: int) -> void:
 	elif _room_kind == "desafio":
 		status_label.text = "OLEADA 1 / %d" % _challenge_waves_total
 	else:
-		status_label.text = ""
+		# Phase 4.3: subclasses may set a tactical encounter label while spawning.
+		# Preserve it instead of erasing the room's combat identity.
+		if status_label.text in ["OBSERVA LA SALA","PREPÁRATE",_room_title()]:
+			status_label.text = ""
 	queue_redraw()
 
 func _spawn_enemy_pack(count: int,depth: int) -> void:
