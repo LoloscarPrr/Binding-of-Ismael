@@ -30,6 +30,57 @@ const REWARDS := {
 	"fortuna":{"title":"MONEDA NEGRA","effect":"+8 MONEDAS · + ECONOMÍA"}
 }
 
+const REWARD_TAGS := {
+	"vida":["supervivencia","cuerpo"],
+	"curacion":["supervivencia","sosten"],
+	"movimiento":["movilidad"],
+	"cadencia":["cadencia","ofensiva"],
+	"proyectil":["proyectil","velocidad"],
+	"dano":["dano","ofensiva"],
+	"buscadora":["proyectil","precision"],
+	"perforante":["proyectil","penetracion"],
+	"escudo":["supervivencia","defensa"],
+	"rafaga":["multitiro","cadencia","ofensiva"],
+	"mapa":["exploracion"],
+	"monedero":["economia"],
+	"doble":["multitiro","ofensiva"],
+	"carne":["supervivencia","cuerpo"],
+	"adrenalina":["movilidad","cadencia"],
+	"lente":["dano","proyectil","precision"],
+	"alma":["supervivencia","defensa"],
+	"polvora":["explosivos"],
+	"llavero":["exploracion","economia"],
+	"fortuna":["economia"]
+}
+
+const SYNERGIES := {
+	"motor_nervioso":{
+		"title":"MOTOR NERVIOSO",
+		"requires_tags":{"movilidad":1,"cadencia":1},
+		"bonus":{"move_speed":18.0,"fire_rate_delta":-0.010}
+	},
+	"ojo_hueco":{
+		"title":"OJO HUECO",
+		"requires_items":["buscadora","perforante"],
+		"bonus":{"projectile_damage":1}
+	},
+	"tormenta_de_lagrimas":{
+		"title":"TORMENTA DE LÁGRIMAS",
+		"requires_tags":{"multitiro":1,"cadencia":2},
+		"bonus":{"projectile_speed":70.0}
+	},
+	"cuerpo_blindado":{
+		"title":"CUERPO BLINDADO",
+		"requires_tags":{"supervivencia":2,"defensa":1},
+		"bonus":{"max_health":1}
+	},
+	"fortuna_negra":{
+		"title":"FORTUNA NEGRA",
+		"requires_tags":{"economia":2},
+		"bonus":{"coins":3}
+	}
+}
+
 const PICKUPS := {
 	"heart":{"title":"CORAZÓN"},
 	"coin":{"title":"MONEDA"},
@@ -44,6 +95,24 @@ static func reward_ids() -> Array[String]:
 	for id in REWARD_ORDER:
 		ids.append(id)
 	return ids
+
+static func reward_tags(id: String) -> Array[String]:
+	var result: Array[String] = []
+	var raw: Array = REWARD_TAGS.get(id,[])
+	for value in raw:
+		result.append(String(value))
+	return result
+
+static func synergy_definitions() -> Dictionary:
+	return SYNERGIES.duplicate(true)
+
+static func synergy_definition(id: String) -> Dictionary:
+	if SYNERGIES.has(id):
+		return Dictionary(SYNERGIES[id]).duplicate(true)
+	return {}
+
+static func synergy_title(id: String) -> String:
+	return String(synergy_definition(id).get("title",id.to_upper()))
 
 static func reward_definition(id: String) -> Dictionary:
 	if REWARDS.has(id):
