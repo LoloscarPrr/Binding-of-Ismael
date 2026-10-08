@@ -303,6 +303,10 @@ func _refresh_projectile_build() -> void:
 
 	player.projectile_style = "tear"
 	player.projectile_size_scale = 1.0
+	player.projectile_split_count = 0
+	player.projectile_split_spread = 0.0
+	player.projectile_split_homing = false
+	player.burst_fan_enabled = false
 
 	if int(owned.get("proyectil",0))>0 or int(owned.get("lente",0))>0:
 		player.projectile_style = "glass"
@@ -323,6 +327,20 @@ func _refresh_projectile_build() -> void:
 	elif int(owned.get("doble",0))>0:
 		player.volley_count = maxi(player.volley_count,2)
 		player.volley_spread = maxf(player.volley_spread,0.18)
+
+	if bool(synergies.get("hemorragia_de_vidrio",false)):
+		player.projectile_split_count = maxi(player.projectile_split_count,3)
+		player.projectile_split_spread = maxf(player.projectile_split_spread,0.34)
+		player.projectile_style = "glass"
+		player.projectile_size_scale = maxf(player.projectile_size_scale,1.12)
+	if bool(synergies.get("enjambre_de_polilla",false)):
+		player.projectile_split_count = maxi(player.projectile_split_count,2)
+		player.projectile_split_spread = maxf(player.projectile_split_spread,0.46)
+		player.projectile_split_homing = true
+		player.projectile_style = "moth"
+	if bool(synergies.get("gemelo_nervioso",false)):
+		player.burst_fan_enabled = true
+		player.volley_count = maxi(player.volley_count,2)
 
 	if int(owned.get("dano",0))+int(owned.get("lente",0))>=2:
 		player.projectile_size_scale = maxf(player.projectile_size_scale,1.16)
