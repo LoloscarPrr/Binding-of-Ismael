@@ -32,7 +32,8 @@ func apply(reward_id: String, player: Node, inventory) -> Dictionary:
 			inventory.add_coins(5)
 			inventory.coin_bonus_per_clear = maxi(int(inventory.coin_bonus_per_clear),1)
 		"doble":
-			player.set("burst_count",maxi(int(player.get("burst_count")),2))
+			player.set("volley_count",maxi(int(player.get("volley_count")),2))
+			player.set("volley_spread",maxf(float(player.get("volley_spread")),0.18))
 		"carne":
 			player.call("add_max_health",2)
 		"adrenalina":
