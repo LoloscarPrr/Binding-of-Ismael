@@ -24,6 +24,10 @@ var volley_count := 1
 var volley_spread := 0.16
 var projectile_style := "tear"
 var projectile_size_scale := 1.0
+var projectile_split_count := 0
+var projectile_split_spread := 0.0
+var projectile_split_homing := false
+var burst_fan_enabled := false
 var room_heal_interval := 0
 var floor_shield_enabled := false
 var floor_shield_charges := 0
@@ -151,14 +155,21 @@ func _spawn_projectile(direction: Vector2) -> void:
 	projectile.visual_style = projectile_style
 	projectile.size_scale = projectile_size_scale
 	projectile.void_synergy = homing_strength>0.0 and projectile_pierce>0
+	projectile.split_count = projectile_split_count
+	projectile.split_spread = projectile_split_spread
+	projectile.split_homing = projectile_split_homing
 	get_tree().current_scene.add_child(projectile)
 
 func _fire_burst_followups(direction: Vector2, count: int) -> void:
-	for _i in count:
+	for i in count:
 		await get_tree().create_timer(0.055).timeout
 		if is_dead:
 			return
-		_fire_volley(direction)
+		var resolved_direction := direction
+		if burst_fan_enabled:
+			var sign_value := -1.0 if i%2==0 else 1.0
+			resolved_direction = direction.rotated(sign_value*0.10)
+		_fire_volley(resolved_direction)
 
 func take_contact_damage(amount: int, source_position: Vector2) -> void:
 	if is_dead or _invulnerability>0.0:
