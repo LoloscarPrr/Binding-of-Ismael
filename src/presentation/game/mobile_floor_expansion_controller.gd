@@ -8,6 +8,11 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	super._begin_room(entry_direction)
 	if is_instance_valid(floor_label):
 		floor_label.text = "P%d · %s" % [_floor_index,FloorCatalog.floor_name(_floor_index)]
+	if is_instance_valid(room_label) and _dungeon != null:
+		var route := _dungeon.route_label(_current_cell)
+		var risk := _dungeon.risk_level(_current_cell)
+		var risk_text := "" if risk<=0 else " · R%d" % risk
+		room_label.text = "%s · %s%s" % [room_label.text,route,risk_text]
 	if _room_kind == "inicio" and is_instance_valid(status_label):
 		status_label.text = "ENTRADA — %s" % FloorCatalog.floor_name(_floor_index)
 
