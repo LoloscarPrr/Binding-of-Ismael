@@ -20,6 +20,10 @@ const BODY_RADIUS := 28.0
 var homing_strength := 0.0
 var projectile_pierce := 0
 var burst_count := 1
+var volley_count := 1
+var volley_spread := 0.16
+var projectile_style := "tear"
+var projectile_size_scale := 1.0
 var room_heal_interval := 0
 var floor_shield_enabled := false
 var floor_shield_charges := 0
@@ -119,9 +123,20 @@ func shoot(direction: Vector2) -> void:
 	_last_aim = direction.normalized()
 	_visual_recoil = 4.0
 	_shoot_pose = 0.13
-	_spawn_projectile(direction)
+	_fire_volley(direction.normalized())
 	if burst_count>1:
 		_fire_burst_followups(direction.normalized(),burst_count-1)
+
+func _fire_volley(direction: Vector2) -> void:
+	var count := maxi(1,volley_count)
+	if count == 1:
+		_fire_volley(direction)
+		return
+	var total_spread := volley_spread*float(count-1)
+	for i in range(count):
+		var t := 0.5 if count == 1 else float(i)/float(count-1)
+		var angle := lerpf(-total_spread*0.5,total_spread*0.5,t)
+		_spawn_projectile(direction.rotated(angle))
 
 func _spawn_projectile(direction: Vector2) -> void:
 	if is_dead:
@@ -133,6 +148,9 @@ func _spawn_projectile(direction: Vector2) -> void:
 	projectile.damage = projectile_damage
 	projectile.homing_strength = homing_strength
 	projectile.pierce_remaining = projectile_pierce
+	projectile.visual_style = projectile_style
+	projectile.size_scale = projectile_size_scale
+	projectile.void_synergy = homing_strength>0.0 and projectile_pierce>0
 	get_tree().current_scene.add_child(projectile)
 
 func _fire_burst_followups(direction: Vector2, count: int) -> void:
