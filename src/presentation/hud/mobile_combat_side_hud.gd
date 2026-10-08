@@ -142,7 +142,7 @@ func _draw_stats(rect: Rect2) -> void:
 
 	if not passive_entries.is_empty():
 		var passive_y := rect.end.y-passive_reserved+13.0
-		_draw_text("PASIVOS",Vector2(rect.position.x+9.0,passive_y),maxi(10,font_size-2),Color(0.62,0.70,0.68))
+		_draw_text("BUILD",Vector2(rect.position.x+9.0,passive_y),maxi(10,font_size-2),Color(0.72,0.76,0.70))
 		passive_y += 18.0
 		for entry in passive_entries:
 			_draw_text(String(entry[0]),Vector2(rect.position.x+10.0,passive_y),maxi(10,font_size-3),entry[1])
@@ -150,12 +150,26 @@ func _draw_stats(rect: Rect2) -> void:
 
 func _passive_entries() -> Array:
 	var entries: Array = []
+	if is_instance_valid(game) and game.has_method("get_build_summary"):
+		var summary := String(game.call("get_build_summary"))
+		if not summary.is_empty() and summary!="SIN BUILD":
+			entries.append([summary,Color(0.86,0.76,0.42)])
+	if player.volley_count>1:
+		entries.append(["VOL x%d" % player.volley_count,Color(0.60,0.78,0.92)])
+	if player.burst_count>1:
+		entries.append(["RÁF x%d" % player.burst_count,Color(0.78,0.54,0.34)])
 	if player.homing_strength>0.0:
 		entries.append(["OJO",Color(0.62,0.75,0.42)])
 	if player.projectile_pierce>0:
 		entries.append(["AGUJA",Color(0.78,0.78,0.72)])
-	if player.burst_count>1:
-		entries.append(["RÁF x%d" % player.burst_count,Color(0.78,0.54,0.34)])
+	if player.projectile_split_count>0:
+		entries.append(["FRAG x%d" % player.projectile_split_count,Color(0.72,0.62,0.90)])
+	if is_instance_valid(game) and game.has_method("get_active_synergy_names"):
+		var names: Array = game.call("get_active_synergy_names")
+		for i in range(mini(2,names.size())):
+			entries.append(["★ "+String(names[i]),Color(0.94,0.68,0.30)])
+	if entries.size()>6:
+		entries.resize(6)
 	return entries
 
 func _draw_stat_row(kind: String, value: float, rect: Rect2, y: float, font_size: int) -> void:
