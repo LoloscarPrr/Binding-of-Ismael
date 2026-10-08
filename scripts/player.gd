@@ -130,7 +130,7 @@ func shoot(direction: Vector2) -> void:
 func _fire_volley(direction: Vector2) -> void:
 	var count := maxi(1,volley_count)
 	if count == 1:
-		_fire_volley(direction)
+		_spawn_projectile(direction)
 		return
 	var total_spread := volley_spread*float(count-1)
 	for i in range(count):
@@ -158,7 +158,7 @@ func _fire_burst_followups(direction: Vector2, count: int) -> void:
 		await get_tree().create_timer(0.055).timeout
 		if is_dead:
 			return
-		_spawn_projectile(direction)
+		_fire_volley(direction)
 
 func take_contact_damage(amount: int, source_position: Vector2) -> void:
 	if is_dead or _invulnerability>0.0:
