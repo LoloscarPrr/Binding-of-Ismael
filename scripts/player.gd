@@ -112,8 +112,16 @@ func _physics_process(delta: float) -> void:
 	clamp_to_bounds()
 	if aim_input.length()>0.25 and _shoot_cooldown<=0.0:
 		shoot(aim_input.normalized())
-		_shoot_cooldown = fire_rate
+		_shoot_cooldown = _effective_fire_interval()
 	queue_redraw()
+
+func _effective_fire_interval() -> float:
+	var emission_load := maxi(1,volley_count)*maxi(1,burst_count)
+	if emission_load >= 6:
+		return maxf(fire_rate,0.10)
+	if emission_load >= 4:
+		return maxf(fire_rate,0.085)
+	return fire_rate
 
 func set_movement_bounds(bounds: Rect2) -> void:
 	movement_bounds = bounds
