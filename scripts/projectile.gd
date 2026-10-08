@@ -10,6 +10,9 @@ var pierce_remaining := 0
 var visual_style := "tear"
 var size_scale := 1.0
 var void_synergy := false
+var split_count := 0
+var split_spread := 0.0
+var split_homing := false
 var _age := 0.0
 var _hit_ids: Dictionary = {}
 
@@ -89,7 +92,32 @@ func _on_body_entered(body: Node) -> void:
 			return
 		_hit_ids[body_id] = true
 		body.take_damage(damage,global_position)
+		_spawn_split_projectiles(body_id)
 		if pierce_remaining > 0:
 			pierce_remaining -= 1
 			return
 	queue_free()
+
+func _spawn_split_projectiles(ignored_body_id: int) -> void:
+	if split_count <= 0:
+		return
+	var child_count := maxi(1,split_count)
+	var total_spread := split_spread*float(maxi(1,child_count-1))
+	for i in range(child_count):
+		var t := 0.5 if child_count == 1 else float(i)/float(child_count-1)
+		var angle := lerpf(-total_spread*0.5,total_spread*0.5,t)
+		var child := IsmaelProjectile.new()
+		var child_direction := direction.rotated(angle).normalized()
+		child.global_position = global_position+child_direction*16.0
+		child.direction = child_direction
+		child.speed = speed*0.82
+		child.lifetime = minf(0.70,lifetime)
+		child.damage = maxi(1,int(ceil(float(damage)*0.60)))
+		child.homing_strength = homing_strength if split_homing else 0.0
+		child.pierce_remaining = 0
+		child.visual_style = "moth" if split_homing else "glass"
+		child.size_scale = size_scale*0.72
+		child.void_synergy = false
+		child.split_count = 0
+		child._hit_ids[ignored_body_id] = true
+		get_tree().current_scene.add_child(child)
