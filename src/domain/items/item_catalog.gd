@@ -78,6 +78,21 @@ const SYNERGIES := {
 		"title":"FORTUNA NEGRA",
 		"requires_tags":{"economia":2},
 		"bonus":{"coins":3}
+	},
+	"hemorragia_de_vidrio":{
+		"title":"HEMORRAGIA DE VIDRIO",
+		"requires_items":["dano","proyectil","lente"],
+		"behavior":{"split_on_hit":3,"split_spread":0.34}
+	},
+	"enjambre_de_polilla":{
+		"title":"ENJAMBRE DE POLILLA",
+		"requires_items":["buscadora","rafaga"],
+		"behavior":{"split_on_hit":2,"split_spread":0.46,"split_homing":true}
+	},
+	"gemelo_nervioso":{
+		"title":"GEMELO NERVIOSO",
+		"requires_items":["doble","rafaga"],
+		"behavior":{"burst_fan":true}
 	}
 }
 
