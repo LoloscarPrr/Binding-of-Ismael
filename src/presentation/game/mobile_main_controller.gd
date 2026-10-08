@@ -396,6 +396,37 @@ func get_build_snapshot() -> Dictionary:
 func has_active_synergy(synergy_id: String) -> bool:
 	return _build_state.has_synergy(synergy_id)
 
+func get_active_synergy_names() -> Array[String]:
+	var names: Array[String] = []
+	var snapshot := _build_state.snapshot()
+	var active: Dictionary = snapshot.get("active_synergies",{})
+	for synergy_id in active.keys():
+		if bool(active[synergy_id]):
+			names.append(ItemCatalog.synergy_title(String(synergy_id)))
+	names.sort()
+	return names
+
+func get_build_summary() -> String:
+	var snapshot := _build_state.snapshot()
+	var tags: Dictionary = snapshot.get("tag_counts",{})
+	if tags.is_empty():
+		return "SIN BUILD"
+	var ranked: Array = []
+	for tag in tags.keys():
+		ranked.append([String(tag),int(tags[tag])])
+	ranked.sort_custom(func(a,b): return int(a[1])>int(b[1]))
+	var labels := {
+		"ofensiva":"OFENSIVA","proyectil":"LÁGRIMAS","cadencia":"CADENCIA",
+		"multitiro":"MULTITIRO","precision":"PRECISIÓN","penetracion":"PERFORA",
+		"supervivencia":"AGUANTE","defensa":"DEFENSA","movilidad":"MOVILIDAD",
+		"economia":"FORTUNA","exploracion":"EXPLORA","explosivos":"BOMBAS"
+	}
+	var parts: Array[String] = []
+	for i in range(mini(2,ranked.size())):
+		var row = ranked[i]
+		parts.append(String(labels.get(String(row[0]),String(row[0]).to_upper())))
+	return " + ".join(parts)
+
 func _save_control_layout() -> void:
 	_control_layout_repository.save_centers(_saved_left_center,_saved_right_center)
 
