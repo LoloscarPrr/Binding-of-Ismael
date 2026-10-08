@@ -13,6 +13,7 @@ var rooms: Dictionary = {}
 var order: Array[Vector2i] = []
 var seed_value := 0
 var floor_index := 1
+var critical_path: Array[Vector2i] = []
 var _rng := RandomNumberGenerator.new()
 
 func generate(floor_number: int) -> void:
@@ -47,6 +48,8 @@ func generate(floor_number: int) -> void:
 			break
 
 	_assign_distances()
+	_build_critical_path()
+	_assign_route_roles()
 	_assign_room_kinds()
 	_append_hidden_room("secreta",false)
 	_append_hidden_room("supersecreta",true)
@@ -60,7 +63,8 @@ func _add_room(cell: Vector2i) -> void:
 		"discovered":false,
 		"cleared":false,
 		"distance":0,
-		"ordinal":order.size()+1
+		"ordinal":order.size()+1,
+		"route_role":"branch"
 	}
 	rooms[cell] = data
 	order.append(cell)
@@ -192,42 +196,164 @@ func _assign_room_kinds() -> void:
 		_set_kind(cell,"combate")
 	_set_kind(Vector2i.ZERO,"inicio")
 
-	var boss := _pick_farthest_dead_end([])
+	var boss := critical_path[-1] if critical_path.size()>1 else _pick_farthest_dead_end([])
 	_set_kind(boss,"jefe")
 	var excluded: Array[Vector2i] = [Vector2i.ZERO,boss]
 
-	var reward := _pick_farthest_dead_end(excluded)
+	# The reward is deliberately placed on an optional branch whenever possible.
+	var reward := _pick_branch_dead_end(excluded,2)
+	if reward == Vector2i.ZERO:
+		reward = _pick_farthest_dead_end(excluded)
 	if reward != Vector2i.ZERO:
 		_set_kind(reward,"recompensa")
 		excluded.append(reward)
 
-	var shop := _pick_shop_cell(excluded)
+	# Shops live in the first half of the critical route: useful, but never free at spawn.
+	var shop := _pick_main_route_cell(excluded,1,maxi(2,critical_path.size()/2))
+	if shop == Vector2i.ZERO:
+		shop = _pick_shop_cell(excluded)
 	if shop != Vector2i.ZERO:
 		_set_kind(shop,"tienda")
 		excluded.append(shop)
 
-	var challenge := _pick_regular_cell(excluded,2)
+	# Challenge rooms are optional risk/reward detours.
+	var challenge := _pick_branch_cell(excluded,2)
+	if challenge == Vector2i.ZERO:
+		challenge = _pick_regular_cell(excluded,2)
 	if challenge != Vector2i.ZERO:
 		_set_kind(challenge,"desafio")
 		excluded.append(challenge)
 
-	var miniboss := _pick_regular_cell(excluded,3)
+	# A late miniboss pressures the main route before the floor guardian.
+	var miniboss := _pick_main_route_cell(excluded,maxi(2,critical_path.size()/2),maxi(2,critical_path.size()-2))
 	if miniboss == Vector2i.ZERO:
-		miniboss = _pick_regular_cell(excluded,2)
-	if miniboss == Vector2i.ZERO:
-		miniboss = _pick_regular_cell(excluded,1)
+		miniboss = _pick_regular_cell(excluded,3)
 	if miniboss != Vector2i.ZERO:
 		_set_kind(miniboss,"minijefe")
 		excluded.append(miniboss)
 
-	var sacrifice := _pick_dead_end_or_regular(excluded,2)
+	var sacrifice := _pick_branch_dead_end(excluded,2)
+	if sacrifice == Vector2i.ZERO:
+		sacrifice = _pick_dead_end_or_regular(excluded,2)
 	if sacrifice != Vector2i.ZERO:
 		_set_kind(sacrifice,"sacrificio")
 		excluded.append(sacrifice)
 
-	var ambush := _pick_regular_cell(excluded,2)
+	# Ambushes favour connector rooms, so they feel like danger on the route rather than loot rooms.
+	var ambush := _pick_connector_cell(excluded,2)
+	if ambush == Vector2i.ZERO:
+		ambush = _pick_regular_cell(excluded,2)
 	if ambush != Vector2i.ZERO:
 		_set_kind(ambush,"emboscada")
+
+func _build_critical_path() -> void:
+	critical_path.clear()
+	var target := _pick_farthest_dead_end([])
+	if target == Vector2i.ZERO:
+		critical_path.append(Vector2i.ZERO)
+		return
+	var queue: Array[Vector2i] = [Vector2i.ZERO]
+	var parents: Dictionary = {Vector2i.ZERO:Vector2i(9999,9999)}
+	while not queue.is_empty():
+		var cell: Vector2i = queue.pop_front()
+		if cell == target:
+			break
+		for next: Vector2i in neighbors(cell):
+			if parents.has(next):
+				continue
+			parents[next] = cell
+			queue.append(next)
+	var cursor := target
+	var reversed_path: Array[Vector2i] = [cursor]
+	while cursor != Vector2i.ZERO and parents.has(cursor):
+		cursor = parents[cursor]
+		if cursor != Vector2i(9999,9999):
+			reversed_path.append(cursor)
+	reversed_path.reverse()
+	critical_path = reversed_path
+
+func _assign_route_roles() -> void:
+	for cell: Vector2i in order:
+		var data: Dictionary = rooms[cell]
+		data["route_role"] = "main" if cell in critical_path else "branch"
+		rooms[cell] = data
+
+func route_role(cell: Vector2i) -> String:
+	if not rooms.has(cell):
+		return "branch"
+	return String(rooms[cell].get("route_role","branch"))
+
+func route_label(cell: Vector2i) -> String:
+	if is_hidden(cell):
+		return "OCULTA"
+	if cell == Vector2i.ZERO:
+		return "ENTRADA"
+	if route_role(cell) == "main":
+		return "RUTA"
+	return "DESVÍO"
+
+func risk_level(cell: Vector2i) -> int:
+	if not rooms.has(cell):
+		return 0
+	var value := mini(3,maxi(0,distance(cell)/2))
+	if route_role(cell) == "branch":
+		value = mini(3,value+1)
+	match kind(cell):
+		"desafio","minijefe","emboscada","sacrificio":
+			value = mini(3,value+1)
+	return value
+
+func _pick_branch_dead_end(excluded: Array[Vector2i],minimum_distance: int) -> Vector2i:
+	var candidates: Array[Vector2i] = []
+	for cell: Vector2i in order:
+		if cell in excluded or cell==Vector2i.ZERO:
+			continue
+		if route_role(cell)!="branch" or distance(cell)<minimum_distance:
+			continue
+		if neighbors(cell).size()==1:
+			candidates.append(cell)
+	if candidates.is_empty():
+		return Vector2i.ZERO
+	candidates.sort_custom(func(a: Vector2i,b: Vector2i) -> bool:
+		return distance(a)>distance(b)
+	)
+	return candidates[0]
+
+func _pick_branch_cell(excluded: Array[Vector2i],minimum_distance: int) -> Vector2i:
+	var candidates: Array[Vector2i] = []
+	for cell: Vector2i in order:
+		if cell in excluded or cell==Vector2i.ZERO:
+			continue
+		if route_role(cell)=="branch" and distance(cell)>=minimum_distance:
+			candidates.append(cell)
+	if candidates.is_empty():
+		return Vector2i.ZERO
+	return candidates[_rng.randi_range(0,candidates.size()-1)]
+
+func _pick_main_route_cell(excluded: Array[Vector2i],minimum_step: int,maximum_step: int) -> Vector2i:
+	if critical_path.size()<=2:
+		return Vector2i.ZERO
+	var candidates: Array[Vector2i] = []
+	for i in range(1,critical_path.size()-1):
+		var cell := critical_path[i]
+		if cell in excluded:
+			continue
+		if i>=minimum_step and i<=maximum_step:
+			candidates.append(cell)
+	if candidates.is_empty():
+		return Vector2i.ZERO
+	return candidates[_rng.randi_range(0,candidates.size()-1)]
+
+func _pick_connector_cell(excluded: Array[Vector2i],minimum_distance: int) -> Vector2i:
+	var candidates: Array[Vector2i] = []
+	for cell: Vector2i in order:
+		if cell in excluded or cell==Vector2i.ZERO or distance(cell)<minimum_distance:
+			continue
+		if neighbors(cell).size()>=2:
+			candidates.append(cell)
+	if candidates.is_empty():
+		return Vector2i.ZERO
+	return candidates[_rng.randi_range(0,candidates.size()-1)]
 
 func _append_hidden_room(hidden_kind: String,prefer_far: bool) -> void:
 	var hosts: Array[Vector2i] = []
