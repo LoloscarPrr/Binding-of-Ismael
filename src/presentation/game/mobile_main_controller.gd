@@ -261,6 +261,7 @@ func _apply_reward(reward: String) -> void:
 		ItemCatalog.synergy_definitions()
 	)
 	_apply_new_synergies(newly_active)
+	_refresh_projectile_build()
 	_sync_legacy_from_inventory()
 	if bool(result.get("reveal_map",false)):
 		_map_reveal_active = true
@@ -292,6 +293,41 @@ func _apply_new_synergies(synergy_ids: Array[String]) -> void:
 			_clean_inventory.add_coins(int(bonus["coins"]))
 	if is_instance_valid(player) and player.has_method("sync_domain_state_from_runtime"):
 		player.sync_domain_state_from_runtime()
+
+func _refresh_projectile_build() -> void:
+	if not is_instance_valid(player):
+		return
+	var snapshot := _build_state.snapshot()
+	var owned: Dictionary = snapshot.get("owned_items",{})
+	var synergies: Dictionary = snapshot.get("active_synergies",{})
+
+	player.projectile_style = "tear"
+	player.projectile_size_scale = 1.0
+
+	if int(owned.get("proyectil",0))>0 or int(owned.get("lente",0))>0:
+		player.projectile_style = "glass"
+		player.projectile_size_scale = 1.06
+	if int(owned.get("buscadora",0))>0:
+		player.projectile_style = "moth"
+	if int(owned.get("perforante",0))>0:
+		player.projectile_style = "needle"
+	if bool(synergies.get("ojo_hueco",false)):
+		player.projectile_style = "void"
+		player.homing_strength = maxf(player.homing_strength,6.2)
+		player.projectile_pierce = maxi(player.projectile_pierce,2)
+		player.projectile_size_scale = 1.10
+
+	if bool(synergies.get("tormenta_de_lagrimas",false)):
+		player.volley_count = maxi(player.volley_count,3)
+		player.volley_spread = 0.13
+	elif int(owned.get("doble",0))>0:
+		player.volley_count = maxi(player.volley_count,2)
+		player.volley_spread = maxf(player.volley_spread,0.18)
+
+	if int(owned.get("dano",0))+int(owned.get("lente",0))>=2:
+		player.projectile_size_scale = maxf(player.projectile_size_scale,1.16)
+
+	player.sync_domain_state_from_runtime()
 
 func _on_pickup_collected(kind: String) -> void:
 	_sync_inventory_from_legacy()
