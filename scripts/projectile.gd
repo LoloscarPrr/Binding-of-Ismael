@@ -13,6 +13,7 @@ var void_synergy := false
 var split_count := 0
 var split_spread := 0.0
 var split_homing := false
+var _split_triggered := false
 var _age := 0.0
 var _hit_ids: Dictionary = {}
 
@@ -99,9 +100,10 @@ func _on_body_entered(body: Node) -> void:
 	queue_free()
 
 func _spawn_split_projectiles(ignored_body_id: int) -> void:
-	if split_count <= 0:
+	if split_count <= 0 or _split_triggered:
 		return
-	var child_count := maxi(1,split_count)
+	_split_triggered = true
+	var child_count := clampi(split_count,1,3)
 	var total_spread := split_spread*float(maxi(1,child_count-1))
 	for i in range(child_count):
 		var t := 0.5 if child_count == 1 else float(i)/float(child_count-1)
@@ -112,7 +114,7 @@ func _spawn_split_projectiles(ignored_body_id: int) -> void:
 		child.direction = child_direction
 		child.speed = speed*0.82
 		child.lifetime = minf(0.70,lifetime)
-		child.damage = maxi(1,int(ceil(float(damage)*0.60)))
+		child.damage = maxi(1,int(ceil(float(damage)*0.50)))
 		child.homing_strength = homing_strength if split_homing else 0.0
 		child.pierce_remaining = 0
 		child.visual_style = "moth" if split_homing else "glass"
