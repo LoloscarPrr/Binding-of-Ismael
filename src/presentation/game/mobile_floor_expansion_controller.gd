@@ -3,6 +3,8 @@ extends "res://src/presentation/game/mobile_destructible_room_controller.gd"
 const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
 
+var _room_layout_profile := "abierta"
+
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_challenge_waves_total = FloorCatalog.challenge_waves(_floor_index)
 	super._begin_room(entry_direction)
@@ -15,6 +17,69 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		room_label.text = "%s · %s%s" % [room_label.text,route,risk_text]
 	if _room_kind == "inicio" and is_instance_valid(status_label):
 		status_label.text = "ENTRADA — %s" % FloorCatalog.floor_name(_floor_index)
+
+func _build_room_layout() -> void:
+	if _room_kind in ["inicio","recompensa","tienda","sacrificio","secreta","supersecreta","biblioteca"]:
+		_room_layout_profile = "abierta"
+		return
+	var seed := absi(
+		_floor_index*193
+		+_room_index*47
+		+_current_cell.x*92821
+		+_current_cell.y*68917
+	)
+	var route := _dungeon.route_role(_current_cell) if _dungeon != null else "branch"
+	var risk := _dungeon.risk_level(_current_cell) if _dungeon != null else 0
+	_room_layout_profile = FloorCatalog.room_layout_profile(
+		_floor_index,_room_kind,seed,route,risk
+	)
+
+	var variant := clampi(_floor_index-1,0,2)
+	match _room_layout_profile:
+		"abierta":
+			pass
+		"barricada":
+			_add_obstacle(Vector2(0.50,0.56),Vector2(0.22,0.07),variant)
+		"columnas":
+			_add_obstacle(Vector2(0.32,0.44),Vector2(0.07,0.16),variant)
+			_add_obstacle(Vector2(0.68,0.44),Vector2(0.07,0.16),variant)
+			_add_obstacle(Vector2(0.32,0.70),Vector2(0.07,0.12),variant)
+			_add_obstacle(Vector2(0.68,0.70),Vector2(0.07,0.12),variant)
+		"cruzada":
+			_add_obstacle(Vector2(0.38,0.52),Vector2(0.08,0.11),variant)
+			_add_obstacle(Vector2(0.62,0.52),Vector2(0.08,0.11),variant)
+			_add_obstacle(Vector2(0.50,0.68),Vector2(0.16,0.06),variant)
+		"embudo":
+			_add_obstacle(Vector2(0.33,0.56),Vector2(0.08,0.18),variant)
+			_add_obstacle(Vector2(0.67,0.56),Vector2(0.08,0.18),variant)
+			_add_obstacle(Vector2(0.50,0.72),Vector2(0.16,0.05),variant)
+		"islas":
+			_add_obstacle(Vector2(0.30,0.50),Vector2(0.08,0.09),variant)
+			_add_obstacle(Vector2(0.50,0.42),Vector2(0.08,0.09),variant)
+			_add_obstacle(Vector2(0.70,0.50),Vector2(0.08,0.09),variant)
+			_add_obstacle(Vector2(0.50,0.68),Vector2(0.08,0.09),variant)
+		"pinza":
+			_add_obstacle(Vector2(0.40,0.57),Vector2(0.06,0.13),variant)
+			_add_obstacle(Vector2(0.60,0.57),Vector2(0.06,0.13),variant)
+		"arena":
+			_add_obstacle(Vector2(0.26,0.52),Vector2(0.06,0.18),2)
+			_add_obstacle(Vector2(0.74,0.52),Vector2(0.06,0.18),2)
+		"arena_cruzada":
+			_add_obstacle(Vector2(0.28,0.50),Vector2(0.06,0.18),2)
+			_add_obstacle(Vector2(0.72,0.50),Vector2(0.06,0.18),2)
+			_add_obstacle(Vector2(0.50,0.67),Vector2(0.18,0.05),2)
+		"duelo":
+			_add_obstacle(Vector2(0.24,0.68),Vector2(0.07,0.10),2)
+			_add_obstacle(Vector2(0.76,0.68),Vector2(0.07,0.10),2)
+		"boss_arena":
+			_add_obstacle(Vector2(0.24,0.58),Vector2(0.08,0.16),2)
+			_add_obstacle(Vector2(0.76,0.58),Vector2(0.08,0.16),2)
+		"corredor_maldito":
+			_add_obstacle(Vector2(0.30,0.52),Vector2(0.07,0.22),2)
+			_add_obstacle(Vector2(0.70,0.52),Vector2(0.07,0.22),2)
+
+func _room_layout_title() -> String:
+	return FloorCatalog.room_layout_title(_room_layout_profile)
 
 func _spawn_enemy_pack(count: int, depth: int) -> void:
 	var resolved_count := mini(
@@ -38,7 +103,10 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 		_room_kind
 	)
 	if is_instance_valid(status_label) and _room_kind in ["combate","emboscada","desafio","maldicion"]:
-		status_label.text = FloorCatalog.encounter_name(_floor_index,encounter_seed,_room_kind)
+		status_label.text = "%s · %s" % [
+			FloorCatalog.encounter_name(_floor_index,encounter_seed,_room_kind),
+			_room_layout_title()
+		]
 	for i in positions.size():
 		var kind_id := roster[i]
 		var enemy = _create_floor_enemy(kind_id)
