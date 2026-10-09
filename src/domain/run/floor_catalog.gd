@@ -32,7 +32,13 @@ static func enemy_pool(floor_index: int) -> Array[String]:
 		_:
 			return ["brute","spitter","stalker","orbiter","turret","leaper","flyer","stalker","brute"]
 
-static func encounter_roster(floor_index: int, encounter_seed: int, count: int, room_kind: String = "combate") -> Array[String]:
+static func encounter_roster(
+	floor_index: int,
+	encounter_seed: int,
+	count: int,
+	room_kind: String = "combate",
+	layout_profile: String = "abierta"
+) -> Array[String]:
 	var pool := enemy_pool(floor_index)
 	var melee: Array[String] = ["chaser","brute","flyer"]
 	var chargers: Array[String] = ["dasher","leaper","stalker"]
@@ -44,6 +50,27 @@ static func encounter_roster(floor_index: int, encounter_seed: int, count: int, 
 		pattern = posmod(encounter_seed,4)+1
 	elif room_kind == "maldicion":
 		pattern = 4
+
+	# Layout can override the generic encounter rhythm. This makes room geometry
+	# matter tactically without introducing new enemy classes.
+	match layout_profile:
+		"abierta":
+			pattern = 3 # mobile ranged pressure works best with room to kite.
+		"barricada":
+			pattern = 2 # ranged units exploit sight lines while melee flushes cover.
+		"columnas":
+			pattern = 3 # orbiters/chargers force movement around cover islands.
+		"cruzada","arena_cruzada":
+			pattern = 2 # crossfire rewards breaking lines of sight.
+		"embudo","corredor_maldito":
+			pattern = 1 # chargers turn narrow lanes into positional threats.
+		"islas":
+			pattern = 3 # mobile threats punish staying behind one island.
+		"pinza":
+			pattern = 1
+		"arena":
+			pattern = 4
+
 	var roster: Array[String] = []
 	for i in range(count):
 		var candidates: Array[String]
@@ -70,11 +97,23 @@ static func encounter_roster(floor_index: int, encounter_seed: int, count: int, 
 		roster.append(valid[posmod(encounter_seed+i*2+floor_index,valid.size())])
 	return roster
 
-static func encounter_name(floor_index: int, encounter_seed: int, room_kind: String = "combate") -> String:
+static func encounter_name(
+	floor_index: int,
+	encounter_seed: int,
+	room_kind: String = "combate",
+	layout_profile: String = "abierta"
+) -> String:
 	if room_kind == "emboscada":
 		return "EMBOSCADA MÓVIL"
 	if room_kind == "maldicion":
 		return "CERCO MALDITO"
+	match layout_profile:
+		"barricada","cruzada","arena_cruzada":
+			return "FUEGO CRUZADO"
+		"embudo","corredor_maldito","pinza":
+			return "CARGA"
+		"abierta","columnas","islas":
+			return "CERCO"
 	var pattern := posmod(encounter_seed+floor_index*3,5)
 	match pattern:
 		0: return "PRESIÓN FRONTAL"
