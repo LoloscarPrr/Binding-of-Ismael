@@ -191,17 +191,18 @@ func _clear_content_hazards() -> void:
 func _spawn_content_hazards() -> void:
 	if _room_kind not in ["combate","emboscada","desafio","maldicion"]:
 		return
-	var ratios: Array[Vector2] = [
-		Vector2(0.30,0.38),Vector2(0.70,0.38),Vector2(0.38,0.66),
-		Vector2(0.62,0.66),Vector2(0.50,0.48),Vector2(0.24,0.62),Vector2(0.76,0.62)
-	]
+	var ratios: Array[Vector2] = _hazard_ratios_for_layout()
 	var count := 0
 	if _room_kind == "maldicion":
-		count = 6
+		count = 5
 	elif _room_kind == "desafio":
 		count = 2 if _floor_index >= 2 else 0
 	elif _floor_index >= 2:
 		count = 1+int(_floor_index>=4)
+	if _room_layout_profile == "abierta":
+		count = mini(count,1)
+	elif _room_layout_profile in ["embudo","corredor_maldito"]:
+		count = mini(count+1,5)
 	var seed := absi(_floor_index*193+_current_cell.x*92821+_current_cell.y*68917+_room_index*17)
 	for i in range(count):
 		var ratio := ratios[posmod(seed+i*3,ratios.size())]
@@ -217,6 +218,39 @@ func _spawn_content_hazards() -> void:
 		hazard.position = room_rect.position+room_rect.size*ratio
 		hazard.destroyed.connect(_on_content_hazard_destroyed.bind(room_key))
 		add_child(hazard)
+
+func _hazard_ratios_for_layout() -> Array[Vector2]:
+	match _room_layout_profile:
+		"embudo":
+			return [
+				Vector2(0.50,0.52),Vector2(0.50,0.66),Vector2(0.38,0.44),
+				Vector2(0.62,0.44),Vector2(0.50,0.36)
+			]
+		"corredor_maldito":
+			return [
+				Vector2(0.50,0.34),Vector2(0.50,0.48),Vector2(0.50,0.62),
+				Vector2(0.42,0.55),Vector2(0.58,0.55)
+			]
+		"columnas":
+			return [
+				Vector2(0.50,0.48),Vector2(0.50,0.66),Vector2(0.24,0.56),
+				Vector2(0.76,0.56)
+			]
+		"cruzada","arena_cruzada":
+			return [
+				Vector2(0.50,0.46),Vector2(0.32,0.66),Vector2(0.68,0.66),
+				Vector2(0.50,0.72)
+			]
+		"pinza":
+			return [
+				Vector2(0.50,0.46),Vector2(0.34,0.68),Vector2(0.66,0.68)
+			]
+		_:
+			return [
+				Vector2(0.30,0.38),Vector2(0.70,0.38),Vector2(0.38,0.66),
+				Vector2(0.62,0.66),Vector2(0.50,0.48),Vector2(0.24,0.62),
+				Vector2(0.76,0.62)
+			]
 
 func _on_content_hazard_destroyed(hazard_id: int, _world_position: Vector2, room_key: String) -> void:
 	_room_obstacle_state.mark_destroyed(room_key,hazard_id)
