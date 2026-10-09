@@ -100,11 +100,12 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 		_floor_index,
 		encounter_seed,
 		positions.size(),
-		_room_kind
+		_room_kind,
+		_room_layout_profile
 	)
 	if is_instance_valid(status_label) and _room_kind in ["combate","emboscada","desafio","maldicion"]:
 		status_label.text = "%s · %s" % [
-			FloorCatalog.encounter_name(_floor_index,encounter_seed,_room_kind),
+			FloorCatalog.encounter_name(_floor_index,encounter_seed,_room_kind,_room_layout_profile),
 			_room_layout_title()
 		]
 	for i in positions.size():
