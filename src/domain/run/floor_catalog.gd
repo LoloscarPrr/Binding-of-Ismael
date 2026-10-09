@@ -83,6 +83,50 @@ static func encounter_name(floor_index: int, encounter_seed: int, room_kind: Str
 		3: return "CERCO"
 		_: return "ASALTO MIXTO"
 
+static func room_layout_profile(
+	floor_index: int,
+	room_kind: String,
+	room_seed: int,
+	route_role: String = "branch",
+	risk_level: int = 0
+) -> String:
+	if room_kind == "jefe":
+		return "boss_arena"
+	if room_kind == "minijefe":
+		return "duelo"
+	if room_kind == "desafio":
+		return "arena_cruzada" if floor_index>=3 else "arena"
+	if room_kind == "emboscada":
+		return "pinza"
+	if room_kind == "maldicion":
+		return "corredor_maldito"
+	if room_kind not in ["combate"]:
+		return "abierta"
+
+	var profiles: Array[String] = ["abierta","barricada","columnas","cruzada"]
+	if risk_level>=2:
+		profiles.append("embudo")
+	if floor_index>=3:
+		profiles.append("islas")
+	if route_role=="main" and risk_level<=1:
+		profiles.append("abierta")
+	return profiles[posmod(room_seed+floor_index*11+risk_level*7,profiles.size())]
+
+static func room_layout_title(profile: String) -> String:
+	match profile:
+		"barricada": return "BARRICADA"
+		"columnas": return "COLUMNAS"
+		"cruzada": return "FUEGO CRUZADO"
+		"embudo": return "EMBUDO"
+		"islas": return "ISLAS"
+		"pinza": return "PINZA"
+		"arena": return "ARENA"
+		"arena_cruzada": return "ARENA CRUZADA"
+		"duelo": return "DUELO"
+		"boss_arena": return "ARENA DEL GUARDIÁN"
+		"corredor_maldito": return "CORREDOR MALDITO"
+		_: return "ABIERTA"
+
 static func challenge_waves(floor_index: int) -> int:
 	if floor_index >= 4:
 		return 4
