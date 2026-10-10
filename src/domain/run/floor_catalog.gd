@@ -11,6 +11,14 @@ static func floor_name(floor_index: int) -> String:
 		4: return "CRIPTA"
 		_: return "ABISMO"
 
+static func floor_identity(floor_index: int) -> String:
+	match clampi(floor_index,1,TOTAL_FLOORS):
+		1: return "ESPACIOS ABIERTOS · PRESIÓN BÁSICA"
+		2: return "CARGAS · PINZAS · PÚAS"
+		3: return "FUEGO CRUZADO · COBERTURAS · LLAMAS"
+		4: return "EMBUDOS · ACECHO · ALTA PRESIÓN"
+		_: return "CAOS MIXTO · RIESGO MÁXIMO"
+
 static func boss_name(floor_index: int) -> String:
 	match clampi(floor_index,1,TOTAL_FLOORS):
 		1: return "EL CARCELERO"
@@ -142,11 +150,20 @@ static func room_layout_profile(
 	if room_kind not in ["combate"]:
 		return "abierta"
 
-	var profiles: Array[String] = ["abierta","barricada","columnas","cruzada"]
+	var profiles: Array[String] = []
+	match clampi(floor_index,1,TOTAL_FLOORS):
+		1:
+			profiles = ["abierta","abierta","barricada","columnas"]
+		2:
+			profiles = ["barricada","pinza","columnas","embudo"]
+		3:
+			profiles = ["cruzada","columnas","islas","barricada"]
+		4:
+			profiles = ["embudo","pinza","cruzada","islas"]
+		_:
+			profiles = ["embudo","cruzada","islas","columnas","barricada"]
 	if risk_level>=2:
 		profiles.append("embudo")
-	if floor_index>=3:
-		profiles.append("islas")
 	if route_role=="main" and risk_level<=1:
 		profiles.append("abierta")
 	return profiles[posmod(room_seed+floor_index*11+risk_level*7,profiles.size())]
