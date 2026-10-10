@@ -25,7 +25,7 @@ func _draw() -> void:
 	if room_rect.size.x <= 1.0 or room_rect.size.y <= 1.0:
 		return
 	var viewport_size := get_viewport_rect().size
-	draw_rect(Rect2(Vector2.ZERO,viewport_size),Color(0.014,0.012,0.012))
+	draw_rect(Rect2(Vector2.ZERO,viewport_size),_void_color())
 	_draw_wall_shell()
 	_draw_floor()
 	_draw_room_markings()
@@ -37,36 +37,62 @@ func _draw() -> void:
 
 func _draw_wall_shell() -> void:
 	var outer := room_rect.grow(42.0)
+	var palette := _floor_palette()
+	var wall: Color = palette["wall"]
+	var wall_dark: Color = palette["wall_dark"]
+	var trim: Color = palette["trim"]
+	var highlight: Color = palette["highlight"]
 	draw_rect(outer.grow(12.0),Color(0.0,0.0,0.0,0.58))
-	draw_rect(outer,Color(0.052,0.040,0.035))
-	draw_rect(outer,Color(0.26,0.18,0.12),false,8.0)
-	draw_rect(room_rect.grow(27.0),Color(0.10,0.073,0.058))
-	draw_rect(room_rect.grow(19.0),Color(0.20,0.145,0.105),false,7.0)
+	draw_rect(outer,wall_dark)
+	draw_rect(outer,trim,false,8.0)
+	draw_rect(room_rect.grow(27.0),wall)
+	draw_rect(room_rect.grow(19.0),highlight,false,7.0)
 	var brick_w := 72.0
 	var x := outer.position.x + 7.0
 	var n := 0
 	while x < outer.end.x - 8.0:
 		var width := minf(brick_w,outer.end.x-8.0-x)
-		var tone := Color(0.17,0.115,0.082) if n%2==0 else Color(0.135,0.094,0.074)
+		var tone := wall.lightened(0.10) if n%2==0 else wall.darkened(0.08)
 		var top_rect := Rect2(Vector2(x,outer.position.y+7.0),Vector2(width-3.0,28.0))
 		var bottom_rect := Rect2(Vector2(x,outer.end.y-35.0),Vector2(width-3.0,28.0))
 		draw_rect(top_rect,tone)
-		draw_line(top_rect.position+Vector2(2,2),Vector2(top_rect.end.x-2,top_rect.position.y+2),Color(0.34,0.24,0.16,0.55),2.0)
+		draw_line(top_rect.position+Vector2(2,2),Vector2(top_rect.end.x-2,top_rect.position.y+2),Color(highlight.r,highlight.g,highlight.b,0.55),2.0)
 		draw_line(Vector2(top_rect.position.x,top_rect.end.y-2),top_rect.end-Vector2(0,2),Color(0.03,0.02,0.018,0.72),3.0)
 		draw_rect(bottom_rect,tone.darkened(0.08))
-		draw_line(bottom_rect.position+Vector2(2,2),Vector2(bottom_rect.end.x-2,bottom_rect.position.y+2),Color(0.30,0.21,0.15,0.45),2.0)
+		draw_line(bottom_rect.position+Vector2(2,2),Vector2(bottom_rect.end.x-2,bottom_rect.position.y+2),Color(highlight.r,highlight.g,highlight.b,0.42),2.0)
 		x += brick_w
 		n += 1
 	var y := outer.position.y + 39.0
 	while y < outer.end.y - 40.0:
 		for side_x in [outer.position.x+7.0,outer.end.x-34.0]:
 			var block := Rect2(Vector2(side_x,y),Vector2(27.0,39.0))
-			draw_rect(block,Color(0.145,0.10,0.078))
-			draw_line(block.position+Vector2(2,1),Vector2(block.end.x-2,block.position.y+1),Color(0.32,0.23,0.16,0.45),2.0)
+			draw_rect(block,wall.darkened(0.05))
+			draw_line(block.position+Vector2(2,1),Vector2(block.end.x-2,block.position.y+1),Color(highlight.r,highlight.g,highlight.b,0.42),2.0)
 		y += 42.0
 
+func _void_color() -> Color:
+	match clampi(floor_index,1,5):
+		1: return Color(0.014,0.012,0.012)
+		2: return Color(0.012,0.016,0.014)
+		3: return Color(0.015,0.014,0.020)
+		4: return Color(0.010,0.010,0.014)
+		_: return Color(0.006,0.006,0.010)
+
+func _floor_palette() -> Dictionary:
+	match clampi(floor_index,1,5):
+		1:
+			return {"floor":Color(0.185,0.145,0.116),"wall":Color(0.10,0.073,0.058),"wall_dark":Color(0.052,0.040,0.035),"trim":Color(0.26,0.18,0.12),"highlight":Color(0.20,0.145,0.105),"light":Color(1.0,0.48,0.12)}
+		2:
+			return {"floor":Color(0.115,0.145,0.115),"wall":Color(0.075,0.105,0.080),"wall_dark":Color(0.035,0.055,0.040),"trim":Color(0.18,0.28,0.18),"highlight":Color(0.14,0.22,0.14),"light":Color(0.78,0.70,0.28)}
+		3:
+			return {"floor":Color(0.125,0.105,0.145),"wall":Color(0.085,0.070,0.115),"wall_dark":Color(0.040,0.032,0.060),"trim":Color(0.25,0.19,0.34),"highlight":Color(0.19,0.15,0.27),"light":Color(0.78,0.42,0.86)}
+		4:
+			return {"floor":Color(0.085,0.082,0.105),"wall":Color(0.060,0.058,0.080),"wall_dark":Color(0.026,0.026,0.038),"trim":Color(0.18,0.17,0.24),"highlight":Color(0.13,0.13,0.18),"light":Color(0.48,0.58,0.86)}
+		_:
+			return {"floor":Color(0.055,0.050,0.070),"wall":Color(0.040,0.036,0.055),"wall_dark":Color(0.014,0.012,0.020),"trim":Color(0.15,0.12,0.20),"highlight":Color(0.10,0.085,0.14),"light":Color(0.62,0.30,0.88)}
+
 func _floor_color() -> Color:
-	var color := Color(0.185,0.145,0.116) if floor_index==1 else Color(0.115,0.135,0.14)
+	var color: Color = _floor_palette()["floor"]
 	match room_kind:
 		"recompensa": color = Color(0.17,0.135,0.073)
 		"jefe": color = Color(0.13,0.060,0.058)
@@ -93,7 +119,8 @@ func _draw_floor() -> void:
 			draw_rect(tile.grow(-1.0),tile_color)
 			draw_line(tile.position+Vector2(2,2),Vector2(tile.end.x-2,tile.position.y+2),Color(1,0.78,0.55,0.045),1.5)
 			draw_line(Vector2(tile.position.x+2,tile.end.y-2),tile.end-Vector2(2,2),Color(0.02,0.015,0.012,0.18),2.0)
-	draw_rect(room_rect,Color(0.34,0.24,0.17),false,6.0)
+	var trim: Color = _floor_palette()["trim"]
+	draw_rect(room_rect,trim,false,6.0)
 	if room_kind=="recompensa":
 		var banner_y := room_rect.position.y+room_rect.size.y*0.18
 		var banner := Rect2(room_rect.position.x+room_rect.size.x*0.39,banner_y,room_rect.size.x*0.22,8.0)
@@ -222,24 +249,27 @@ func _draw_props() -> void:
 
 func _draw_wall_torches() -> void:
 	var flicker := 0.86 + sin(_age*7.0)*0.08 + sin(_age*11.3)*0.04
+	var flame: Color = _floor_palette()["light"]
 	var torch_y := room_rect.position.y + 22.0
 	for ratio in [0.22,0.78]:
 		var p := Vector2(room_rect.position.x+room_rect.size.x*ratio,torch_y)
 		draw_rect(Rect2(p+Vector2(-4,-5),Vector2(8,22)),Color(0.10,0.055,0.025))
-		draw_colored_polygon(PackedVector2Array([p+Vector2(-7,-6),p+Vector2(0,-28*flicker),p+Vector2(8,-5),p+Vector2(0,5)]),Color(0.88,0.24,0.05,0.78))
-		draw_colored_polygon(PackedVector2Array([p+Vector2(-4,-6),p+Vector2(0,-20*flicker),p+Vector2(5,-5),p+Vector2(0,1)]),Color(1.0,0.72,0.20,0.88))
-		draw_circle(p+Vector2(0,-10),34.0,Color(0.96,0.42,0.10,0.055))
+		draw_colored_polygon(PackedVector2Array([p+Vector2(-7,-6),p+Vector2(0,-28*flicker),p+Vector2(8,-5),p+Vector2(0,5)]),Color(flame.r,flame.g,flame.b,0.76))
+		var inner_flame := flame.lightened(0.30)
+		draw_colored_polygon(PackedVector2Array([p+Vector2(-4,-6),p+Vector2(0,-20*flicker),p+Vector2(5,-5),p+Vector2(0,1)]),Color(inner_flame.r,inner_flame.g,inner_flame.b,0.90))
+		draw_circle(p+Vector2(0,-10),34.0,Color(flame.r,flame.g,flame.b,0.060))
 
 func _draw_light_pools() -> void:
 	var center := room_rect.get_center()
+	var light: Color = _floor_palette()["light"]
 	for radius in [290.0,220.0,155.0]:
 		var alpha := 0.018 if radius>250.0 else (0.026 if radius>180.0 else 0.036)
-		draw_circle(center,radius,Color(0.86,0.60,0.34,alpha))
+		draw_circle(center,radius,Color(light.r,light.g,light.b,alpha))
 	for ratio in [0.22,0.78]:
 		var p := Vector2(room_rect.position.x+room_rect.size.x*ratio,room_rect.position.y+58.0)
 		for r in [110.0,80.0,52.0]:
 			var a := 0.018 if r>100.0 else (0.028 if r>70.0 else 0.042)
-			draw_circle(p,r,Color(1.0,0.48,0.12,a))
+			draw_circle(p,r,Color(light.r,light.g,light.b,a))
 
 func _draw_edge_shadows() -> void:
 	var depth := 34.0
