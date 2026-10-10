@@ -17,6 +17,8 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		room_label.text = "%s · %s%s" % [room_label.text,route,risk_text]
 	if _room_kind == "inicio" and is_instance_valid(status_label):
 		status_label.text = "ENTRADA — %s" % FloorCatalog.floor_name(_floor_index)
+		if is_instance_valid(reward_label):
+			reward_label.text = FloorCatalog.floor_identity(_floor_index)
 
 func _build_room_layout() -> void:
 	if _room_kind in ["inicio","recompensa","tienda","sacrificio","secreta","supersecreta","biblioteca"]:
@@ -34,7 +36,7 @@ func _build_room_layout() -> void:
 		_floor_index,_room_kind,seed,route,risk
 	)
 
-	var variant := clampi(_floor_index-1,0,2)
+	var variant := clampi(_floor_index-1,0,4)
 	match _room_layout_profile:
 		"abierta":
 			pass
