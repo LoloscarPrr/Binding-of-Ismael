@@ -84,31 +84,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 	var to_player: Vector2 = global_position.direction_to(target.global_position)
-	var desired := to_player
-	match kind:
-		EnemyKind.CHASER:
-			desired = to_player
-		EnemyKind.DASHER:
-			_dash_timer -= delta
-			if _dash_timer <= 0.0:
-				_dash_timer = 1.65
-				_dash_direction = to_player
-			if _dash_timer > 1.30:
-				desired = Vector2.ZERO
-			elif _dash_timer > 0.55:
-				desired = _dash_direction * 2.8
-			elif _dash_timer < 0.22:
-				desired = Vector2.ZERO
-			else:
-				desired = to_player * 0.25
-		EnemyKind.ORBITER:
-			var tangent := Vector2(-to_player.y, to_player.x) * _orbit_sign
-			var distance := global_position.distance_to(target.global_position)
-			var radial := to_player * clampf((distance - 240.0) / 120.0, -0.8, 0.8)
-			desired = tangent + radial
-		EnemyKind.BOSS:
-			var wave := Vector2(-to_player.y, to_player.x) * sin(_age * 2.2) * 0.9
-			desired = to_player + wave
+	var desired := _desired_movement(to_player,delta)
 	var separation := Vector2.ZERO
 	for other in get_tree().get_nodes_in_group("enemies"):
 		if other == self:
@@ -136,6 +112,34 @@ func _physics_process(delta: float) -> void:
 	clamp_to_bounds()
 	_update_attack(delta)
 	queue_redraw()
+
+func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
+	var desired := to_player
+	match kind:
+		EnemyKind.CHASER:
+			desired = to_player
+		EnemyKind.DASHER:
+			_dash_timer -= delta
+			if _dash_timer <= 0.0:
+				_dash_timer = 1.65
+				_dash_direction = to_player
+			if _dash_timer > 1.30:
+				desired = Vector2.ZERO
+			elif _dash_timer > 0.55:
+				desired = _dash_direction * 2.8
+			elif _dash_timer < 0.22:
+				desired = Vector2.ZERO
+			else:
+				desired = to_player * 0.25
+		EnemyKind.ORBITER:
+			var tangent := Vector2(-to_player.y, to_player.x) * _orbit_sign
+			var distance := global_position.distance_to(target.global_position)
+			var radial := to_player * clampf((distance - 240.0) / 120.0, -0.8, 0.8)
+			desired = tangent + radial
+		EnemyKind.BOSS:
+			var wave := Vector2(-to_player.y, to_player.x) * sin(_age * 2.2) * 0.9
+			desired = to_player + wave
+	return desired
 
 func set_movement_bounds(bounds: Rect2) -> void:
 	movement_bounds = bounds
