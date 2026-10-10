@@ -194,11 +194,16 @@ func _spawn_content_hazards() -> void:
 	var ratios: Array[Vector2] = _hazard_ratios_for_layout()
 	var count := 0
 	if _room_kind == "maldicion":
-		count = 5
+		count = 4+int(_floor_index>=4)
 	elif _room_kind == "desafio":
-		count = 2 if _floor_index >= 2 else 0
-	elif _floor_index >= 2:
-		count = 1+int(_floor_index>=4)
+		count = 1+int(_floor_index>=3)
+	else:
+		match clampi(_floor_index,1,5):
+			1: count = 0
+			2: count = 1
+			3: count = 2
+			4: count = 2
+			_: count = 3
 	if _room_layout_profile == "abierta":
 		count = mini(count,1)
 	elif _room_layout_profile in ["embudo","corredor_maldito"]:
@@ -207,7 +212,18 @@ func _spawn_content_hazards() -> void:
 	for i in range(count):
 		var ratio := ratios[posmod(seed+i*3,ratios.size())]
 		var kind := "spike"
-		if (_room_kind == "maldicion" and i>=4) or (_floor_index>=3 and i==count-1 and posmod(seed,3)==0):
+		match clampi(_floor_index,1,5):
+			1:
+				kind = "spike"
+			2:
+				kind = "spike"
+			3:
+				kind = "fire" if i==count-1 or posmod(seed+i,4)==0 else "spike"
+			4:
+				kind = "fire" if i%2==1 else "spike"
+			_:
+				kind = "fire" if i%2==0 else "spike"
+		if _room_kind == "maldicion" and i>=maxi(0,count-2):
 			kind = "fire"
 		var hazard_id := 100+i
 		var room_key := _obstacle_room_key()
