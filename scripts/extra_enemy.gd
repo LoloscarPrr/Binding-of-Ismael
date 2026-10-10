@@ -39,6 +39,27 @@ func _ready() -> void:
 	elif extra_kind == ExtraKind.LEAPER:
 		_dash_timer = 0.30
 
+func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
+	match extra_kind:
+		ExtraKind.FLYER:
+			# Flyers circle at close-medium range instead of behaving like tiny chasers.
+			var distance := global_position.distance_to(target.global_position)
+			var tangent_sign := -1.0 if get_instance_id()%2==0 else 1.0
+			var tangent := Vector2(-to_player.y,to_player.x)*tangent_sign
+			var radial := to_player*clampf((distance-185.0)/105.0,-0.72,0.82)
+			var weave := tangent*(0.95+sin(_age*4.4)*0.22)
+			return (weave+radial).normalized()
+		ExtraKind.LEAPER:
+			# Leapers sidestep before committing to the inherited explosive dash.
+			var base := super._desired_movement(to_player,delta)
+			if _dash_timer <= 1.30 and _dash_timer >= 0.55:
+				return base
+			var side := -1.0 if get_instance_id()%2==0 else 1.0
+			var tangent := Vector2(-to_player.y,to_player.x)*side
+			return (to_player*0.28+tangent*0.88).normalized()
+		_:
+			return super._desired_movement(to_player,delta)
+
 func _fire_pending_attack() -> void:
 	if extra_kind == ExtraKind.TURRET:
 		_fire_turret_attack()
