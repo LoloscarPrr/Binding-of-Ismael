@@ -50,6 +50,27 @@ func _ready() -> void:
 	elif advanced_kind == AdvancedKind.STALKER:
 		_dash_timer = 0.42
 
+func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
+	match advanced_kind:
+		AdvancedKind.BRUTE:
+			# Heavy pressure: advances directly, but slows near the player instead
+			# of skating through them. The slight sway keeps it from feeling robotic.
+			var distance := global_position.distance_to(target.global_position)
+			var lateral := Vector2(-to_player.y,to_player.x)*sin(_age*1.7)*0.18
+			if distance < 115.0:
+				return (to_player*0.34+lateral).normalized()
+			return (to_player+lateral).normalized()
+		AdvancedKind.STALKER:
+			# Stalkers flank during recovery, then snap into the inherited dash.
+			var base := super._desired_movement(to_player,delta)
+			if _dash_timer <= 1.30 and _dash_timer >= 0.55:
+				return base
+			var flank_sign := -1.0 if get_instance_id()%2==0 else 1.0
+			var tangent := Vector2(-to_player.y,to_player.x)*flank_sign
+			return (to_player*0.42+tangent*0.92).normalized()
+		_:
+			return super._desired_movement(to_player,delta)
+
 func _fire_pending_attack() -> void:
 	if advanced_kind == AdvancedKind.SPITTER:
 		_fire_spitter_attack()
