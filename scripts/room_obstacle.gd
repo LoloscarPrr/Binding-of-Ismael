@@ -33,6 +33,14 @@ func _draw() -> void:
 		fill = Color(0.23,0.085,0.08)
 		rim = Color(0.44,0.16,0.13)
 		highlight = Color(0.64,0.29,0.22)
+	elif variant==3:
+		fill = Color(0.115,0.095,0.16)
+		rim = Color(0.30,0.22,0.40)
+		highlight = Color(0.46,0.36,0.60)
+	elif variant>=4:
+		fill = Color(0.055,0.060,0.070)
+		rim = Color(0.20,0.22,0.28)
+		highlight = Color(0.36,0.40,0.50)
 	var depth := clampf(obstacle_size.y*0.13,7.0,15.0)
 	var shadow := Rect2(rect.position+Vector2(7,depth+7),rect.size)
 	draw_rect(shadow,Color(0.01,0.008,0.007,0.50))
