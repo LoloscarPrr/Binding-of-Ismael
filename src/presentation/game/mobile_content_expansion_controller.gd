@@ -96,7 +96,7 @@ func _library_choices() -> Array[String]:
 	return [first,second]
 
 func _create_floor_enemy(kind_id: String):
-	if kind_id in ["flyer","turret","leaper"]:
+	if kind_id in ["flyer","turret","leaper","flyer_elite","turret_elite","leaper_elite"]:
 		var enemy := ExtraEnemy.new()
 		enemy.configure_extra(kind_id,_floor_index)
 		return enemy
