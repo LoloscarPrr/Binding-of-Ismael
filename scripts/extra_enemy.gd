@@ -5,10 +5,13 @@ enum ExtraKind { FLYER, TURRET, LEAPER }
 
 var extra_kind: ExtraKind = ExtraKind.FLYER
 var floor_variant := 1
+var elite_variant := false
 
 func configure_extra(kind_id: String, floor_index: int) -> void:
 	floor_variant = maxi(1,floor_index)
-	match kind_id:
+	elite_variant = kind_id.ends_with("_elite")
+	var base_kind := kind_id.replace("_elite","")
+	match base_kind:
 		"turret":
 			extra_kind = ExtraKind.TURRET
 			super.configure(IsmaelEnemy.EnemyKind.ORBITER,floor_variant)
@@ -30,6 +33,11 @@ func configure_extra(kind_id: String, floor_index: int) -> void:
 			health = 1+int(ceil(float(floor_variant)*0.5))
 			max_health = health
 			scale = Vector2(0.62,0.62)
+	if elite_variant:
+		health = int(ceil(float(health)*1.50))
+		max_health = health
+		speed *= 1.10
+		scale *= 1.10
 
 func _ready() -> void:
 	super._ready()
@@ -75,14 +83,16 @@ func _fire_turret_attack() -> void:
 		count = 3
 	if floor_variant >= 5:
 		count = 5
+	if elite_variant:
+		count = maxi(count,5)
 	if count == 1:
 		_spawn_enemy_shot(aim,300.0+floor_variant*14.0,0)
 	else:
-		var spread := 0.16+float(floor_variant)*0.018
+		var spread := (0.24 if elite_variant else 0.16)+float(floor_variant)*0.018
 		for i in range(count):
 			var t := float(i)/float(count-1)
-			_spawn_enemy_shot(aim.rotated(lerpf(-spread,spread,t)),300.0+floor_variant*14.0,0)
-	_attack_cooldown = maxf(0.82,1.55-float(floor_variant)*0.10)
+			_spawn_enemy_shot(aim.rotated(lerpf(-spread,spread,t)),300.0+floor_variant*14.0+(24.0 if elite_variant else 0.0),0)
+	_attack_cooldown = maxf(0.68 if elite_variant else 0.82,(1.30 if elite_variant else 1.55)-float(floor_variant)*0.10)
 
 func _draw() -> void:
 	var flash := _hit_flash>0.0
@@ -94,6 +104,9 @@ func _draw() -> void:
 		ExtraKind.LEAPER:
 			_draw_leaper(flash)
 	_draw_attack_telegraph()
+	if elite_variant:
+		draw_arc(Vector2.ZERO,31.0+sin(_age*6.0)*2.0,0.0,TAU,28,Color(0.94,0.70,0.20,0.80),3.0)
+		draw_circle(Vector2(0,-25),4.0,Color(1.0,0.84,0.30,0.86))
 
 func _draw_flyer(flash: bool) -> void:
 	var body := Color(0.95,0.86,0.78) if flash else Color(0.19,0.16,0.15)
