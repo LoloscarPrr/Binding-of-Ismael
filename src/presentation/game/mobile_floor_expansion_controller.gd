@@ -2,6 +2,7 @@ extends "res://src/presentation/game/mobile_destructible_room_controller.gd"
 
 const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
+const SpecialEnemy = preload("res://scripts/special_enemy.gd")
 
 var _room_layout_profile := "abierta"
 
@@ -125,6 +126,10 @@ func _create_floor_enemy(kind_id: String):
 		var advanced := AdvancedEnemy.new()
 		advanced.configure_advanced(kind_id,_floor_index)
 		return advanced
+	if kind_id in ["shielded","burrower","splitter"]:
+		var special := SpecialEnemy.new()
+		special.configure_special(kind_id,_floor_index)
+		return special
 	var enemy := IsmaelEnemy.new()
 	match kind_id:
 		"dasher":
