@@ -103,7 +103,30 @@ static func encounter_roster(
 		if valid.is_empty():
 			valid = pool
 		roster.append(valid[posmod(encounter_seed+i*2+floor_index,valid.size())])
+	_apply_elite_variant(roster,floor_index,encounter_seed,room_kind)
 	return roster
+
+static func _apply_elite_variant(
+	roster: Array[String],
+	floor_index: int,
+	encounter_seed: int,
+	room_kind: String
+) -> void:
+	if floor_index<2 or roster.size()<3:
+		return
+	var chance := 12+floor_index*7
+	if room_kind in ["desafio","maldicion","emboscada"]:
+		chance += 18
+	if posmod(encounter_seed*17+floor_index*29,100)>=chance:
+		return
+	var eligible: Array[int] = []
+	for i in range(roster.size()):
+		if roster[i] in ["brute","spitter","stalker","turret","leaper","flyer"]:
+			eligible.append(i)
+	if eligible.is_empty():
+		return
+	var pick := eligible[posmod(encounter_seed+floor_index*13,eligible.size())]
+	roster[pick] = "%s_elite" % roster[pick]
 
 static func encounter_name(
 	floor_index: int,
