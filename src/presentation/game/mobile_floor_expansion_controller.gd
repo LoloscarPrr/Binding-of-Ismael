@@ -121,7 +121,7 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 		add_child(enemy)
 
 func _create_floor_enemy(kind_id: String):
-	if kind_id in ["brute","spitter","stalker"]:
+	if kind_id in ["brute","spitter","stalker","brute_elite","spitter_elite","stalker_elite"]:
 		var advanced := AdvancedEnemy.new()
 		advanced.configure_advanced(kind_id,_floor_index)
 		return advanced
