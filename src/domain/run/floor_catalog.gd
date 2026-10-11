@@ -32,13 +32,13 @@ static func enemy_pool(floor_index: int) -> Array[String]:
 		1:
 			return ["chaser","dasher","orbiter","flyer","chaser"]
 		2:
-			return ["chaser","dasher","orbiter","brute","flyer","leaper"]
+			return ["chaser","dasher","orbiter","brute","flyer","leaper","shielded"]
 		3:
-			return ["dasher","orbiter","brute","spitter","flyer","turret","leaper"]
+			return ["dasher","orbiter","brute","spitter","flyer","turret","leaper","shielded","burrower"]
 		4:
-			return ["orbiter","brute","spitter","stalker","turret","leaper","flyer","spitter"]
+			return ["orbiter","brute","spitter","stalker","turret","leaper","flyer","spitter","burrower","splitter"]
 		_:
-			return ["brute","spitter","stalker","orbiter","turret","leaper","flyer","stalker","brute"]
+			return ["brute","spitter","stalker","orbiter","turret","leaper","flyer","stalker","brute","shielded","burrower","splitter"]
 
 static func encounter_roster(
 	floor_index: int,
@@ -48,8 +48,8 @@ static func encounter_roster(
 	layout_profile: String = "abierta"
 ) -> Array[String]:
 	var pool := enemy_pool(floor_index)
-	var melee: Array[String] = ["chaser","brute","flyer"]
-	var chargers: Array[String] = ["dasher","leaper","stalker"]
+	var melee: Array[String] = ["chaser","brute","flyer","shielded","splitter"]
+	var chargers: Array[String] = ["dasher","leaper","stalker","burrower"]
 	var ranged: Array[String] = ["orbiter","spitter","turret"]
 	var pattern := posmod(encounter_seed+floor_index*3,5)
 	if room_kind == "emboscada":
