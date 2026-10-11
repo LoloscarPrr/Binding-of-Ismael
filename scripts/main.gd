@@ -4,6 +4,10 @@ const TOTAL_FLOORS := 2
 const ROOM_ENTRY_DELAY := 0.65
 const FLOOR_TRANSITION_DELAY := 1.35
 const ENEMY_ACTIVATION_DELAY := 0.88
+const DOOR_TRANSITION_HOLD := 1.35
+const DOOR_COMMIT_EDGE := 30.0
+const DOOR_COMMIT_HALF_WIDTH := 72.0
+const DoorChargeIndicator = preload("res://scripts/door_charge_indicator.gd")
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
 const COMBAT_SIDE_RATIO := 0.085
 const COMBAT_TOP_RATIO := 0.155
@@ -62,6 +66,9 @@ var _special_used: Dictionary = {}
 var _reward_offers: Dictionary = {}
 var _map_reveal_active := false
 var _coin_bonus_per_clear := 0
+var _door_charge_direction := Vector2i.ZERO
+var _door_charge_time := 0.0
+var _door_charge_indicator: IsmaelDoorChargeIndicator
 
 func _ready() -> void:
 	_configure_mobile_display()
@@ -76,6 +83,9 @@ func _ready() -> void:
 	player.health_changed.connect(_on_player_health_changed)
 	player.died.connect(_on_player_died)
 	add_child(player)
+	_door_charge_indicator = DoorChargeIndicator.new()
+	_door_charge_indicator.z_index = 12
+	add_child(_door_charge_indicator)
 	_create_touch_ui()
 	_create_floor_exit_label()
 	_on_player_health_changed(player.health,player.max_health)
@@ -100,6 +110,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_room_kind = _dungeon.kind(_current_cell)
 	_room_cleared = _dungeon.is_cleared(_current_cell)
 	_challenge_wave = 0
+	_reset_door_charge()
 	if _dungeon.is_hidden(_current_cell):
 		room_label.text = "SALA OCULTA"
 	else:
@@ -824,42 +835,69 @@ func _input(event: InputEvent) -> void:
 	if right_stick and right_stick.handle_touch(event):
 		get_viewport().set_input_as_handled()
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _game_over or _run_complete or not is_instance_valid(player):
+		_reset_door_charge()
 		return
 	if _transition_locked:
 		player.move_input = Vector2.ZERO
 		player.aim_input = Vector2.ZERO
+		_reset_door_charge()
 		return
 	var keyboard_move := Input.get_vector("move_left","move_right","move_up","move_down")
 	var keyboard_aim := Input.get_vector("shoot_left","shoot_right","shoot_up","shoot_down")
 	player.move_input = left_stick.value if left_stick.value.length()>0.0 else keyboard_move
 	player.aim_input = right_stick.value if right_stick.value.length()>0.0 else keyboard_aim
+	if is_instance_valid(_door_charge_indicator):
+		_door_charge_indicator.global_position = player.global_position
 	if _room_cleared:
 		var exit_direction := _detect_exit_direction()
-		if exit_direction != Vector2i.ZERO:
-			if _room_kind == "jefe" and exit_direction == _floor_exit_direction and not _dungeon.has_room(_current_cell+exit_direction):
-				_finish_floor()
-			else:
-				_travel_to(exit_direction)
+		if _update_door_charge(exit_direction,delta):
 			return
-		var hidden_direction := _detect_hidden_wall_direction()
-		if hidden_direction != Vector2i.ZERO:
-			_try_reveal_hidden_room(hidden_direction)
+		if exit_direction == Vector2i.ZERO:
+			var hidden_direction := _detect_hidden_wall_direction()
+			if hidden_direction != Vector2i.ZERO:
+				_try_reveal_hidden_room(hidden_direction)
+	else:
+		_reset_door_charge()
 
 func _detect_exit_direction() -> Vector2i:
 	var center := room_rect.get_center()
-	var edge := 74.0
-	var doorway_half := 96.0
-	if _doors.has(Vector2i(0,-1)) and player.position.y < room_rect.position.y+edge and absf(player.position.x-center.x)<doorway_half:
+	if _doors.has(Vector2i(0,-1)) and player.position.y < room_rect.position.y+DOOR_COMMIT_EDGE and absf(player.position.x-center.x)<DOOR_COMMIT_HALF_WIDTH:
 		return Vector2i(0,-1)
-	if _doors.has(Vector2i(0,1)) and player.position.y > room_rect.end.y-edge and absf(player.position.x-center.x)<doorway_half:
+	if _doors.has(Vector2i(0,1)) and player.position.y > room_rect.end.y-DOOR_COMMIT_EDGE and absf(player.position.x-center.x)<DOOR_COMMIT_HALF_WIDTH:
 		return Vector2i(0,1)
-	if _doors.has(Vector2i(-1,0)) and player.position.x < room_rect.position.x+edge and absf(player.position.y-center.y)<doorway_half:
+	if _doors.has(Vector2i(-1,0)) and player.position.x < room_rect.position.x+DOOR_COMMIT_EDGE and absf(player.position.y-center.y)<DOOR_COMMIT_HALF_WIDTH:
 		return Vector2i(-1,0)
-	if _doors.has(Vector2i(1,0)) and player.position.x > room_rect.end.x-edge and absf(player.position.y-center.y)<doorway_half:
+	if _doors.has(Vector2i(1,0)) and player.position.x > room_rect.end.x-DOOR_COMMIT_EDGE and absf(player.position.y-center.y)<DOOR_COMMIT_HALF_WIDTH:
 		return Vector2i(1,0)
 	return Vector2i.ZERO
+
+func _update_door_charge(direction: Vector2i, delta: float) -> bool:
+	if direction == Vector2i.ZERO:
+		_reset_door_charge()
+		return false
+	if direction != _door_charge_direction:
+		_door_charge_direction = direction
+		_door_charge_time = 0.0
+	_door_charge_time = minf(DOOR_TRANSITION_HOLD,_door_charge_time+delta)
+	if is_instance_valid(_door_charge_indicator):
+		_door_charge_indicator.set_progress(_door_charge_time/DOOR_TRANSITION_HOLD)
+	if _door_charge_time < DOOR_TRANSITION_HOLD:
+		return false
+	var committed_direction := _door_charge_direction
+	_reset_door_charge()
+	if _room_kind == "jefe" and committed_direction == _floor_exit_direction and not _dungeon.has_room(_current_cell+committed_direction):
+		_finish_floor()
+	else:
+		_travel_to(committed_direction)
+	return true
+
+func _reset_door_charge() -> void:
+	_door_charge_direction = Vector2i.ZERO
+	_door_charge_time = 0.0
+	if is_instance_valid(_door_charge_indicator):
+		_door_charge_indicator.reset()
 
 func _travel_to(direction: Vector2i) -> void:
 	if _transition_locked:
