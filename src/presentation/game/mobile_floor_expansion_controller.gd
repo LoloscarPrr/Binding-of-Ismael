@@ -142,7 +142,7 @@ func _create_floor_enemy(kind_id: String):
 
 func _on_enemy_defeated(enemy) -> void:
 	if enemy is SpecialEnemy and enemy.is_splitter():
-		var origin := enemy.global_position
+		var origin: Vector2 = enemy.global_position
 		for i in range(2):
 			var child := IsmaelEnemy.new()
 			child.configure(IsmaelEnemy.EnemyKind.CHASER,maxi(1,_floor_index-1))
