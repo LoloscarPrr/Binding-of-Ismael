@@ -140,6 +140,27 @@ func _create_floor_enemy(kind_id: String):
 			enemy.configure(IsmaelEnemy.EnemyKind.CHASER,_floor_index)
 	return enemy
 
+func _on_enemy_defeated(enemy) -> void:
+	if enemy is SpecialEnemy and enemy.is_splitter():
+		var origin := enemy.global_position
+		for i in range(2):
+			var child := IsmaelEnemy.new()
+			child.configure(IsmaelEnemy.EnemyKind.CHASER,maxi(1,_floor_index-1))
+			child.health = maxi(2,int(ceil(float(child.health)*0.62)))
+			child.max_health = child.health
+			child.speed *= 1.18
+			child.scale = Vector2(0.68,0.68)
+			var angle := -0.55 if i==0 else 0.55
+			var offset := Vector2.RIGHT.rotated(angle+float(_room_index)*0.31)*34.0
+			child.global_position = origin+offset
+			child.target = player
+			child.spawn_grace_time = 0.42
+			child.set_movement_bounds(room_rect)
+			child.defeated.connect(_on_enemy_defeated)
+			add_child(child)
+			_enemies_alive += 1
+	super._on_enemy_defeated(enemy)
+
 func _spawn_challenge_wave() -> void:
 	var depth := _dungeon.distance(_current_cell)+_challenge_wave
 	var count := mini(
