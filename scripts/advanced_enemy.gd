@@ -8,10 +8,13 @@ enum AdvancedKind { BRUTE, SPITTER, STALKER, FLOOR_BOSS }
 
 var advanced_kind: AdvancedKind = AdvancedKind.BRUTE
 var floor_variant := 1
+var elite_variant := false
 
 func configure_advanced(kind_id: String, floor_index: int) -> void:
 	floor_variant = maxi(1,floor_index)
-	match kind_id:
+	elite_variant = kind_id.ends_with("_elite")
+	var base_kind := kind_id.replace("_elite","")
+	match base_kind:
 		"spitter":
 			advanced_kind = AdvancedKind.SPITTER
 			super.configure(IsmaelEnemy.EnemyKind.ORBITER,floor_variant)
@@ -40,6 +43,11 @@ func configure_advanced(kind_id: String, floor_index: int) -> void:
 			health = 8+floor_variant*2
 			max_health = health
 			scale = Vector2(1.20,1.20)
+	if elite_variant:
+		health = int(ceil(float(health)*1.45))
+		max_health = health
+		speed *= 1.08
+		scale *= 1.08
 
 func _ready() -> void:
 	super._ready()
@@ -89,9 +97,11 @@ func _fire_spitter_attack() -> void:
 		angles = [-0.17,0.0,0.17]
 	elif floor_variant >= 3:
 		angles = [-0.10,0.10]
+	if elite_variant:
+		angles = [-0.28,-0.14,0.0,0.14,0.28]
 	for angle: float in angles:
-		_spawn_enemy_shot(aim.rotated(angle),275.0+floor_variant*20.0,0)
-	_attack_cooldown = maxf(0.92,1.62-float(floor_variant)*0.11)
+		_spawn_enemy_shot(aim.rotated(angle),275.0+floor_variant*20.0+(28.0 if elite_variant else 0.0),0)
+	_attack_cooldown = maxf(0.72 if elite_variant else 0.92,(1.34 if elite_variant else 1.62)-float(floor_variant)*0.11)
 
 func _fire_floor_boss_attack() -> void:
 	if not is_instance_valid(target):
@@ -131,6 +141,9 @@ func _draw() -> void:
 		AdvancedKind.FLOOR_BOSS:
 			_draw_floor_boss(flash)
 	_draw_attack_telegraph()
+	if elite_variant:
+		draw_arc(Vector2.ZERO,37.0+sin(_age*5.0)*2.0,0.0,TAU,30,Color(0.95,0.68,0.18,0.78),3.5)
+		draw_circle(Vector2(0,-30),4.5,Color(1.0,0.82,0.28,0.82))
 
 func _draw_brute(flash: bool) -> void:
 	var outline := Color(0.055,0.045,0.04)
