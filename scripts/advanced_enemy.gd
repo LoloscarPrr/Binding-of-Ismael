@@ -161,9 +161,10 @@ func _fire_jailer_pattern(phase_two: bool) -> void:
 				continue
 			_spawn_enemy_shot(aim.rotated(angle),300.0+(22.0 if phase_two else 0.0),1)
 	else:
-		for side in [-1.0,1.0]:
+		var sides: Array[float] = [-1.0,1.0]
+		for side: float in sides:
 			for step in range(3+(1 if phase_two else 0)):
-				var angle := side*(0.18+float(step)*0.16)
+				var angle: float = side*(0.18+float(step)*0.16)
 				_spawn_enemy_shot(aim.rotated(angle),282.0+float(step)*18.0,1)
 	_attack_cooldown = 0.78 if phase_two else 1.08
 
