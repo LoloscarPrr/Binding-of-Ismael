@@ -76,8 +76,38 @@ func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 			var flank_sign := -1.0 if get_instance_id()%2==0 else 1.0
 			var tangent := Vector2(-to_player.y,to_player.x)*flank_sign
 			return (to_player*0.42+tangent*0.92).normalized()
+		AdvancedKind.FLOOR_BOSS:
+			return _boss_movement(to_player)
 		_:
 			return super._desired_movement(to_player,delta)
+
+func _boss_movement(to_player: Vector2) -> Vector2:
+	if not is_instance_valid(target):
+		return Vector2.ZERO
+	var distance := global_position.distance_to(target.global_position)
+	var tangent := Vector2(-to_player.y,to_player.x)
+	match clampi(floor_variant,1,5):
+		1:
+			# EL CARCELERO owns the middle distance and slides sideways like a closing gate.
+			var radial := to_player*clampf((distance-225.0)/110.0,-0.85,0.85)
+			return (tangent*sin(_age*1.15)*0.95+radial).normalized()
+		2:
+			# LA MANDÍBULA relentlessly closes space, only easing off at contact range.
+			if distance<92.0:
+				return (tangent*0.55-to_player*0.24).normalized()
+			return (to_player+tangent*sin(_age*2.6)*0.20).normalized()
+		3:
+			# EL VIGÍA protects long firing lanes and rotates around Ismael.
+			var radial := to_player*clampf((distance-305.0)/115.0,-1.0,0.72)
+			return (tangent*0.92+radial).normalized()
+		4:
+			# EL SEPULTURERO drifts deliberately while keeping the player inside ring patterns.
+			var radial := to_player*clampf((distance-245.0)/145.0,-0.62,0.62)
+			return (tangent*sin(_age*0.72)*0.56+radial).normalized()
+		_:
+			# EL HUECO never settles: pursuit and orbit trade dominance continuously.
+			var pulse := 0.5+0.5*sin(_age*1.35)
+			return (to_player*(0.45+pulse*0.70)+tangent*sin(_age*2.0)*(0.35+0.55*(1.0-pulse))).normalized()
 
 func _fire_pending_attack() -> void:
 	if advanced_kind == AdvancedKind.SPITTER:
@@ -107,27 +137,88 @@ func _fire_floor_boss_attack() -> void:
 	if not is_instance_valid(target):
 		return
 	var phase_two := health*2 <= max_health
-	if _attack_sequence%2 == 0:
-		var aim: Vector2 = global_position.direction_to(target.global_position)
-		var shot_count := 3+mini(4,(floor_variant-1)*2)
-		if phase_two:
-			shot_count += 2
-		var spread := 0.20+float(floor_variant)*0.045
-		if shot_count <= 1:
-			_spawn_enemy_shot(aim,330.0+floor_variant*12.0,1)
-		else:
-			for i in range(shot_count):
-				var t := float(i)/float(shot_count-1)
-				var angle := lerpf(-spread,spread,t)
-				_spawn_enemy_shot(aim.rotated(angle),320.0+floor_variant*14.0,1)
-	else:
-		var ring_count := 7+floor_variant*2+(3 if phase_two else 0)
-		var base_angle := _age*(0.46+float(floor_variant)*0.08)
-		for i in range(ring_count):
-			var angle := base_angle+TAU*float(i)/float(ring_count)
-			_spawn_enemy_shot(Vector2.RIGHT.rotated(angle),260.0+floor_variant*13.0,1)
+	match clampi(floor_variant,1,5):
+		1:
+			_fire_jailer_pattern(phase_two)
+		2:
+			_fire_maw_pattern(phase_two)
+		3:
+			_fire_watcher_pattern(phase_two)
+		4:
+			_fire_gravedigger_pattern(phase_two)
+		_:
+			_fire_hollow_pattern(phase_two)
 	_attack_sequence += 1
-	_attack_cooldown = maxf(0.62,(0.94 if phase_two else 1.20)-float(floor_variant-1)*0.08)
+
+func _fire_jailer_pattern(phase_two: bool) -> void:
+	var aim := global_position.direction_to(target.global_position)
+	if _attack_sequence%2==0:
+		var bars: Array[float] = [-0.48,-0.24,0.0,0.24,0.48]
+		if phase_two:
+			bars = [-0.60,-0.40,-0.20,0.0,0.20,0.40,0.60]
+		for angle in bars:
+			if not phase_two and absf(angle-0.24)<0.01:
+				continue
+			_spawn_enemy_shot(aim.rotated(angle),300.0+(22.0 if phase_two else 0.0),1)
+	else:
+		for side in [-1.0,1.0]:
+			for step in range(3+(1 if phase_two else 0)):
+				var angle := side*(0.18+float(step)*0.16)
+				_spawn_enemy_shot(aim.rotated(angle),282.0+float(step)*18.0,1)
+	_attack_cooldown = 0.78 if phase_two else 1.08
+
+func _fire_maw_pattern(phase_two: bool) -> void:
+	var aim := global_position.direction_to(target.global_position)
+	if _attack_sequence%3!=2:
+		var teeth: Array[float] = [-0.34,-0.17,0.0,0.17,0.34]
+		if phase_two:
+			teeth = [-0.46,-0.30,-0.15,0.0,0.15,0.30,0.46]
+		for angle in teeth:
+			_spawn_enemy_shot(aim.rotated(angle),360.0+(28.0 if phase_two else 0.0),1)
+	else:
+		var count := 10 if phase_two else 8
+		for i in range(count):
+			var angle := TAU*float(i)/float(count)
+			_spawn_enemy_shot(Vector2.RIGHT.rotated(angle),250.0,1)
+	_attack_cooldown = 0.62 if phase_two else 0.88
+
+func _fire_watcher_pattern(phase_two: bool) -> void:
+	var aim := global_position.direction_to(target.global_position)
+	if _attack_sequence%2==0:
+		for offset in [0.0,PI*0.5,PI,PI*1.5]:
+			_spawn_enemy_shot(Vector2.RIGHT.rotated(_age*0.55+offset),315.0,1)
+		if phase_two:
+			for offset in [PI*0.25,PI*0.75,PI*1.25,PI*1.75]:
+				_spawn_enemy_shot(Vector2.RIGHT.rotated(_age*0.55+offset),335.0,1)
+	else:
+		for angle in [-0.08,0.0,0.08]:
+			_spawn_enemy_shot(aim.rotated(angle),430.0+(25.0 if phase_two else 0.0),1)
+	_attack_cooldown = 0.70 if phase_two else 1.02
+
+func _fire_gravedigger_pattern(phase_two: bool) -> void:
+	var count := 12 if phase_two else 9
+	var spiral := _age*1.08+float(_attack_sequence)*0.31
+	for i in range(count):
+		var angle := spiral+TAU*float(i)/float(count)
+		var speed_value := 235.0+float(i%3)*34.0
+		_spawn_enemy_shot(Vector2.RIGHT.rotated(angle),speed_value,1)
+	if _attack_sequence%3==2:
+		var aim := global_position.direction_to(target.global_position)
+		for angle in [-0.42,-0.21,0.0,0.21,0.42]:
+			_spawn_enemy_shot(aim.rotated(angle),300.0,1)
+	_attack_cooldown = 0.74 if phase_two else 1.04
+
+func _fire_hollow_pattern(phase_two: bool) -> void:
+	match _attack_sequence%4:
+		0:
+			_fire_jailer_pattern(phase_two)
+		1:
+			_fire_maw_pattern(phase_two)
+		2:
+			_fire_watcher_pattern(phase_two)
+		_:
+			_fire_gravedigger_pattern(phase_two)
+	_attack_cooldown = 0.52 if phase_two else 0.76
 
 func _draw() -> void:
 	var flash := _hit_flash>0.0
@@ -217,20 +308,48 @@ func _draw_floor_boss(flash: bool) -> void:
 	var breathe := 1.0+sin(_age*2.6)*0.028
 	draw_ellipse(Vector2(0,40),Vector2(49,13),Color(0.01,0.005,0.008,0.44))
 	draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,breathe))
-	draw_ellipse(Vector2(0,1),Vector2(50,44),dark)
-	draw_ellipse(Vector2(0,-1),Vector2(44,39),flesh)
-	draw_circle(Vector2(-39,2),15.0,rim)
-	draw_circle(Vector2(39,2),15.0,rim)
-	draw_ellipse(Vector2(-16,-12),Vector2(9,8),Color.BLACK)
-	draw_ellipse(Vector2(16,-12),Vector2(9,8),Color.BLACK)
-	draw_circle(Vector2(-15,-13),2.3,Color(0.96,0.30,0.18))
-	draw_circle(Vector2(17,-13),2.3,Color(0.96,0.30,0.18))
-	draw_ellipse(Vector2(0,5),Vector2(11,7),dark)
-	draw_ellipse(Vector2(0,21),Vector2(20,8),dark)
-	for i in range(clampi(floor_variant,1,5)):
-		var angle := -1.2+float(i)*0.6
-		var start := Vector2(cos(angle),sin(angle))*31.0
-		var finish := Vector2(cos(angle+0.16),sin(angle+0.16))*45.0
-		draw_line(start,finish,rim,3.0)
+	match clampi(floor_variant,1,5):
+		1:
+			# CARCELERO: broad, squared body with prison bars.
+			draw_rect(Rect2(-48,-35,96,72),dark)
+			draw_rect(Rect2(-42,-31,84,64),flesh)
+			for x in [-27.0,-9.0,9.0,27.0]:
+				draw_line(Vector2(x,-30),Vector2(x,30),rim,5.0)
+			draw_ellipse(Vector2(0,-7),Vector2(13,10),Color.BLACK)
+		2:
+			# MANDÍBULA: low heavy silhouette dominated by a huge toothed mouth.
+			draw_ellipse(Vector2(0,3),Vector2(53,38),dark)
+			draw_ellipse(Vector2(0,0),Vector2(47,33),flesh)
+			draw_ellipse(Vector2(0,10),Vector2(31,16),Color(0.07,0.02,0.015))
+			for x in [-20.0,-10.0,0.0,10.0,20.0]:
+				draw_colored_polygon(PackedVector2Array([Vector2(x-5,1),Vector2(x+5,1),Vector2(x,13)]),rim)
+				draw_colored_polygon(PackedVector2Array([Vector2(x-5,20),Vector2(x+5,20),Vector2(x,9)]),rim)
+		3:
+			# VIGÍA: tall cyclopean body with rotating sight marks.
+			draw_ellipse(Vector2(0,0),Vector2(39,47),dark)
+			draw_ellipse(Vector2(0,-2),Vector2(34,42),flesh)
+			draw_ellipse(Vector2(0,-8),Vector2(22,18),rim)
+			draw_ellipse(Vector2(0,-8),Vector2(11,14),Color.BLACK)
+			draw_circle(Vector2(0,-10),4.0,Color(0.92,0.28,0.22))
+			for a in [0.0,PI*0.5,PI,PI*1.5]:
+				draw_line(Vector2.RIGHT.rotated(a+_age*0.55)*34.0,Vector2.RIGHT.rotated(a+_age*0.55)*52.0,rim,4.0)
+		4:
+			# SEPULTURERO: hunched tomb-like shell and shovel-shaped crown.
+			draw_ellipse(Vector2(0,5),Vector2(48,38),dark)
+			draw_ellipse(Vector2(0,3),Vector2(42,33),flesh)
+			draw_rect(Rect2(-24,-28,48,18),rim)
+			draw_line(Vector2(0,-34),Vector2(0,-58),rim,8.0)
+			draw_colored_polygon(PackedVector2Array([Vector2(-13,-58),Vector2(13,-58),Vector2(0,-72)]),rim)
+			draw_ellipse(Vector2(0,8),Vector2(18,10),Color.BLACK)
+		_:
+			# HUECO: asymmetric void with fragments orbiting its missing center.
+			draw_ellipse(Vector2(0,0),Vector2(50,43),dark)
+			draw_ellipse(Vector2(0,-1),Vector2(43,36),flesh)
+			draw_ellipse(Vector2(0,-2),Vector2(24,23),Color(0.015,0.008,0.02))
+			for i in range(5):
+				var a := _age*0.8+TAU*float(i)/5.0
+				draw_circle(Vector2(cos(a),sin(a))*48.0,6.0,rim)
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
-	draw_arc(Vector2.ZERO,53.0+sin(_age*3.0)*2.0,0.0,TAU,44,Color(rim.r,rim.g,rim.b,0.48),4.0)
+	draw_arc(Vector2.ZERO,55.0+sin(_age*3.0)*2.0,0.0,TAU,44,Color(rim.r,rim.g,rim.b,0.52),4.0)
+	if health*2<=max_health:
+		draw_arc(Vector2.ZERO,61.0+sin(_age*6.0)*2.0,0.0,TAU,44,Color(1.0,0.20,0.12,0.56),4.0)
