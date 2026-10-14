@@ -9,6 +9,7 @@ enum AdvancedKind { BRUTE, SPITTER, STALKER, FLOOR_BOSS }
 var advanced_kind: AdvancedKind = AdvancedKind.BRUTE
 var floor_variant := 1
 var elite_variant := false
+var _phase_two_announced := false
 
 func configure_advanced(kind_id: String, floor_index: int) -> void:
 	floor_variant = maxi(1,floor_index)
@@ -109,6 +110,27 @@ func _boss_movement(to_player: Vector2) -> Vector2:
 			# EL HUECO never settles: pursuit and orbit trade dominance continuously.
 			var pulse := 0.5+0.5*sin(_age*1.35)
 			return (to_player*(0.45+pulse*0.70)+tangent*sin(_age*2.0)*(0.35+0.55*(1.0-pulse))).normalized()
+
+func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
+	var was_above_half := health*2 > max_health
+	super.take_damage(amount,source_position)
+	if advanced_kind != AdvancedKind.FLOOR_BOSS or _phase_two_announced:
+		return
+	if was_above_half and health > 0 and health*2 <= max_health:
+		_phase_two_announced = true
+		_spawn_phase_two_feedback()
+
+func _spawn_phase_two_feedback() -> void:
+	if not is_inside_tree():
+		return
+	var vfx := CombatFeedbackVfx.new()
+	vfx.configure("phase",floor_variant,1.0)
+	get_tree().current_scene.add_child(vfx)
+	vfx.global_position = global_position
+	_hit_flash = 0.34
+	_attack_windup = 0.0
+	_attack_cooldown = 0.34
+	queue_redraw()
 
 func _fire_pending_attack() -> void:
 	if advanced_kind == AdvancedKind.SPITTER:
