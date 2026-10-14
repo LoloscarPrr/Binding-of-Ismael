@@ -1,6 +1,6 @@
 extends Node2D
 
-const TOTAL_FLOORS := 2
+const TOTAL_FLOORS := 5
 const ROOM_ENTRY_DELAY := 0.65
 const FLOOR_TRANSITION_DELAY := 1.35
 const ENEMY_ACTIVATION_DELAY := 0.88
