@@ -32,6 +32,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		boss_hud.hide_boss()
 	super._begin_room(entry_direction)
 	_sync_room_visual()
+	_apply_floor_identity_to_hud()
 
 func _create_touch_ui() -> void:
 	super._create_touch_ui()
@@ -134,6 +135,42 @@ func _polish_hud() -> void:
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color(0.04,0.035,0.032,0.58)
 		style.border_color = Color(0.68,0.50,0.26,0.36)
+		style.set_border_width_all(2)
+		style.corner_radius_top_left = 7
+		style.corner_radius_top_right = 7
+		style.corner_radius_bottom_left = 7
+		style.corner_radius_bottom_right = 7
+		control_edit_button.add_theme_stylebox_override("normal",style)
+	_apply_floor_identity_to_hud()
+
+func _floor_ui_accent() -> Color:
+	match clampi(_floor_index,1,5):
+		1: return Color(0.86,0.42,0.18,0.82)
+		2: return Color(0.68,0.66,0.24,0.82)
+		3: return Color(0.72,0.36,0.82,0.82)
+		4: return Color(0.42,0.56,0.82,0.82)
+		_: return Color(0.60,0.24,0.82,0.88)
+
+func _apply_floor_identity_to_hud() -> void:
+	if not is_instance_valid(hud_center_card):
+		return
+	var accent := _floor_ui_accent()
+	hud_center_card.add_theme_stylebox_override("panel",_hud_card_style(Color(accent.r,accent.g,accent.b,0.62)))
+	if is_instance_valid(hud_right_card):
+		hud_right_card.add_theme_stylebox_override("panel",_hud_card_style(Color(accent.r,accent.g,accent.b,0.48)))
+	if is_instance_valid(status_label):
+		status_label.add_theme_color_override("font_color",accent.lightened(0.20))
+	if is_instance_valid(floor_label):
+		floor_label.add_theme_color_override("font_color",accent.lightened(0.34))
+	if is_instance_valid(room_label):
+		room_label.add_theme_color_override("font_color",Color(0.91,0.86,0.75))
+	if is_instance_valid(minimap_label):
+		var map_tint := accent.lightened(0.26)
+		minimap_label.add_theme_color_override("font_color",map_tint)
+	if is_instance_valid(control_edit_button):
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.018,0.016,0.018,0.72)
+		style.border_color = Color(accent.r,accent.g,accent.b,0.40)
 		style.set_border_width_all(2)
 		style.corner_radius_top_left = 7
 		style.corner_radius_top_right = 7
