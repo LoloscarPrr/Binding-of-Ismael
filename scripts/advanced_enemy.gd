@@ -32,7 +32,8 @@ func configure_advanced(kind_id: String, floor_index: int) -> void:
 		"boss":
 			advanced_kind = AdvancedKind.FLOOR_BOSS
 			super.configure(IsmaelEnemy.EnemyKind.BOSS,floor_variant)
-			health = 20+floor_variant*7
+			var boss_health_curve: Array[int] = [110,150,195,245,305]
+			health = boss_health_curve[clampi(floor_variant-1,0,boss_health_curve.size()-1)]
 			max_health = health
 			speed = 88.0+floor_variant*5.0
 			scale = Vector2(1.0+minf(0.12,float(floor_variant-1)*0.025),1.0+minf(0.12,float(floor_variant-1)*0.025))
