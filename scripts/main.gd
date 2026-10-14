@@ -8,6 +8,7 @@ const DOOR_TRANSITION_HOLD := 0.675
 const DOOR_COMMIT_EDGE := 30.0
 const DOOR_COMMIT_HALF_WIDTH := 72.0
 const DoorChargeIndicator = preload("res://scripts/door_charge_indicator.gd")
+const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
 const COMBAT_SIDE_RATIO := 0.085
 const COMBAT_TOP_RATIO := 0.155
@@ -1002,6 +1003,7 @@ func _on_enemy_defeated(_enemy) -> void:
 			_spawn_challenge_wave()
 		return
 	_mark_current_room_cleared(true)
+	_spawn_room_clear_feedback()
 	if _room_kind == "desafio":
 		_spawn_special_bundle("desafio")
 		status_label.text = "DESAFÍO SUPERADO"
@@ -1015,6 +1017,14 @@ func _on_enemy_defeated(_enemy) -> void:
 		else:
 			status_label.text = "SALA LIMPIA"
 	queue_redraw()
+
+func _spawn_room_clear_feedback() -> void:
+	if not is_inside_tree():
+		return
+	var vfx := CombatFeedbackVfx.new()
+	vfx.configure("clear",_floor_index,1.0)
+	add_child(vfx)
+	vfx.global_position = room_rect.get_center()
 
 func _restart_game() -> void:
 	get_tree().reload_current_scene()
