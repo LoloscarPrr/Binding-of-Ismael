@@ -29,6 +29,7 @@ func _draw() -> void:
 	_draw_wall_shell()
 	_draw_floor()
 	_draw_room_markings()
+	_draw_ismael_sigil()
 	_draw_debris()
 	_draw_props()
 	_draw_wall_torches()
@@ -186,6 +187,48 @@ func _draw_room_markings() -> void:
 				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
 				draw_line(center+d*18.0,center+d*64.0,Color(0.48,0.42,0.72,0.22),3.0)
 			draw_arc(center,72.0,0.0,TAU,42,Color(0.54,0.46,0.78,0.32),4.0)
+
+func _draw_ismael_sigil() -> void:
+	var center := room_rect.get_center()
+	var palette := _floor_palette()
+	var accent: Color = palette["light"]
+	var alpha := 0.11
+	if room_kind in ["jefe","minijefe","desafio","maldicion"]:
+		alpha = 0.18
+	var pulse := 1.0+sin(_age*1.35)*0.025
+	draw_set_transform(center,0.0,Vector2(pulse,pulse))
+	# Binding of Ismael identity mark: broken halo + vertical tear + lower hook.
+	draw_arc(Vector2.ZERO,84.0,-PI*0.92,-PI*0.12,32,Color(accent.r,accent.g,accent.b,alpha),4.0)
+	draw_arc(Vector2.ZERO,84.0,PI*0.08,PI*0.88,32,Color(accent.r,accent.g,accent.b,alpha),4.0)
+	draw_line(Vector2(0,-58),Vector2(0,46),Color(accent.r,accent.g,accent.b,alpha*0.92),5.0)
+	draw_line(Vector2(0,46),Vector2(18,66),Color(accent.r,accent.g,accent.b,alpha*0.92),5.0)
+	draw_line(Vector2(18,66),Vector2(34,51),Color(accent.r,accent.g,accent.b,alpha*0.92),5.0)
+	draw_circle(Vector2(0,-70),7.0,Color(accent.r,accent.g,accent.b,alpha*1.35))
+	for side in [-1.0,1.0]:
+		var sx: float = side*46.0
+		draw_line(Vector2(sx,-24),Vector2(sx+side*18.0,-8),Color(accent.r,accent.g,accent.b,alpha*0.66),3.0)
+		draw_line(Vector2(sx+side*18.0,-8),Vector2(sx,8),Color(accent.r,accent.g,accent.b,alpha*0.66),3.0)
+	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+
+	# Each floor corrupts the same symbol differently, so the world has one visual language.
+	match clampi(floor_index,1,5):
+		1:
+			draw_arc(center,108.0,PI*0.12,PI*0.88,24,Color(accent.r,accent.g,accent.b,alpha*0.42),2.0)
+		2:
+			for side in [-1.0,1.0]:
+				var p := center+Vector2(side*100.0,20.0)
+				draw_line(p,p+Vector2(side*28.0,18.0),Color(accent.r,accent.g,accent.b,alpha*0.52),3.0)
+		3:
+			draw_arc(center,118.0,_age*0.08,_age*0.08+PI*1.18,28,Color(accent.r,accent.g,accent.b,alpha*0.45),2.0)
+		4:
+			for i in range(4):
+				var a := PI*0.25+float(i)*PI*0.5
+				var d := Vector2.RIGHT.rotated(a)
+				draw_line(center+d*96.0,center+d*126.0,Color(accent.r,accent.g,accent.b,alpha*0.50),3.0)
+		_:
+			for i in range(5):
+				var a := _age*0.10+TAU*float(i)/5.0
+				draw_circle(center+Vector2.RIGHT.rotated(a)*112.0,4.5,Color(accent.r,accent.g,accent.b,alpha*0.72))
 
 func _draw_debris() -> void:
 	var debris_count := 10 if room_kind in ["recompensa","secreta","supersecreta","sacrificio"] else 28
