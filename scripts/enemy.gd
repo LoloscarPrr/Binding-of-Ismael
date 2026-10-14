@@ -2,6 +2,7 @@ extends CharacterBody2D
 class_name IsmaelEnemy
 
 const CombatBurst = preload("res://scripts/combat_burst.gd")
+const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
 
 signal defeated(enemy)
 signal health_changed(current: int, maximum: int)
@@ -162,11 +163,20 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 			var impulse := 235.0 if kind != EnemyKind.BOSS else 105.0
 			_impact_velocity += away.normalized()*impulse
 	health_changed.emit(maxi(health, 0), max_health)
+	_spawn_hit_feedback(amount)
 	queue_redraw()
 	if health <= 0:
 		_spawn_death_feedback()
 		defeated.emit(self)
 		queue_free()
+
+func _spawn_hit_feedback(amount: int) -> void:
+	if not is_inside_tree():
+		return
+	var vfx := CombatFeedbackVfx.new()
+	vfx.configure("hit",_difficulty,1.0+float(maxi(0,amount-1))*0.25)
+	get_tree().current_scene.add_child(vfx)
+	vfx.global_position = global_position
 
 func _spawn_death_feedback() -> void:
 	if not is_inside_tree():
