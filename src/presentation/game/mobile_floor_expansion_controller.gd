@@ -195,7 +195,7 @@ func _spawn_boss() -> void:
 	boss.configure_advanced("boss",_floor_index)
 	boss.position = Vector2(room_rect.get_center().x,room_rect.position.y+room_rect.size.y*0.28)
 	boss.target = player
-	boss.spawn_grace_time = 1.0
+	boss.spawn_grace_time = 1.35
 	boss.set_movement_bounds(room_rect)
 	boss.defeated.connect(_on_enemy_defeated)
 	add_child(boss)
@@ -204,6 +204,14 @@ func _spawn_boss() -> void:
 		boss.health_changed.connect(_on_boss_health_changed)
 	if is_instance_valid(boss_hud):
 		boss_hud.show_boss(FloorCatalog.boss_name(_floor_index),boss.health)
+	if is_instance_valid(presentation_overlay):
+		presentation_overlay.present(
+			FloorCatalog.boss_name(_floor_index),
+			"GUARDIÁN DE %s" % FloorCatalog.floor_name(_floor_index),
+			1.12,
+			0.58
+		)
+	_audio_sfx("boss_phase",0.85)
 
 func _refresh_floor_exit_label(opened: bool) -> void:
 	if not is_instance_valid(floor_exit_label) or _room_kind != "jefe":
