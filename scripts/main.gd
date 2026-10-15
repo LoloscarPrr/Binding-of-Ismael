@@ -9,6 +9,7 @@ const DOOR_COMMIT_EDGE := 30.0
 const DOOR_COMMIT_HALF_WIDTH := 72.0
 const DoorChargeIndicator = preload("res://scripts/door_charge_indicator.gd")
 const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
+const AudioDirector = preload("res://scripts/audio_director.gd")
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
 const COMBAT_SIDE_RATIO := 0.085
 const COMBAT_TOP_RATIO := 0.155
@@ -70,6 +71,7 @@ var _coin_bonus_per_clear := 0
 var _door_charge_direction := Vector2i.ZERO
 var _door_charge_time := 0.0
 var _door_charge_indicator: IsmaelDoorChargeIndicator
+var _audio_director: IsmaelAudioDirector
 
 func _ready() -> void:
 	_configure_mobile_display()
@@ -77,6 +79,8 @@ func _ready() -> void:
 	_update_room_rect()
 	_dungeon = IsmaelDungeonMap.new()
 	_dungeon.generate(_floor_index)
+	_audio_director = AudioDirector.new()
+	add_child(_audio_director)
 	_current_cell = Vector2i.ZERO
 	player = IsmaelPlayer.new()
 	player.position = _room_entry_position(Vector2i.ZERO)
@@ -110,6 +114,8 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_room_index = _dungeon.display_ordinal(_current_cell)
 	_room_kind = _dungeon.kind(_current_cell)
 	_room_cleared = _dungeon.is_cleared(_current_cell)
+	if is_instance_valid(_audio_director):
+		_audio_director.set_floor(_floor_index)
 	_challenge_wave = 0
 	_reset_door_charge()
 	if _dungeon.is_hidden(_current_cell):
@@ -664,6 +670,7 @@ func _spawn_clear_pickup() -> void:
 	add_child(pickup)
 
 func _on_pickup_collected(kind: String) -> void:
+	_audio_sfx("pickup")
 	match kind:
 		"heart": player.heal(2)
 		"coin": _coins += 1
@@ -888,6 +895,7 @@ func _update_door_charge(direction: Vector2i, delta: float) -> bool:
 		return false
 	var committed_direction := _door_charge_direction
 	_reset_door_charge()
+	_audio_sfx("door")
 	if _room_kind == "jefe" and committed_direction == _floor_exit_direction and not _dungeon.has_room(_current_cell+committed_direction):
 		_finish_floor()
 	else:
@@ -1021,10 +1029,15 @@ func _on_enemy_defeated(_enemy) -> void:
 func _spawn_room_clear_feedback() -> void:
 	if not is_inside_tree():
 		return
+	_audio_sfx("room_clear")
 	var vfx := CombatFeedbackVfx.new()
 	vfx.configure("clear",_floor_index,1.0)
 	add_child(vfx)
 	vfx.global_position = room_rect.get_center()
+
+func _audio_sfx(kind: String, intensity: float = 1.0) -> void:
+	if is_instance_valid(_audio_director):
+		_audio_director.play_sfx(kind,intensity)
 
 func _restart_game() -> void:
 	get_tree().reload_current_scene()
