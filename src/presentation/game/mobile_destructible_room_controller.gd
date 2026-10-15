@@ -11,6 +11,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_spawn_room_rocks()
 
 func _on_placed_bomb_exploded(world_position: Vector2, blast_radius: float) -> void:
+	_audio_sfx("bomb",1.35)
 	super._on_placed_bomb_exploded(world_position,blast_radius)
 	for rock in get_tree().get_nodes_in_group("room_rocks"):
 		if not is_instance_valid(rock) or rock.is_queued_for_deletion():
