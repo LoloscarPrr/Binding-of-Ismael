@@ -1,6 +1,7 @@
 extends "res://scripts/main.gd"
 
 const CONTROL_LAYOUT_PATH := "user://control_layout.cfg"
+const PresentationOverlay = preload("res://scripts/presentation_overlay.gd")
 
 var room_visual: IsmaelRoomVisual
 var boss_hud: IsmaelBossHud
@@ -10,6 +11,7 @@ var hud_center_card: Panel
 var hud_right_card: Panel
 var minimap_touch_zone: Button
 var combat_side_hud: IsmaelCombatSideHud
+var presentation_overlay: IsmaelPresentationOverlay
 var _left_touch_zone := Rect2()
 var _right_touch_zone := Rect2()
 var _minimap_expanded := false
@@ -23,9 +25,11 @@ func _ready() -> void:
 	room_visual.z_index = -20
 	add_child(room_visual)
 	super._ready()
+	_create_presentation_overlay()
 	_sync_room_visual()
 	_polish_hud()
 	_apply_saved_control_positions()
+	_present_floor_intro()
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	if is_instance_valid(boss_hud):
@@ -33,6 +37,33 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	super._begin_room(entry_direction)
 	_sync_room_visual()
 	_apply_floor_identity_to_hud()
+	if _room_kind == "inicio" and is_instance_valid(presentation_overlay):
+		_present_floor_intro()
+
+func _create_presentation_overlay() -> void:
+	var layer := hud_backdrop.get_parent() if is_instance_valid(hud_backdrop) else null
+	if layer == null:
+		return
+	presentation_overlay = PresentationOverlay.new()
+	layer.add_child(presentation_overlay)
+
+func _presentation_floor_name() -> String:
+	match clampi(_floor_index,1,5):
+		1: return "SÓTANO"
+		2: return "FOSAS"
+		3: return "CATACUMBAS"
+		4: return "CRIPTA"
+		_: return "ABISMO"
+
+func _present_floor_intro() -> void:
+	if not is_instance_valid(presentation_overlay):
+		return
+	presentation_overlay.present(
+		"PISO %d · %s" % [_floor_index,_presentation_floor_name()],
+		"DESCENSO %d DE 5" % _floor_index,
+		1.05,
+		0.54
+	)
 
 func _create_touch_ui() -> void:
 	super._create_touch_ui()
@@ -368,6 +399,8 @@ func _apply_completion_ui() -> void:
 	if is_instance_valid(restart_button):
 		restart_button.visible = true
 	_layout_completion_ui()
+	if is_instance_valid(presentation_overlay):
+		presentation_overlay.present_ending()
 
 func _layout_completion_ui() -> void:
 	var screen_size := get_viewport_rect().size
