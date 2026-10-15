@@ -3,9 +3,13 @@ extends "res://src/presentation/game/mobile_floor_expansion_controller.gd"
 const ExtraEnemy = preload("res://scripts/extra_enemy.gd")
 const RoomHazard = preload("res://scripts/room_hazard.gd")
 const ExpandedItemCatalog = preload("res://src/domain/items/item_catalog.gd")
+const PactPedestal = preload("res://scripts/world_pact_pedestal.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
+var _pact_offers: Dictionary = {}
+var _curse_rooms_remaining := 0
+var _curse_active_in_room := false
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	if _prepared_content_floor != _floor_index and _dungeon != null:
@@ -13,6 +17,12 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		_prepared_content_floor = _floor_index
 	_clear_content_hazards()
 	super._begin_room(entry_direction)
+	_curse_active_in_room = false
+	if _curse_rooms_remaining > 0 and _room_kind in ["combate","emboscada","desafio","minijefe","maldicion"]:
+		_curse_active_in_room = true
+		_curse_rooms_remaining -= 1
+		if is_instance_valid(reward_label):
+			reward_label.text = "PACTO MALDITO · %d SALAS RESTANTES" % _curse_rooms_remaining
 	_spawn_content_hazards()
 
 func _prepare_extra_room_kinds() -> void:
@@ -28,6 +38,16 @@ func _prepare_extra_room_kinds() -> void:
 	candidates.sort_custom(func(a: Vector2i,b: Vector2i) -> bool:
 		return _dungeon.distance(a) > _dungeon.distance(b)
 	)
+	if _floor_index >= 2 and not candidates.is_empty():
+		var pact_index := -1
+		for i in range(candidates.size()):
+			if _dungeon.route_role(candidates[i]) == "branch":
+				pact_index = i
+				break
+		if pact_index >= 0:
+			var pact_cell: Vector2i = candidates[pact_index]
+			candidates.remove_at(pact_index)
+			_set_content_room_kind(pact_cell,"pacto")
 	if _floor_index >= 2 and not candidates.is_empty():
 		_set_content_room_kind(candidates.pop_front(),"maldicion")
 	if _floor_index >= 3 and not candidates.is_empty():
@@ -46,9 +66,16 @@ func _room_title() -> String:
 	match _room_kind:
 		"maldicion": return "CÁMARA MALDITA"
 		"biblioteca": return "ARCHIVO PROHIBIDO"
+		"pacto": return "CÁMARA DE PACTO"
 	return super._room_title()
 
 func _spawn_room_after_entry(generation: int) -> void:
+	if _room_kind == "pacto":
+		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
+		if generation != _spawn_generation or _game_over:
+			return
+		_open_pact_room()
+		return
 	if _room_kind == "biblioteca":
 		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 		if generation != _spawn_generation or _game_over:
@@ -68,6 +95,93 @@ func _spawn_room_after_entry(generation: int) -> void:
 		queue_redraw()
 		return
 	super._spawn_room_after_entry(generation)
+
+func _open_pact_room() -> void:
+	var room_key := _reward_room_key()
+	var offers: Array[String] = []
+	if _pact_offers.has(room_key):
+		for value in _pact_offers[room_key]:
+			offers.append(String(value))
+	else:
+		offers = _pact_choices()
+		_pact_offers[room_key] = offers.duplicate()
+	status_label.text = "CÁMARA DE PACTO"
+	reward_label.text = "ELIGE UN PRECIO — SÓLO UN PACTO PUEDE SELLARSE"
+	_spawn_pact_pedestal(offers[0],room_rect.position+room_rect.size*Vector2(0.37,0.53))
+	_spawn_pact_pedestal(offers[1],room_rect.position+room_rect.size*Vector2(0.63,0.53))
+	_transition_locked = false
+
+func _pact_choices() -> Array[String]:
+	var pool: Array[String] = ["sangre","tributo","maldicion"]
+	var seed := absi(_floor_index*211+_current_cell.x*92821+_current_cell.y*68917)
+	var first := pool[seed%pool.size()]
+	var second := pool[(seed*5+1)%pool.size()]
+	if second == first:
+		second = pool[(seed+1)%pool.size()]
+	return [first,second]
+
+func _spawn_pact_pedestal(pact_id: String, world_position: Vector2) -> void:
+	var pedestal := PactPedestal.new()
+	match pact_id:
+		"sangre":
+			pedestal.configure_pact("sangre","PACTO DE SANGRE","COSTE: 2 CORAZONES","+ DAÑO · + CADENCIA")
+		"tributo":
+			pedestal.configure_pact("tributo","TRIBUTO DEL ERRANTE","COSTE: 5 MONEDAS","ESCUDO · +3 MONEDAS")
+		_:
+			pedestal.configure_pact("maldicion","SELLO MALDITO","COSTE: 3 SALAS MÁS DURAS","MAPA REVELADO · + DAÑO")
+	pedestal.position = world_position
+	pedestal.chosen.connect(_on_pact_chosen)
+	add_child(pedestal)
+
+func _on_pact_chosen(pact_id: String) -> void:
+	if _room_cleared:
+		return
+	var accepted := false
+	match pact_id:
+		"sangre":
+			if player.health > 2:
+				player.take_damage(2)
+				_apply_reward("dano")
+				_apply_reward("cadencia")
+				accepted = true
+			else:
+				status_label.text = "NO PUEDES PAGAR EL PRECIO"
+				reward_label.text = "Necesitas más de 2 corazones"
+		"tributo":
+			if _coins >= 5:
+				_coins -= 5
+				_apply_reward("escudo")
+				_coins += 3
+				_update_pickup_hud()
+				accepted = true
+			else:
+				status_label.text = "TRIBUTO INSUFICIENTE"
+				reward_label.text = "Necesitas 5 monedas"
+		"maldicion":
+			_curse_rooms_remaining = maxi(_curse_rooms_remaining,3)
+			_apply_reward("mapa")
+			_apply_reward("dano")
+			accepted = true
+	if not accepted:
+		for pedestal in get_tree().get_nodes_in_group("pact_offerings"):
+			if is_instance_valid(pedestal):
+				pedestal.claimed_state = false
+				pedestal.monitoring = true
+		return
+	_audio_sfx("pickup",1.25)
+	for pedestal in get_tree().get_nodes_in_group("pact_offerings"):
+		if is_instance_valid(pedestal):
+			pedestal.queue_free()
+	status_label.text = "PACTO SELLADO"
+	match pact_id:
+		"sangre":
+			reward_label.text = "La sangre compró poder"
+		"tributo":
+			reward_label.text = "El tributo compró protección"
+		_:
+			reward_label.text = "Tres salas cargarán la maldición"
+	_mark_current_room_cleared(false)
+	queue_redraw()
 
 func _open_library_room() -> void:
 	var room_key := _reward_room_key()
@@ -94,6 +208,10 @@ func _library_choices() -> Array[String]:
 	if second == first:
 		second = pool[(seed+1)%pool.size()]
 	return [first,second]
+
+func _spawn_enemy_pack(count: int, depth: int) -> void:
+	var resolved_count := count+1 if _curse_active_in_room else count
+	super._spawn_enemy_pack(resolved_count,depth)
 
 func _create_floor_enemy(kind_id: String):
 	if kind_id in ["flyer","turret","leaper","flyer_elite","turret_elite","leaper_elite"]:
@@ -152,10 +270,11 @@ func _create_room_door(direction: Vector2i) -> void:
 		"recompensa": door.modulate = Color(0.95,0.72,0.20,1.0)
 		"biblioteca": door.modulate = Color(0.58,0.42,0.82,1.0)
 		"maldicion": door.modulate = Color(0.64,0.12,0.16,1.0)
+		"pacto": door.modulate = Color(0.72,0.18,0.22,1.0)
 
 func _spawn_clear_pickup() -> void:
 	super._spawn_clear_pickup()
-	if _room_kind in ["inicio","recompensa","tienda","biblioteca"]:
+	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto"]:
 		return
 	var roll := absi(_floor_index*71+_room_index*43+_current_cell.x*97+_current_cell.y*53)%100
 	if _floor_index >= 2 and roll < 7:
