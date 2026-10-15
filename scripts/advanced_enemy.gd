@@ -123,6 +123,7 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 func _spawn_phase_two_feedback() -> void:
 	if not is_inside_tree():
 		return
+	_play_audio_sfx("boss_phase",1.25)
 	var vfx := CombatFeedbackVfx.new()
 	vfx.configure("phase",floor_variant,1.0)
 	get_tree().current_scene.add_child(vfx)
