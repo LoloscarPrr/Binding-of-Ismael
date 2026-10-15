@@ -22,7 +22,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 			reward_label.text = FloorCatalog.floor_identity(_floor_index)
 
 func _build_room_layout() -> void:
-	if _room_kind in ["inicio","recompensa","tienda","sacrificio","secreta","supersecreta","biblioteca"]:
+	if _room_kind in ["inicio","recompensa","tienda","sacrificio","secreta","supersecreta","biblioteca","pacto"]:
 		_room_layout_profile = "abierta"
 		return
 	var seed := absi(
