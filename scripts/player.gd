@@ -133,6 +133,7 @@ func clamp_to_bounds() -> void:
 
 func shoot(direction: Vector2) -> void:
 	_last_aim = direction.normalized()
+	_play_audio_sfx("shoot")
 	_visual_recoil = 4.0
 	_shoot_pose = 0.13
 	_fire_volley(direction.normalized())
@@ -250,6 +251,11 @@ func reset_health() -> void:
 	_knockback_velocity = Vector2.ZERO
 	_damage_recoil = 0.0
 	health_changed.emit(health,max_health)
+
+func _play_audio_sfx(kind: String, intensity: float = 1.0) -> void:
+	var audio := get_tree().get_first_node_in_group("audio_director")
+	if is_instance_valid(audio) and audio.has_method("play_sfx"):
+		audio.call("play_sfx",kind,intensity)
 
 func _draw() -> void:
 	var pose_strength := clampf(_shoot_pose/0.13,0.0,1.0)
