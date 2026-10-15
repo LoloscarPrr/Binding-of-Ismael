@@ -219,6 +219,7 @@ func _refresh_floor_exit_label(opened: bool) -> void:
 
 func _floor_transition() -> void:
 	var leaving_floor := _floor_index
+	_audio_sfx("floor",1.2)
 	await get_tree().create_timer(FLOOR_TRANSITION_DELAY).timeout
 	if _game_over:
 		return
