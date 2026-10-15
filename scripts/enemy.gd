@@ -164,8 +164,10 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 			_impact_velocity += away.normalized()*impulse
 	health_changed.emit(maxi(health, 0), max_health)
 	_spawn_hit_feedback(amount)
+	_play_audio_sfx("hit",1.0+float(maxi(0,amount-1))*0.2)
 	queue_redraw()
 	if health <= 0:
+		_play_audio_sfx("boss_death" if kind == EnemyKind.BOSS else "hit",1.4 if kind == EnemyKind.BOSS else 1.1)
 		_spawn_death_feedback()
 		defeated.emit(self)
 		queue_free()
@@ -235,11 +237,17 @@ func _fire_boss_ring(phase_two: bool) -> void:
 func _spawn_enemy_shot(shot_direction: Vector2, shot_speed: float, shot_variant: int) -> void:
 	if shot_direction.length_squared() < 0.01 or not is_inside_tree():
 		return
+	_play_audio_sfx("enemy_shot")
 	var projectile := IsmaelEnemyProjectile.new()
 	projectile.configure(shot_direction.normalized(), shot_speed, 1, movement_bounds, shot_variant)
 	get_tree().current_scene.add_child(projectile)
 	var spawn_distance := 57.0 if kind == EnemyKind.BOSS else 34.0
 	projectile.global_position = global_position + shot_direction.normalized() * spawn_distance
+
+func _play_audio_sfx(kind: String, intensity: float = 1.0) -> void:
+	var audio := get_tree().get_first_node_in_group("audio_director")
+	if is_instance_valid(audio) and audio.has_method("play_sfx"):
+		audio.call("play_sfx",kind,intensity)
 
 func _draw_attack_telegraph() -> void:
 	if spawn_grace_time > 0.0:
