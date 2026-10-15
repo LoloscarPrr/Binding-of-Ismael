@@ -30,6 +30,10 @@ func hide_boss() -> void:
 func _draw() -> void:
 	if not visible:
 		return
+	var font := ThemeDB.fallback_font
+	var font_size := 18
+	var title_size := font.get_string_size(boss_name,HORIZONTAL_ALIGNMENT_LEFT,-1.0,font_size)
+	draw_string(font,Vector2(size.x*0.5-title_size.x*0.5,22.0),boss_name,HORIZONTAL_ALIGNMENT_LEFT,-1.0,font_size,Color(0.94,0.83,0.67))
 	var bar_rect := Rect2(52.0, 30.0, maxf(160.0, size.x - 104.0), 28.0)
 	var ratio := clampf(float(current_health) / float(max_health), 0.0, 1.0)
 	draw_rect(Rect2(bar_rect.position + Vector2(5,6), bar_rect.size), Color(0.02,0.01,0.01,0.55))
