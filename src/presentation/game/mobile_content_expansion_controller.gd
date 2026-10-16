@@ -12,8 +12,13 @@ var _pact_offers: Dictionary = {}
 var _curse_rooms_remaining := 0
 var _curse_active_in_room := false
 var _rare_event_states: Dictionary = {}
+var _floor_mutator := "normal"
+var _mutator_floor := 0
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
+	if _mutator_floor != _floor_index and _dungeon != null:
+		_prepare_floor_mutator()
+		_mutator_floor = _floor_index
 	if _prepared_content_floor != _floor_index and _dungeon != null:
 		_prepare_extra_room_kinds()
 		_prepared_content_floor = _floor_index
@@ -26,6 +31,38 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		if is_instance_valid(reward_label):
 			reward_label.text = "PACTO MALDITO · %d SALAS RESTANTES" % _curse_rooms_remaining
 	_spawn_content_hazards()
+	if _room_kind == "inicio" and _floor_mutator != "normal":
+		if is_instance_valid(status_label):
+			status_label.text = "MUTADOR · %s" % _mutator_title()
+		if is_instance_valid(reward_label):
+			reward_label.text = _mutator_description()
+
+func _prepare_floor_mutator() -> void:
+	if _dungeon == null:
+		_floor_mutator = "normal"
+		return
+	var roll := posmod(_dungeon.seed_value+_floor_index*173,100)
+	if roll >= 72:
+		_floor_mutator = "normal"
+		return
+	var variants: Array[String] = ["enjambre","carne_dura","polvorin","velo"]
+	_floor_mutator = variants[posmod(_dungeon.seed_value+_floor_index*41,variants.size())]
+
+func _mutator_title() -> String:
+	match _floor_mutator:
+		"enjambre": return "ENJAMBRE"
+		"carne_dura": return "CARNE DURA"
+		"polvorin": return "POLVORÍN"
+		"velo": return "VELO"
+		_: return "SIN MUTADOR"
+
+func _mutator_description() -> String:
+	match _floor_mutator:
+		"enjambre": return "+1 enemigo por combate · +1 moneda al limpiar"
+		"carne_dura": return "Enemigos más resistentes · pickups extra"
+		"polvorin": return "Bombas rinden el doble · enemigos más rápidos"
+		"velo": return "Minimapa oculto · mejores recompensas de sala"
+		_: return ""
 
 func _prepare_extra_room_kinds() -> void:
 	var candidates: Array[Vector2i] = []
@@ -359,15 +396,27 @@ func _library_choices() -> Array[String]:
 	return [first,second]
 
 func _spawn_enemy_pack(count: int, depth: int) -> void:
-	var resolved_count := count+1 if _curse_active_in_room else count
+	var resolved_count := count
+	if _curse_active_in_room:
+		resolved_count += 1
+	if _floor_mutator == "enjambre":
+		resolved_count += 1
 	super._spawn_enemy_pack(resolved_count,depth)
 
 func _create_floor_enemy(kind_id: String):
+	var enemy
 	if kind_id in ["flyer","turret","leaper","flyer_elite","turret_elite","leaper_elite"]:
-		var enemy := ExtraEnemy.new()
+		enemy = ExtraEnemy.new()
 		enemy.configure_extra(kind_id,_floor_index)
-		return enemy
-	return super._create_floor_enemy(kind_id)
+	else:
+		enemy = super._create_floor_enemy(kind_id)
+	if is_instance_valid(enemy):
+		if _floor_mutator == "carne_dura":
+			enemy.health = maxi(enemy.health+1,int(ceil(float(enemy.health)*1.22)))
+			enemy.max_health = enemy.health
+		elif _floor_mutator == "polvorin":
+			enemy.speed *= 1.12
+	return enemy
 
 func _travel_to(direction: Vector2i) -> void:
 	if _transition_locked:
@@ -426,11 +475,36 @@ func _spawn_clear_pickup() -> void:
 	super._spawn_clear_pickup()
 	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto","evento"]:
 		return
+	if _floor_mutator == "enjambre":
+		_coins += 1
+		_update_pickup_hud()
+	elif _floor_mutator == "carne_dura":
+		var bonus_kind := "heart" if posmod(_room_index+_floor_index,2)==0 else "coin"
+		_spawn_pickup_at(bonus_kind,Vector2(0.42,0.61))
+	elif _floor_mutator == "velo":
+		var veil_roll := posmod(_room_index*31+_floor_index*17,3)
+		if veil_roll == 0:
+			_spawn_pickup_at("coin5",Vector2(0.42,0.61))
+		elif veil_roll == 1:
+			_spawn_pickup_at("soul",Vector2(0.42,0.61))
 	var roll := absi(_floor_index*71+_room_index*43+_current_cell.x*97+_current_cell.y*53)%100
 	if _floor_index >= 2 and roll < 7:
 		_spawn_pickup_at("soul",Vector2(0.58,0.61))
 	elif _floor_index >= 3 and roll >= 7 and roll < 12:
 		_spawn_pickup_at("coin5",Vector2(0.58,0.61))
+
+func _on_pickup_collected(kind: String) -> void:
+	super._on_pickup_collected(kind)
+	if _floor_mutator == "polvorin" and kind == "bomb":
+		_bombs += 1
+		_update_pickup_hud()
+
+func _update_minimap() -> void:
+	if _floor_mutator == "velo" and not _map_reveal_active:
+		if is_instance_valid(minimap_label):
+			minimap_label.text = "◈ VELO\nMAPA SILENCIADO"
+		return
+	super._update_minimap()
 
 func _spawn_chest_loot(room_key: String,chest_id: int,chest_kind: String) -> void:
 	super._spawn_chest_loot(room_key,chest_id,chest_kind)
