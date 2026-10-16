@@ -4,12 +4,14 @@ const ExtraEnemy = preload("res://scripts/extra_enemy.gd")
 const RoomHazard = preload("res://scripts/room_hazard.gd")
 const ExpandedItemCatalog = preload("res://src/domain/items/item_catalog.gd")
 const PactPedestal = preload("res://scripts/world_pact_pedestal.gd")
+const EventPedestal = preload("res://scripts/world_event_pedestal.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
 var _pact_offers: Dictionary = {}
 var _curse_rooms_remaining := 0
 var _curse_active_in_room := false
+var _rare_event_states: Dictionary = {}
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	if _prepared_content_floor != _floor_index and _dungeon != null:
@@ -38,6 +40,18 @@ func _prepare_extra_room_kinds() -> void:
 	candidates.sort_custom(func(a: Vector2i,b: Vector2i) -> bool:
 		return _dungeon.distance(a) > _dungeon.distance(b)
 	)
+	var rare_roll := posmod(_dungeon.seed_value+_floor_index*97,100)
+	if rare_roll < 38 and not candidates.is_empty():
+		var event_index := -1
+		for i in range(candidates.size()):
+			if _dungeon.route_role(candidates[i]) == "branch":
+				event_index = i
+				break
+		if event_index < 0:
+			event_index = candidates.size()-1
+		var event_cell: Vector2i = candidates[event_index]
+		candidates.remove_at(event_index)
+		_set_content_room_kind(event_cell,"evento")
 	if _floor_index >= 2 and not candidates.is_empty():
 		var pact_index := -1
 		for i in range(candidates.size()):
@@ -67,9 +81,16 @@ func _room_title() -> String:
 		"maldicion": return "CÁMARA MALDITA"
 		"biblioteca": return "ARCHIVO PROHIBIDO"
 		"pacto": return "CÁMARA DE PACTO"
+		"evento": return "EVENTO RARO"
 	return super._room_title()
 
 func _spawn_room_after_entry(generation: int) -> void:
+	if _room_kind == "evento":
+		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
+		if generation != _spawn_generation or _game_over:
+			return
+		_open_rare_event_room()
+		return
 	if _room_kind == "pacto":
 		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 		if generation != _spawn_generation or _game_over:
@@ -95,6 +116,134 @@ func _spawn_room_after_entry(generation: int) -> void:
 		queue_redraw()
 		return
 	super._spawn_room_after_entry(generation)
+
+func _rare_event_key() -> String:
+	return "%d:%d:%d" % [_floor_index,_current_cell.x,_current_cell.y]
+
+func _rare_event_id() -> String:
+	var seed := absi(_dungeon.seed_value+_floor_index*149+_current_cell.x*92821+_current_cell.y*68917)
+	match posmod(seed,3):
+		0: return "mercader"
+		1: return "pozo"
+		_: return "altar"
+
+func _open_rare_event_room() -> void:
+	var key := _rare_event_key()
+	if bool(_rare_event_states.get(key,false)):
+		status_label.text = "EVENTO CONSUMIDO"
+		reward_label.text = "No queda nada más aquí"
+		_mark_current_room_cleared(false)
+		_transition_locked = false
+		return
+	match _rare_event_id():
+		"mercader":
+			status_label.text = "MERCADER CIEGO"
+			reward_label.text = "COMPRA SEGURIDAD O ROBA PODER"
+			_spawn_event_choice("comprar","COMPRAR RELIQUIA","COSTE: 7 MONEDAS","OBJETO DE COMBATE",Vector2(0.37,0.53))
+			_spawn_event_choice("robar","ROBAR AL MERCADER","COSTE: 2 SALAS MALDITAS","OBJETO DE COMBATE",Vector2(0.63,0.53))
+		"pozo":
+			status_label.text = "POZO DE ECOS"
+			reward_label.text = "ENTREGA ALGO Y EL POZO RESPONDERÁ"
+			_spawn_event_choice("tributo_llave","ARROJAR UNA LLAVE","COSTE: 1 LLAVE","MAPA + 4 MONEDAS",Vector2(0.37,0.53))
+			_spawn_event_choice("sangre_pozo","DAR SANGRE","COSTE: 1 CORAZÓN","ALMA + CURACIÓN",Vector2(0.63,0.53))
+		_:
+			status_label.text = "ALTAR DE CENIZA"
+			reward_label.text = "QUEMA RECURSOS PARA ALTERAR TU RUN"
+			_spawn_event_choice("quemar_bombas","QUEMAR BOMBAS","COSTE: 2 BOMBAS","+ DAÑO",Vector2(0.37,0.53))
+			_spawn_event_choice("quemar_monedas","QUEMAR MONEDAS","COSTE: 6 MONEDAS","+ VIDA MÁXIMA",Vector2(0.63,0.53))
+	_transition_locked = false
+
+func _spawn_event_choice(id: String, title: String, cost: String, reward: String, ratio: Vector2) -> void:
+	var pedestal := EventPedestal.new()
+	pedestal.configure_choice(id,title,cost,reward)
+	pedestal.position = room_rect.position+room_rect.size*ratio
+	pedestal.chosen.connect(_on_rare_event_choice)
+	add_child(pedestal)
+
+func _rare_event_reward() -> String:
+	var pool: Array[String] = ["dano","cadencia","proyectil","buscadora","perforante","rafaga"]
+	var seed := absi(_floor_index*313+_current_cell.x*92821+_current_cell.y*68917)
+	return pool[seed%pool.size()]
+
+func _reset_event_offerings_after_failed_payment() -> void:
+	for pedestal in get_tree().get_nodes_in_group("event_offerings"):
+		if is_instance_valid(pedestal):
+			pedestal.claimed_state = false
+			pedestal.monitoring = true
+
+func _consume_event_offerings() -> void:
+	for pedestal in get_tree().get_nodes_in_group("event_offerings"):
+		if is_instance_valid(pedestal):
+			pedestal.queue_free()
+
+func _on_rare_event_choice(choice_id: String) -> void:
+	var accepted := false
+	var result_text := ""
+	match choice_id:
+		"comprar":
+			if _coins >= 7:
+				_coins -= 7
+				var reward := _rare_event_reward()
+				_apply_reward(reward)
+				_update_pickup_hud()
+				result_text = "Compraste %s" % _reward_name(reward).replace("\n"," — ")
+				accepted = true
+			else:
+				status_label.text = "NO TIENES 7 MONEDAS"
+		"robar":
+			var reward := _rare_event_reward()
+			_apply_reward(reward)
+			_curse_rooms_remaining = maxi(_curse_rooms_remaining,2)
+			result_text = "Robaste poder · 2 salas cargarán la maldición"
+			accepted = true
+		"tributo_llave":
+			if _keys >= 1:
+				_keys -= 1
+				_coins += 4
+				_apply_reward("mapa")
+				_update_pickup_hud()
+				result_text = "El pozo reveló el piso y devolvió 4 monedas"
+				accepted = true
+			else:
+				status_label.text = "NO TIENES UNA LLAVE"
+		"sangre_pozo":
+			if player.health > 1:
+				player.take_damage(1)
+				player.heal(1)
+				_spawn_pickup_at("soul",Vector2(0.50,0.58))
+				result_text = "El pozo respondió con alma"
+				accepted = true
+			else:
+				status_label.text = "NO PUEDES DAR TU ÚLTIMO CORAZÓN"
+		"quemar_bombas":
+			if _bombs >= 2:
+				_bombs -= 2
+				_apply_reward("dano")
+				_update_pickup_hud()
+				result_text = "La ceniza fortaleció tus lágrimas"
+				accepted = true
+			else:
+				status_label.text = "NECESITAS 2 BOMBAS"
+		"quemar_monedas":
+			if _coins >= 6:
+				_coins -= 6
+				_apply_reward("vida")
+				_update_pickup_hud()
+				result_text = "La ceniza endureció tu cuerpo"
+				accepted = true
+			else:
+				status_label.text = "NECESITAS 6 MONEDAS"
+	if not accepted:
+		reward_label.text = "Puedes irte o elegir la otra opción"
+		_reset_event_offerings_after_failed_payment()
+		return
+	_rare_event_states[_rare_event_key()] = true
+	_audio_sfx("pickup",1.15)
+	_consume_event_offerings()
+	status_label.text = "DECISIÓN SELLADA"
+	reward_label.text = result_text
+	_mark_current_room_cleared(false)
+	queue_redraw()
 
 func _open_pact_room() -> void:
 	var room_key := _reward_room_key()
@@ -271,10 +420,11 @@ func _create_room_door(direction: Vector2i) -> void:
 		"biblioteca": door.modulate = Color(0.58,0.42,0.82,1.0)
 		"maldicion": door.modulate = Color(0.64,0.12,0.16,1.0)
 		"pacto": door.modulate = Color(0.72,0.18,0.22,1.0)
+		"evento": door.modulate = Color(0.54,0.68,0.34,1.0)
 
 func _spawn_clear_pickup() -> void:
 	super._spawn_clear_pickup()
-	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto"]:
+	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto","evento"]:
 		return
 	var roll := absi(_floor_index*71+_room_index*43+_current_cell.x*97+_current_cell.y*53)%100
 	if _floor_index >= 2 and roll < 7:
