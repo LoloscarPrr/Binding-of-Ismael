@@ -299,7 +299,7 @@ func risk_level(cell: Vector2i) -> int:
 	if route_role(cell) == "branch":
 		value = mini(3,value+1)
 	match kind(cell):
-		"desafio","minijefe","emboscada","sacrificio","pacto":
+		"desafio","minijefe","emboscada","sacrificio","pacto","evento":
 			value = mini(3,value+1)
 	return value
 
@@ -540,6 +540,7 @@ func _room_symbol(cell: Vector2i,current: Vector2i) -> String:
 		"minijefe": return "M"
 		"sacrificio": return "†"
 		"pacto": return "P"
+		"evento": return "E"
 		"secreta": return "?"
 		"supersecreta": return "★"
 		_: return "■"
