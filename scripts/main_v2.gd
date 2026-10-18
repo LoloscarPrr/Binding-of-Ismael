@@ -392,15 +392,27 @@ func _apply_completion_ui() -> void:
 		boss_hud.hide_boss()
 	if is_instance_valid(status_label):
 		status_label.visible = true
-		status_label.text = "RECORRIDO COMPLETADO"
+		status_label.text = _completion_status_text()
 	if is_instance_valid(reward_label):
 		reward_label.visible = true
-		reward_label.text = "ISMAEL SOBREVIVIÓ A LOS GUARDIANES"
+		reward_label.text = _completion_reward_text()
 	if is_instance_valid(restart_button):
 		restart_button.visible = true
 	_layout_completion_ui()
 	if is_instance_valid(presentation_overlay):
-		presentation_overlay.present_ending()
+		presentation_overlay.present_ending(_completion_ending_title(),_completion_ending_subtitle())
+
+func _completion_status_text() -> String:
+	return "RECORRIDO COMPLETADO"
+
+func _completion_reward_text() -> String:
+	return "ISMAEL SOBREVIVIÓ A LOS GUARDIANES"
+
+func _completion_ending_title() -> String:
+	return "EL HUECO HA CAÍDO"
+
+func _completion_ending_subtitle() -> String:
+	return "ISMAEL ROMPIÓ EL ÚLTIMO SELLO"
 
 func _layout_completion_ui() -> void:
 	var screen_size := get_viewport_rect().size
