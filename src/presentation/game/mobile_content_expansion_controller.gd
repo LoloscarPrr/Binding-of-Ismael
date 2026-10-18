@@ -14,6 +14,10 @@ var _curse_active_in_room := false
 var _rare_event_states: Dictionary = {}
 var _floor_mutator := "normal"
 var _mutator_floor := 0
+var _route_blood := 0
+var _route_witness := 0
+var _route_wanderer := 0
+var _abismo_route_applied := false
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	if _mutator_floor != _floor_index and _dungeon != null:
@@ -36,6 +40,15 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 			status_label.text = "MUTADOR · %s" % _mutator_title()
 		if is_instance_valid(reward_label):
 			reward_label.text = _mutator_description()
+
+	if _room_kind == "inicio" and _floor_index == 5:
+		if is_instance_valid(status_label):
+			status_label.text = _run_route_title()
+		if is_instance_valid(reward_label):
+			match _run_route():
+				"sangre": reward_label.text = "El Abismo responde a tus pactos"
+				"testigo": reward_label.text = "El Abismo ya no puede ocultarse"
+				_: reward_label.text = "Llegaste al Abismo protegiendo lo que conservaste"
 
 func _prepare_floor_mutator() -> void:
 	if _dungeon == null:
@@ -105,6 +118,75 @@ func _prepare_extra_room_kinds() -> void:
 		_set_content_room_kind(candidates.pop_front(),"biblioteca")
 	if _floor_index >= 5 and not candidates.is_empty():
 		_set_content_room_kind(candidates.pop_front(),"maldicion")
+
+	if _floor_index == 5 and not _abismo_route_applied:
+		_apply_abismo_route()
+		_abismo_route_applied = true
+
+func _run_route() -> String:
+	if _route_blood > _route_witness and _route_blood > _route_wanderer:
+		return "sangre"
+	if _route_witness > _route_blood and _route_witness > _route_wanderer:
+		return "testigo"
+	if _route_wanderer > _route_blood and _route_wanderer > _route_witness:
+		return "errante"
+	var seed := 0
+	if _dungeon != null:
+		seed = _dungeon.seed_value
+	match posmod(seed+_route_blood*7+_route_witness*11+_route_wanderer*13,3):
+		0: return "sangre"
+		1: return "testigo"
+		_: return "errante"
+
+func _run_route_title() -> String:
+	match _run_route():
+		"sangre": return "RUTA DE SANGRE"
+		"testigo": return "RUTA DEL TESTIGO"
+		_: return "RUTA DEL ERRANTE"
+
+func _apply_abismo_route() -> void:
+	if _dungeon == null:
+		return
+	match _run_route():
+		"sangre":
+			_curse_rooms_remaining = maxi(_curse_rooms_remaining,2)
+			for cell: Vector2i in _dungeon.order:
+				if _dungeon.kind(cell) == "combate" and _dungeon.distance(cell) >= 3:
+					_set_content_room_kind(cell,"maldicion")
+					break
+		"testigo":
+			_dungeon.reveal_public_rooms()
+			for cell: Vector2i in _dungeon.order:
+				if _dungeon.kind(cell) == "combate" and _dungeon.route_role(cell) == "branch":
+					_set_content_room_kind(cell,"biblioteca")
+					break
+		"errante":
+			if is_instance_valid(player):
+				player.floor_shield_enabled = true
+				player.refill_floor_shield()
+			_coins += 4
+			_update_pickup_hud()
+
+func _completion_status_text() -> String:
+	return _run_route_title()
+
+func _completion_reward_text() -> String:
+	match _run_route():
+		"sangre": return "ISMAEL VENCIÓ AL HUECO CARGANDO SUS PACTOS"
+		"testigo": return "ISMAEL VIO LO QUE HABÍA DETRÁS DEL ÚLTIMO SELLO"
+		_: return "ISMAEL SALIÓ DEL ABISMO CON LO QUE PUDO CONSERVAR"
+
+func _completion_ending_title() -> String:
+	match _run_route():
+		"sangre": return "EL SELLO BEBIÓ SANGRE"
+		"testigo": return "EL TESTIGO MIRÓ DE VUELTA"
+		_: return "EL ERRANTE ENCONTRÓ LA SALIDA"
+
+func _completion_ending_subtitle() -> String:
+	match _run_route():
+		"sangre": return "EL HUECO CAYÓ, PERO LOS PACTOS SIGUEN VIVOS"
+		"testigo": return "EL HUECO CAYÓ Y EL ÚLTIMO SECRETO QUEDÓ ABIERTO"
+		_: return "EL HUECO CAYÓ Y ISMAEL ELIGIÓ SEGUIR CAMINANDO"
 
 func _set_content_room_kind(cell: Vector2i, kind_value: String) -> void:
 	if not _dungeon.rooms.has(cell):
@@ -224,6 +306,7 @@ func _on_rare_event_choice(choice_id: String) -> void:
 				_apply_reward(reward)
 				_update_pickup_hud()
 				result_text = "Compraste %s" % _reward_name(reward).replace("\n"," — ")
+				_route_wanderer += 1
 				accepted = true
 			else:
 				status_label.text = "NO TIENES 7 MONEDAS"
@@ -231,6 +314,7 @@ func _on_rare_event_choice(choice_id: String) -> void:
 			var reward := _rare_event_reward()
 			_apply_reward(reward)
 			_curse_rooms_remaining = maxi(_curse_rooms_remaining,2)
+			_route_blood += 2
 			result_text = "Robaste poder · 2 salas cargarán la maldición"
 			accepted = true
 		"tributo_llave":
@@ -240,6 +324,7 @@ func _on_rare_event_choice(choice_id: String) -> void:
 				_apply_reward("mapa")
 				_update_pickup_hud()
 				result_text = "El pozo reveló el piso y devolvió 4 monedas"
+				_route_witness += 2
 				accepted = true
 			else:
 				status_label.text = "NO TIENES UNA LLAVE"
@@ -249,6 +334,7 @@ func _on_rare_event_choice(choice_id: String) -> void:
 				player.heal(1)
 				_spawn_pickup_at("soul",Vector2(0.50,0.58))
 				result_text = "El pozo respondió con alma"
+				_route_witness += 1
 				accepted = true
 			else:
 				status_label.text = "NO PUEDES DAR TU ÚLTIMO CORAZÓN"
@@ -258,6 +344,7 @@ func _on_rare_event_choice(choice_id: String) -> void:
 				_apply_reward("dano")
 				_update_pickup_hud()
 				result_text = "La ceniza fortaleció tus lágrimas"
+				_route_blood += 1
 				accepted = true
 			else:
 				status_label.text = "NECESITAS 2 BOMBAS"
@@ -267,6 +354,7 @@ func _on_rare_event_choice(choice_id: String) -> void:
 				_apply_reward("vida")
 				_update_pickup_hud()
 				result_text = "La ceniza endureció tu cuerpo"
+				_route_wanderer += 1
 				accepted = true
 			else:
 				status_label.text = "NECESITAS 6 MONEDAS"
@@ -329,6 +417,7 @@ func _on_pact_chosen(pact_id: String) -> void:
 				player.take_damage(2)
 				_apply_reward("dano")
 				_apply_reward("cadencia")
+				_route_blood += 2
 				accepted = true
 			else:
 				status_label.text = "NO PUEDES PAGAR EL PRECIO"
@@ -338,6 +427,7 @@ func _on_pact_chosen(pact_id: String) -> void:
 				_coins -= 5
 				_apply_reward("escudo")
 				_coins += 3
+				_route_wanderer += 2
 				_update_pickup_hud()
 				accepted = true
 			else:
@@ -347,6 +437,8 @@ func _on_pact_chosen(pact_id: String) -> void:
 			_curse_rooms_remaining = maxi(_curse_rooms_remaining,3)
 			_apply_reward("mapa")
 			_apply_reward("dano")
+			_route_blood += 1
+			_route_witness += 1
 			accepted = true
 	if not accepted:
 		for pedestal in get_tree().get_nodes_in_group("pact_offerings"):
