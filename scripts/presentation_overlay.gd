@@ -65,10 +65,10 @@ func present(title: String, subtitle: String, duration: float = 1.15, darkness: 
 			visible = false
 	)
 
-func present_ending() -> void:
+func present_ending(title: String = "EL HUECO HA CAÍDO", subtitle: String = "ISMAEL ROMPIÓ EL ÚLTIMO SELLO") -> void:
 	_sequence_id += 1
-	title_label.text = "EL HUECO HA CAÍDO"
-	subtitle_label.text = "ISMAEL ROMPIÓ EL ÚLTIMO SELLO"
+	title_label.text = title
+	subtitle_label.text = subtitle
 	backdrop.color = Color(0.008,0.004,0.012,0.88)
 	visible = true
 	modulate.a = 0.0
