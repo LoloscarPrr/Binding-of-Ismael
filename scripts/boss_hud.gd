@@ -8,6 +8,7 @@ var max_health := 1
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
+	z_index = 20
 	queue_redraw()
 
 func show_boss(name: String, health: int) -> void:
@@ -31,17 +32,56 @@ func _draw() -> void:
 	if not visible:
 		return
 	var font := ThemeDB.fallback_font
-	var font_size := 18
-	var title_size := font.get_string_size(boss_name,HORIZONTAL_ALIGNMENT_LEFT,-1.0,font_size)
-	draw_string(font,Vector2(size.x*0.5-title_size.x*0.5,22.0),boss_name,HORIZONTAL_ALIGNMENT_LEFT,-1.0,font_size,Color(0.94,0.83,0.67))
-	var bar_rect := Rect2(52.0, 30.0, maxf(160.0, size.x - 104.0), 28.0)
-	var ratio := clampf(float(current_health) / float(max_health), 0.0, 1.0)
-	draw_rect(Rect2(bar_rect.position + Vector2(5,6), bar_rect.size), Color(0.02,0.01,0.01,0.55))
-	draw_rect(bar_rect, Color(0.08,0.025,0.025))
-	draw_rect(Rect2(bar_rect.position + Vector2(4,4), Vector2((bar_rect.size.x-8.0)*ratio, bar_rect.size.y-8.0)), Color(0.60,0.075,0.07))
-	draw_rect(bar_rect, Color(0.73,0.52,0.33), false, 4.0)
-	var skull := Vector2(31.0, 44.0)
-	draw_circle(skull, 17.0, Color(0.73,0.67,0.56))
-	draw_circle(skull + Vector2(-6,-2), 4.0, Color(0.06,0.04,0.035))
-	draw_circle(skull + Vector2(6,-2), 4.0, Color(0.06,0.04,0.035))
-	draw_rect(Rect2(skull + Vector2(-8,9), Vector2(16,6)), Color(0.06,0.04,0.035))
+	var title_font_size := 22
+	var hp_font_size := 17
+	var title_size := font.get_string_size(boss_name,HORIZONTAL_ALIGNMENT_LEFT,-1.0,title_font_size)
+
+	# Panel oscuro para separar el HUD del combate.
+	var panel := Rect2(0.0,0.0,size.x,size.y)
+	draw_rect(panel,Color(0.012,0.008,0.010,0.86))
+	draw_rect(panel,Color(0.58,0.34,0.22,0.76),false,3.0)
+
+	draw_string(
+		font,
+		Vector2(size.x*0.5-title_size.x*0.5,28.0),
+		boss_name,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		title_font_size,
+		Color(0.97,0.87,0.72)
+	)
+
+	var bar_rect := Rect2(54.0,38.0,maxf(220.0,size.x-108.0),38.0)
+	var ratio := clampf(float(current_health)/float(max_health),0.0,1.0)
+
+	draw_rect(Rect2(bar_rect.position+Vector2(5,6),bar_rect.size),Color(0.0,0.0,0.0,0.58))
+	draw_rect(bar_rect,Color(0.075,0.018,0.022))
+	draw_rect(
+		Rect2(
+			bar_rect.position+Vector2(5,5),
+			Vector2((bar_rect.size.x-10.0)*ratio,bar_rect.size.y-10.0)
+		),
+		Color(0.72,0.075,0.065)
+	)
+	draw_rect(bar_rect,Color(0.84,0.60,0.34),false,4.0)
+
+	var hp_text := "%d / %d" % [current_health,max_health]
+	var hp_size := font.get_string_size(hp_text,HORIZONTAL_ALIGNMENT_LEFT,-1.0,hp_font_size)
+	draw_string(
+		font,
+		Vector2(
+			bar_rect.position.x+bar_rect.size.x*0.5-hp_size.x*0.5,
+			bar_rect.position.y+26.0
+		),
+		hp_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		hp_font_size,
+		Color(1.0,0.93,0.84)
+	)
+
+	var skull := Vector2(31.0,57.0)
+	draw_circle(skull,18.0,Color(0.76,0.70,0.58))
+	draw_circle(skull+Vector2(-6,-3),4.0,Color(0.055,0.035,0.032))
+	draw_circle(skull+Vector2(6,-3),4.0,Color(0.055,0.035,0.032))
+	draw_rect(Rect2(skull+Vector2(-8,9),Vector2(16,6)),Color(0.055,0.035,0.032))
