@@ -510,12 +510,19 @@ func _update_minimap() -> void:
 
 func _spawn_boss() -> void:
 	super._spawn_boss()
+	_show_guardian_health("GUARDIÁN DEL PISO")
+
+func _spawn_miniboss() -> void:
+	super._spawn_miniboss()
+	_show_guardian_health("GUARDIÁN MENOR")
+
+func _show_guardian_health(guardian_name: String) -> void:
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if enemy is IsmaelEnemy and enemy.kind == IsmaelEnemy.EnemyKind.BOSS:
 			if not enemy.health_changed.is_connected(_on_boss_health_changed):
 				enemy.health_changed.connect(_on_boss_health_changed)
 			if is_instance_valid(boss_hud):
-				boss_hud.show_boss("GUARDIÁN DEL PISO",enemy.health)
+				boss_hud.show_boss(guardian_name,enemy.health)
 			break
 
 func _on_boss_health_changed(current: int, maximum: int) -> void:
