@@ -329,9 +329,10 @@ func _layout_touch_ui() -> void:
 		control_edit_button.position = Vector2(screen_size.x-160.0,10.0)
 		control_edit_button.z_index = 7
 	if is_instance_valid(boss_hud):
-		var width := clampf(screen_size.x*0.44,500.0,760.0)
-		boss_hud.size = Vector2(width,72.0)
-		boss_hud.position = Vector2(screen_size.x*0.5-width*0.5,screen_size.y-88.0)
+		var width := clampf(screen_size.x*0.60,640.0,860.0)
+		boss_hud.size = Vector2(width,86.0)
+		boss_hud.position = Vector2(screen_size.x*0.5-width*0.5,116.0)
+		boss_hud.z_index = 20
 
 func _input(event: InputEvent) -> void:
 	if _minimap_expanded and is_instance_valid(minimap_touch_zone):
