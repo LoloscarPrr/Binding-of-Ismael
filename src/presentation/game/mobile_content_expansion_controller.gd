@@ -5,6 +5,7 @@ const RoomHazard = preload("res://scripts/room_hazard.gd")
 const ExpandedItemCatalog = preload("res://src/domain/items/item_catalog.gd")
 const PactPedestal = preload("res://scripts/world_pact_pedestal.gd")
 const EventPedestal = preload("res://scripts/world_event_pedestal.gd")
+const RunProgress = preload("res://src/domain/run/run_progress.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
@@ -18,8 +19,28 @@ var _route_blood := 0
 var _route_witness := 0
 var _route_wanderer := 0
 var _abismo_route_applied := false
+var _run_progress
+var _meta_completion_recorded := false
+var _legacy_start_applied := false
+
+func _ready() -> void:
+	_run_progress = RunProgress.new()
+	_run_progress.load_profile()
+	super._ready()
+	_apply_meta_starting_unlocks()
+
+func _apply_meta_starting_unlocks() -> void:
+	if _legacy_start_applied or _run_progress == null:
+		return
+	_legacy_start_applied = true
+	if _run_progress.has_unlock("marca_del_hueco"):
+		_bombs += 1
+		_keys += 1
+		_update_pickup_hud()
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
+	if _run_progress != null:
+		_run_progress.record_floor(_floor_index)
 	if _mutator_floor != _floor_index and _dungeon != null:
 		_prepare_floor_mutator()
 		_mutator_floor = _floor_index
@@ -91,7 +112,8 @@ func _prepare_extra_room_kinds() -> void:
 		return _dungeon.distance(a) > _dungeon.distance(b)
 	)
 	var rare_roll := posmod(_dungeon.seed_value+_floor_index*97,100)
-	if rare_roll < 38 and not candidates.is_empty():
+	var rare_threshold := 48 if _run_progress != null and _run_progress.has_unlock("eventos_profundos") else 38
+	if rare_roll < rare_threshold and not candidates.is_empty():
 		var event_index := -1
 		for i in range(candidates.size()):
 			if _dungeon.route_role(candidates[i]) == "branch":
@@ -167,14 +189,24 @@ func _apply_abismo_route() -> void:
 			_coins += 4
 			_update_pickup_hud()
 
+func _finish_floor() -> void:
+	super._finish_floor()
+	if _run_complete and not _meta_completion_recorded and _run_progress != null:
+		_meta_completion_recorded = true
+		_run_progress.record_completion(_run_route())
+
 func _completion_status_text() -> String:
 	return _run_route_title()
 
 func _completion_reward_text() -> String:
+	var base := ""
 	match _run_route():
-		"sangre": return "ISMAEL VENCIÓ AL HUECO CARGANDO SUS PACTOS"
-		"testigo": return "ISMAEL VIO LO QUE HABÍA DETRÁS DEL ÚLTIMO SELLO"
-		_: return "ISMAEL SALIÓ DEL ABISMO CON LO QUE PUDO CONSERVAR"
+		"sangre": base = "ISMAEL VENCIÓ AL HUECO CARGANDO SUS PACTOS"
+		"testigo": base = "ISMAEL VIO LO QUE HABÍA DETRÁS DEL ÚLTIMO SELLO"
+		_: base = "ISMAEL SALIÓ DEL ABISMO CON LO QUE PUDO CONSERVAR"
+	if _run_progress != null:
+		return "%s · %s" % [base,_run_progress.summary_text()]
+	return base
 
 func _completion_ending_title() -> String:
 	match _run_route():
@@ -363,6 +395,8 @@ func _on_rare_event_choice(choice_id: String) -> void:
 		_reset_event_offerings_after_failed_payment()
 		return
 	_rare_event_states[_rare_event_key()] = true
+	if _run_progress != null:
+		_run_progress.record_event()
 	_audio_sfx("pickup",1.15)
 	_consume_event_offerings()
 	status_label.text = "DECISIÓN SELLADA"
@@ -387,6 +421,8 @@ func _open_pact_room() -> void:
 
 func _pact_choices() -> Array[String]:
 	var pool: Array[String] = ["sangre","tributo","maldicion"]
+	if _run_progress != null and _run_progress.has_unlock("pacto_profundo"):
+		pool.append("hueco")
 	var seed := absi(_floor_index*211+_current_cell.x*92821+_current_cell.y*68917)
 	var first := pool[seed%pool.size()]
 	var second := pool[(seed*5+1)%pool.size()]
@@ -401,6 +437,8 @@ func _spawn_pact_pedestal(pact_id: String, world_position: Vector2) -> void:
 			pedestal.configure_pact("sangre","PACTO DE SANGRE","COSTE: 2 CORAZONES","+ DAÑO · + CADENCIA")
 		"tributo":
 			pedestal.configure_pact("tributo","TRIBUTO DEL ERRANTE","COSTE: 5 MONEDAS","ESCUDO · +3 MONEDAS")
+		"hueco":
+			pedestal.configure_pact("hueco","PACTO DEL HUECO","COSTE: 1 LLAVE + 1 BOMBA","FORTUNA · DOBLE DISPARO")
 		_:
 			pedestal.configure_pact("maldicion","SELLO MALDITO","COSTE: 3 SALAS MÁS DURAS","MAPA REVELADO · + DAÑO")
 	pedestal.position = world_position
@@ -433,6 +471,19 @@ func _on_pact_chosen(pact_id: String) -> void:
 			else:
 				status_label.text = "TRIBUTO INSUFICIENTE"
 				reward_label.text = "Necesitas 5 monedas"
+		"hueco":
+			if _keys >= 1 and _bombs >= 1:
+				_keys -= 1
+				_bombs -= 1
+				_apply_reward("fortuna")
+				_apply_reward("doble")
+				_route_witness += 1
+				_route_blood += 1
+				_update_pickup_hud()
+				accepted = true
+			else:
+				status_label.text = "EL HUECO EXIGE DOS TRIBUTOS"
+				reward_label.text = "Necesitas 1 llave y 1 bomba"
 		"maldicion":
 			_curse_rooms_remaining = maxi(_curse_rooms_remaining,3)
 			_apply_reward("mapa")
@@ -446,6 +497,8 @@ func _on_pact_chosen(pact_id: String) -> void:
 				pedestal.claimed_state = false
 				pedestal.monitoring = true
 		return
+	if _run_progress != null:
+		_run_progress.record_pact()
 	_audio_sfx("pickup",1.25)
 	for pedestal in get_tree().get_nodes_in_group("pact_offerings"):
 		if is_instance_valid(pedestal):
@@ -456,6 +509,8 @@ func _on_pact_chosen(pact_id: String) -> void:
 			reward_label.text = "La sangre compró poder"
 		"tributo":
 			reward_label.text = "El tributo compró protección"
+		"hueco":
+			reward_label.text = "El Hueco dejó una marca en tu disparo"
 		_:
 			reward_label.text = "Tres salas cargarán la maldición"
 	_mark_current_room_cleared(false)
@@ -480,6 +535,8 @@ func _library_choices() -> Array[String]:
 	var pool: Array[String] = [
 		"doble","lente","alma","adrenalina","mapa","buscadora","perforante","fortuna"
 	]
+	if _run_progress != null and _run_progress.has_unlock("reliquias_archivo"):
+		pool.append_array(["carne","polvora","llavero"])
 	var seed := absi(_floor_index*131+_current_cell.x*92821+_current_cell.y*68917)
 	var first := pool[seed%pool.size()]
 	var second := pool[(seed*3+5)%pool.size()]
