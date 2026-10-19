@@ -475,7 +475,8 @@ func _spawn_challenge_wave() -> void:
 func _spawn_miniboss() -> void:
 	var elite := IsmaelEnemy.new()
 	elite.configure(IsmaelEnemy.EnemyKind.BOSS,_floor_index)
-	elite.health = 10+_floor_index*3
+	# Minijefe: combate más corto que el jefe de piso, con escalado moderado.
+	elite.health = 8 + (maxi(1, _floor_index) - 1) * 2
 	elite.max_health = elite.health
 	elite.speed = 112.0+_floor_index*6.0
 	elite.scale = Vector2(0.78,0.78)
