@@ -175,7 +175,9 @@ func _spawn_miniboss() -> void:
 	var variant := FloorCatalog.miniboss_variant(_floor_index)
 	var elite = AdvancedEnemy.new()
 	elite.configure_advanced(variant,_floor_index)
-	elite.health = maxi(12+_floor_index*4,int(round(float(elite.health)*1.45)))
+	# Balance del Guardián Menor: se sobreescribe la vida de la variante avanzada
+	# para evitar heredar los HP del jefe principal (110+ desde el piso 1).
+	elite.health = 8 + maxi(0, _floor_index - 1) * 2
 	elite.max_health = elite.health
 	elite.speed *= 1.04
 	if variant == "boss":
@@ -189,6 +191,11 @@ func _spawn_miniboss() -> void:
 	elite.defeated.connect(_on_enemy_defeated)
 	add_child(elite)
 	_enemies_alive = 1
+	# El controlador de pisos reemplaza al spawn base; debe enlazar su propio HUD.
+	if not elite.health_changed.is_connected(_on_boss_health_changed):
+		elite.health_changed.connect(_on_boss_health_changed)
+	if is_instance_valid(boss_hud):
+		boss_hud.show_boss("GUARDIÁN MENOR",elite.health)
 
 func _spawn_boss() -> void:
 	var boss = AdvancedEnemy.new()
