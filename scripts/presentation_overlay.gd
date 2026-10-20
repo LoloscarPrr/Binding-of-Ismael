@@ -67,10 +67,17 @@ func present(title: String, subtitle: String, duration: float = 1.15, darkness: 
 
 func present_ending(title: String = "EL HUECO HA CAÍDO", subtitle: String = "ISMAEL ROMPIÓ EL ÚLTIMO SELLO") -> void:
 	_sequence_id += 1
+	var current_id := _sequence_id
 	title_label.text = title
 	subtitle_label.text = subtitle
 	backdrop.color = Color(0.008,0.004,0.012,0.88)
 	visible = true
 	modulate.a = 0.0
 	var tween := create_tween()
-	tween.tween_property(self,"modulate:a",1.0,0.55)
+	tween.tween_property(self,"modulate:a",1.0,0.40)
+	tween.tween_interval(1.3)
+	tween.tween_property(self,"modulate:a",0.0,0.55)
+	tween.finished.connect(func() -> void:
+		if current_id == _sequence_id:
+			visible = false
+	)
