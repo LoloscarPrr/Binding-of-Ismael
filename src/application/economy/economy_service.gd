@@ -2,7 +2,7 @@ extends RefCounted
 class_name IsmaelEconomyService
 
 const RunInventory = preload("res://src/domain/run/run_inventory.gd")
-const CLEAR_ROOM_COIN_REWARD := 3
+const CLEAR_ROOM_COIN_REWARD := 1
 
 var inventory
 
