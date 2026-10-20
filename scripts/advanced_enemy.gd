@@ -10,6 +10,8 @@ var advanced_kind: AdvancedKind = AdvancedKind.BRUTE
 var floor_variant := 1
 var elite_variant := false
 var _phase_two_announced := false
+var _boss_damage_window_start := -1.0
+var _boss_damage_window_total := 0
 
 func configure_advanced(kind_id: String, floor_index: int) -> void:
 	floor_variant = maxi(1,floor_index)
@@ -112,8 +114,22 @@ func _boss_movement(to_player: Vector2) -> Vector2:
 			return (to_player*(0.45+pulse*0.70)+tangent*sin(_age*2.0)*(0.35+0.55*(1.0-pulse))).normalized()
 
 func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
+	# Las builds de multitiro conservan sus proyectiles y sinergias, pero
+	# un jefe principal no puede perder toda la barra en una sola ráfaga.
+	# No afecta a guardianes menores (su salud ya se equilibró por separado).
+	var applied := amount
+	if advanced_kind == AdvancedKind.FLOOR_BOSS and max_health >= 60:
+		var now := float(Time.get_ticks_msec()) / 1000.0
+		if _boss_damage_window_start < 0.0 or now - _boss_damage_window_start >= 0.30:
+			_boss_damage_window_start = now
+			_boss_damage_window_total = 0
+		var window_budget := 8 + clampi(floor_variant,1,5)
+		applied = mini(amount,maxi(0,window_budget - _boss_damage_window_total))
+		if applied <= 0:
+			return
+		_boss_damage_window_total += applied
 	var was_above_half := health*2 > max_health
-	super.take_damage(amount,source_position)
+	super.take_damage(applied,source_position)
 	if advanced_kind != AdvancedKind.FLOOR_BOSS or _phase_two_announced:
 		return
 	if was_above_half and health > 0 and health*2 <= max_health:
