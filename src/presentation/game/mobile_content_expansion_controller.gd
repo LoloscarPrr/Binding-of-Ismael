@@ -22,6 +22,8 @@ var _route_wanderer := 0
 var _abismo_route_applied := false
 var _run_progress
 var _meta_completion_recorded := false
+var _meta_defeat_recorded := false
+var _record_flags: Dictionary = {}
 var _legacy_start_applied := false
 var _run_started_msec := 0
 var _enemies_defeated_total := 0
@@ -201,11 +203,11 @@ func _finish_floor() -> void:
 	super._finish_floor()
 	if _run_complete and not _meta_completion_recorded and _run_progress != null:
 		_meta_completion_recorded = true
-		_run_progress.record_completion(_run_route())
+		_record_flags = _run_progress.record_completion(_run_route(),_current_run_stats())
 	if _run_complete:
 		_show_victory_summary(unlocks_before)
 
-func _show_victory_summary(unlocks_before: Dictionary) -> void:
+func _show_victory_summary(unlocks_before: Dictionary, is_defeat: bool = false) -> void:
 	if is_instance_valid(_victory_summary) or not is_instance_valid(hud_backdrop):
 		return
 	var layer := hud_backdrop.get_parent()
@@ -253,18 +255,27 @@ func _show_victory_summary(unlocks_before: Dictionary) -> void:
 		]
 	else:
 		unlocks_text = "¡DESBLOQUEADO! " + unlocks_text
-	var seconds := maxi(0,int((Time.get_ticks_msec()-_run_started_msec)/1000))
-	var stats := {
-		"rooms":_rooms_cleared_total,
-		"kills":_enemies_defeated_total,
-		"time":"%02d:%02d" % [int(seconds/60),seconds%60],
-		"items":item_count
-	}
+	var new_records: Array[String] = []
+	if bool(_record_flags.get("best_time",false)):
+		new_records.append("MEJOR TIEMPO")
+	if bool(_record_flags.get("best_kills",false)):
+		new_records.append("MÁS BAJAS")
+	if bool(_record_flags.get("best_rooms",false)):
+		new_records.append("MÁS SALAS")
+	if is_defeat:
+		unlocks_text = _run_progress.records_text() if _run_progress != null else "PRIMER INTENTO"
+	elif not new_records.is_empty():
+		unlocks_text += "\nNUEVO RÉCORD: " + " · ".join(new_records)
+	elif _run_progress != null:
+		unlocks_text += "\n" + _run_progress.records_text()
+	var stats := _current_run_stats()
 	_victory_summary = VictorySummary.new()
 	layer.add_child(_victory_summary)
 	_victory_summary.configure_summary(
-		_completion_ending_title(),_completion_ending_subtitle(),
-		stats,items_text,synergies_text,unlocks_text,Callable(self,"_restart_game")
+		"EL DESCENSO TERMINA AQUÍ" if is_defeat else _completion_ending_title(),
+		("ISMAEL CAYÓ EN P%d · %s" % [_floor_index,FloorCatalog.floor_name(_floor_index)]) if is_defeat else _completion_ending_subtitle(),
+		stats,items_text,synergies_text,unlocks_text,Callable(self,"_restart_game"),
+		"DERROTA" if is_defeat else "VICTORIA"
 	)
 	if is_instance_valid(restart_button):
 		restart_button.visible = false
@@ -272,6 +283,30 @@ func _show_victory_summary(unlocks_before: Dictionary) -> void:
 		status_label.visible = false
 	if is_instance_valid(reward_label):
 		reward_label.visible = false
+
+func _current_run_stats() -> Dictionary:
+	var seconds := maxi(0,int((Time.get_ticks_msec()-_run_started_msec)/1000))
+	var owned: Dictionary = _build_state.snapshot().get("owned_items",{})
+	var item_count := 0
+	for count in owned.values():
+		item_count += maxi(0,int(count))
+	return {
+		"rooms":_rooms_cleared_total,
+		"kills":_enemies_defeated_total,
+		"floor":_floor_index,
+		"seconds":seconds,
+		"time":"%02d:%02d" % [int(seconds/60),seconds%60],
+		"items":item_count
+	}
+
+func _on_player_died() -> void:
+	if _game_over:
+		return
+	super._on_player_died()
+	if not _meta_defeat_recorded and _run_progress != null:
+		_meta_defeat_recorded = true
+		_record_flags = _run_progress.record_defeat(_current_run_stats())
+	_show_victory_summary({},true)
 
 func _completion_status_text() -> String:
 	return _run_route_title()
