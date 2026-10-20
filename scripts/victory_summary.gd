@@ -1,8 +1,7 @@
 extends Control
 class_name IsmaelVictorySummary
 
-# Final de partida: una interfaz legible en horizontal que no tapa los controles.
-# Solo aparece cuando el recorrido realmente está completado.
+# Pantalla compartida de victoria/derrota con historial de run legible en horizontal.
 var _title: Label
 var _subtitle: Label
 var _stats: Label
@@ -16,6 +15,7 @@ var _synergies_text := ""
 var _unlocks_text := ""
 var _ending_title := ""
 var _ending_subtitle := ""
+var _outcome := "VICTORIA"
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -24,7 +24,7 @@ func _ready() -> void:
 	_title = _make_label(34,Color(1.0,0.84,0.57),HORIZONTAL_ALIGNMENT_CENTER)
 	_subtitle = _make_label(16,Color(0.78,0.70,0.63),HORIZONTAL_ALIGNMENT_CENTER)
 	_stats = _make_label(18,Color(0.97,0.89,0.78),HORIZONTAL_ALIGNMENT_CENTER)
-	_items = _make_label(16,Color(0.92,0.85,0.74),HORIZONTAL_ALIGNMENT_CENTER)
+	_items = _make_label(15,Color(0.92,0.85,0.74),HORIZONTAL_ALIGNMENT_CENTER)
 	_synergies = _make_label(14,Color(0.79,0.83,0.78),HORIZONTAL_ALIGNMENT_CENTER)
 	_unlocks = _make_label(16,Color(1.0,0.83,0.51),HORIZONTAL_ALIGNMENT_CENTER)
 	_restart = Button.new()
@@ -65,11 +65,12 @@ func _make_label(font_size: int,tint: Color,alignment: HorizontalAlignment) -> L
 	add_child(label)
 	return label
 
-func configure_summary(ending_title: String,ending_subtitle: String,stats: Dictionary,items: String,synergies: String,unlocks: String,restart_action: Callable) -> void:
+func configure_summary(ending_title: String,ending_subtitle: String,stats: Dictionary,items: String,synergies: String,unlocks: String,restart_action: Callable,outcome: String = "VICTORIA") -> void:
+	_outcome = outcome
 	_ending_title = ending_title
 	_ending_subtitle = ending_subtitle
-	_stats_text = "SALAS %d     ENEMIGOS %d     TIEMPO %s     OBJETOS %d" % [
-		int(stats.get("rooms",0)),int(stats.get("kills",0)),
+	_stats_text = "PISO %d     SALAS %d     BAJAS %d     TIEMPO %s     OBJETOS %d" % [
+		int(stats.get("floor",1)),int(stats.get("rooms",0)),int(stats.get("kills",0)),
 		String(stats.get("time","--:--")),int(stats.get("items",0))
 	]
 	_items_text = items
@@ -77,16 +78,18 @@ func configure_summary(ending_title: String,ending_subtitle: String,stats: Dicti
 	_unlocks_text = unlocks
 	if is_instance_valid(_restart):
 		_restart.pressed.connect(restart_action)
+		_restart.text = "REINTENTAR DESCENSO" if _outcome == "DERROTA" else "NUEVO RECORRIDO"
 		_refresh_text()
 		_layout()
 
 func _refresh_text() -> void:
 	_title.text = _ending_title
+	_title.add_theme_color_override("font_color",Color(0.99,0.43,0.38) if _outcome == "DERROTA" else Color(1.0,0.84,0.57))
 	_subtitle.text = _ending_subtitle
 	_stats.text = _stats_text
-	_items.text = "RELIQUIAS OBTENIDAS\n" + _items_text
+	_items.text = ("RELIQUIAS DEL DESCENSO\n" if _outcome == "DERROTA" else "RELIQUIAS OBTENIDAS\n") + _items_text
 	_synergies.text = "SINERGIAS: " + _synergies_text
-	_unlocks.text = "PROGRESO PERMANENTE\n" + _unlocks_text
+	_unlocks.text = ("CRÓNICAS DEL DESCENSO\n" if _outcome == "DERROTA" else "DESBLOQUEOS Y RÉCORDS\n") + _unlocks_text
 
 func _layout() -> void:
 	if not is_instance_valid(_restart):
@@ -103,11 +106,11 @@ func _layout() -> void:
 	_stats.position = Vector2(left,s.y*0.309)
 	_stats.size = Vector2(width,s.y*0.074)
 	_items.position = Vector2(left,s.y*0.405)
-	_items.size = Vector2(width,s.y*0.135)
-	_synergies.position = Vector2(left,s.y*0.551)
+	_items.size = Vector2(width,s.y*0.166)
+	_synergies.position = Vector2(left,s.y*0.578)
 	_synergies.size = Vector2(width,s.y*0.060)
-	_unlocks.position = Vector2(left,s.y*0.630)
-	_unlocks.size = Vector2(width,s.y*0.106)
+	_unlocks.position = Vector2(left,s.y*0.640)
+	_unlocks.size = Vector2(width,s.y*0.118)
 	var button_w := minf(330.0,width*0.58)
 	_restart.position = Vector2((s.x-button_w)*0.5,s.y*0.793)
 	_restart.size = Vector2(button_w,clampf(s.y*0.095,60.0,76.0))
