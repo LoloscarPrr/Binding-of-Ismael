@@ -6,6 +6,7 @@ const ExpandedItemCatalog = preload("res://src/domain/items/item_catalog.gd")
 const PactPedestal = preload("res://scripts/world_pact_pedestal.gd")
 const EventPedestal = preload("res://scripts/world_event_pedestal.gd")
 const RunProgress = preload("res://src/domain/run/run_progress.gd")
+const VictorySummary = preload("res://scripts/victory_summary.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
@@ -22,8 +23,12 @@ var _abismo_route_applied := false
 var _run_progress
 var _meta_completion_recorded := false
 var _legacy_start_applied := false
+var _run_started_msec := 0
+var _enemies_defeated_total := 0
+var _victory_summary: IsmaelVictorySummary
 
 func _ready() -> void:
+	_run_started_msec = Time.get_ticks_msec()
 	_run_progress = RunProgress.new()
 	_run_progress.load_profile()
 	super._ready()
@@ -190,10 +195,83 @@ func _apply_abismo_route() -> void:
 			_update_pickup_hud()
 
 func _finish_floor() -> void:
+	var unlocks_before: Dictionary = {}
+	if _run_progress != null:
+		unlocks_before = _run_progress.unlocks.duplicate(true)
 	super._finish_floor()
 	if _run_complete and not _meta_completion_recorded and _run_progress != null:
 		_meta_completion_recorded = true
 		_run_progress.record_completion(_run_route())
+	if _run_complete:
+		_show_victory_summary(unlocks_before)
+
+func _show_victory_summary(unlocks_before: Dictionary) -> void:
+	if is_instance_valid(_victory_summary) or not is_instance_valid(hud_backdrop):
+		return
+	var layer := hud_backdrop.get_parent()
+	if layer == null:
+		return
+	var item_snapshot: Dictionary = _build_state.snapshot()
+	var owned: Dictionary = item_snapshot.get("owned_items",{})
+	var item_keys: Array[String] = []
+	var item_count := 0
+	for id in owned.keys():
+		var count := int(owned[id])
+		if count <= 0:
+			continue
+		item_count += count
+		item_keys.append(String(id))
+	item_keys.sort()
+	var item_names: Array[String] = []
+	for id in item_keys:
+		var title := String(ItemCatalog.reward_definition(id).get("title",id.to_upper()))
+		var count := int(owned.get(id,0))
+		item_names.append(title + (" x%d" % count if count > 1 else ""))
+	var items_text := " · ".join(item_names)
+	if items_text.is_empty():
+		items_text = "NINGUNA RELIQUIA"
+
+	var synergy_names := get_active_synergy_names()
+	var synergies_text := " · ".join(synergy_names) if not synergy_names.is_empty() else "NINGUNA"
+	var new_unlocks: Array[String] = []
+	var unlocked_labels: Dictionary = {
+		"reliquias_archivo":"RELIQUIAS DEL ARCHIVO",
+		"eventos_profundos":"EVENTOS PROFUNDOS",
+		"pacto_profundo":"PACTOS PROFUNDOS",
+		"marca_del_hueco":"MARCA DEL HUECO"
+	}
+	if _run_progress != null:
+		for id in unlocked_labels.keys():
+			if _run_progress.has_unlock(String(id)) and not bool(unlocks_before.get(id,false)):
+				new_unlocks.append(String(unlocked_labels[id]))
+	new_unlocks.sort()
+	var unlocks_text := " · ".join(new_unlocks)
+	if unlocks_text.is_empty():
+		unlocks_text = "COMPLETADOS: %d · FINALES: %d/3" % [
+			_run_progress.runs_completed if _run_progress != null else 1,
+			_run_progress.endings.size() if _run_progress != null else 1
+		]
+	else:
+		unlocks_text = "¡DESBLOQUEADO! " + unlocks_text
+	var seconds := maxi(0,int((Time.get_ticks_msec()-_run_started_msec)/1000))
+	var stats := {
+		"rooms":_rooms_cleared_total,
+		"kills":_enemies_defeated_total,
+		"time":"%02d:%02d" % [int(seconds/60),seconds%60],
+		"items":item_count
+	}
+	_victory_summary = VictorySummary.new()
+	layer.add_child(_victory_summary)
+	_victory_summary.configure_summary(
+		_completion_ending_title(),_completion_ending_subtitle(),
+		stats,items_text,synergies_text,unlocks_text,Callable(self,"_restart_game")
+	)
+	if is_instance_valid(restart_button):
+		restart_button.visible = false
+	if is_instance_valid(status_label):
+		status_label.visible = false
+	if is_instance_valid(reward_label):
+		reward_label.visible = false
 
 func _completion_status_text() -> String:
 	return _run_route_title()
@@ -667,6 +745,8 @@ func _spawn_chest_loot(room_key: String,chest_id: int,chest_kind: String) -> voi
 		_spawn_pickup_at("soul",base_ratio+Vector2(0.0,0.24))
 
 func _on_enemy_defeated(enemy) -> void:
+	if not _run_complete and not _game_over:
+		_enemies_defeated_total += 1
 	var was_cleared := _room_cleared
 	super._on_enemy_defeated(enemy)
 	if not was_cleared and _room_cleared and _room_kind == "maldicion":
