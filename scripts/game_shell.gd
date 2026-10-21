@@ -3,7 +3,7 @@ class_name IsmaelGameShell
 
 # Capa de navegación móvil. El juego se pausa realmente: enemigos, bombas,
 # proyectiles y transiciones no siguen avanzando detrás del menú.
-var _game: Node
+var _game
 var _progress
 var _audio: Node
 var _started := false
@@ -30,6 +30,7 @@ func configure(game: Node, progress, audio: Node) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	z_index = 70
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_button = _make_button(self, "II  PAUSA", _open_pause)
@@ -209,13 +210,14 @@ func _open_pause() -> void:
 		return
 	if bool(_game.get("_game_over")) or bool(_game.get("_run_complete")):
 		return
-	if is_instance_valid(_game.player):
-		_game.player.move_input = Vector2.ZERO
-		_game.player.aim_input = Vector2.ZERO
-	if is_instance_valid(_game.left_stick):
-		_game.left_stick.reset()
-	if is_instance_valid(_game.right_stick):
-		_game.right_stick.reset()
+	var actor = _game.get("player")
+	if is_instance_valid(actor):
+		actor.set("move_input",Vector2.ZERO)
+		actor.set("aim_input",Vector2.ZERO)
+	for control_name in ["left_stick","right_stick"]:
+		var control = _game.get(control_name)
+		if is_instance_valid(control):
+			control.call("reset")
 	_navigate("pausa")
 
 func _go_back() -> void:
