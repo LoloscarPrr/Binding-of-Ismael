@@ -62,6 +62,25 @@ func _ready() -> void:
 	elif advanced_kind == AdvancedKind.STALKER:
 		_dash_timer = 0.42
 
+# El aviso y la descarga comparten el siguiente tipo de patrón.
+func _planned_attack_type() -> String:
+	if advanced_kind == AdvancedKind.SPITTER:
+		return "fan"
+	if advanced_kind != AdvancedKind.FLOOR_BOSS:
+		return super._planned_attack_type()
+	match clampi(floor_variant,1,5):
+		1: return "fan"
+		2: return "ring" if _attack_sequence%3==2 else "fan"
+		3: return "cross" if _attack_sequence%2==0 else "lane"
+		4: return "spiral"
+		_:
+			match _attack_sequence%4:
+				0: return "fan"
+				1: return "ring"
+				2: return "cross"
+				_: return "spiral"
+	return "fan"
+
 func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 	match advanced_kind:
 		AdvancedKind.BRUTE:
@@ -69,6 +88,11 @@ func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 			# of skating through them. The slight sway keeps it from feeling robotic.
 			var distance := global_position.distance_to(target.global_position)
 			var lateral := Vector2(-to_player.y,to_player.x)*sin(_age*1.7)*0.18
+			var flank := Vector2(-to_player.y,to_player.x)*squad_flank_sign
+			if squad_role == "flank" and distance > 120.0:
+				return (to_player*0.65+flank*0.62+lateral).normalized()
+			if squad_role == "contain" and distance < 180.0:
+				return (to_player*0.35+flank*0.66+lateral).normalized()
 			if distance < 115.0:
 				return (to_player*0.34+lateral).normalized()
 			return (to_player+lateral).normalized()
@@ -161,7 +185,7 @@ func _fire_pending_attack() -> void:
 func _fire_spitter_attack() -> void:
 	if not is_instance_valid(target):
 		return
-	var aim: Vector2 = global_position.direction_to(target.global_position)
+	var aim: Vector2 = _attack_locked_direction
 	var angles: Array[float] = [0.0]
 	if floor_variant >= 4:
 		angles = [-0.17,0.0,0.17]
@@ -191,7 +215,7 @@ func _fire_floor_boss_attack() -> void:
 	_attack_sequence += 1
 
 func _fire_jailer_pattern(phase_two: bool) -> void:
-	var aim := global_position.direction_to(target.global_position)
+	var aim := _attack_locked_direction
 	if _attack_sequence%2==0:
 		var bars: Array[float] = [-0.48,-0.24,0.0,0.24,0.48]
 		if phase_two:
@@ -209,7 +233,7 @@ func _fire_jailer_pattern(phase_two: bool) -> void:
 	_attack_cooldown = 0.78 if phase_two else 1.08
 
 func _fire_maw_pattern(phase_two: bool) -> void:
-	var aim := global_position.direction_to(target.global_position)
+	var aim := _attack_locked_direction
 	if _attack_sequence%3!=2:
 		var teeth: Array[float] = [-0.34,-0.17,0.0,0.17,0.34]
 		if phase_two:
@@ -224,7 +248,7 @@ func _fire_maw_pattern(phase_two: bool) -> void:
 	_attack_cooldown = 0.62 if phase_two else 0.88
 
 func _fire_watcher_pattern(phase_two: bool) -> void:
-	var aim := global_position.direction_to(target.global_position)
+	var aim := _attack_locked_direction
 	if _attack_sequence%2==0:
 		for offset in [0.0,PI*0.5,PI,PI*1.5]:
 			_spawn_enemy_shot(Vector2.RIGHT.rotated(_age*0.55+offset),315.0,1)
@@ -239,12 +263,16 @@ func _fire_watcher_pattern(phase_two: bool) -> void:
 func _fire_gravedigger_pattern(phase_two: bool) -> void:
 	var count := 12 if phase_two else 9
 	var spiral := _age*1.08+float(_attack_sequence)*0.31
+	# El abanico deja una salida rotatoria incluso en la segunda fase.
+	var safe_index := posmod(_attack_sequence*3+floor_variant,count)
 	for i in range(count):
+		if i == safe_index or i == posmod(safe_index+1,count):
+			continue
 		var angle := spiral+TAU*float(i)/float(count)
 		var speed_value := 235.0+float(i%3)*34.0
 		_spawn_enemy_shot(Vector2.RIGHT.rotated(angle),speed_value,1)
 	if _attack_sequence%3==2:
-		var aim := global_position.direction_to(target.global_position)
+		var aim := _attack_locked_direction
 		for angle in [-0.42,-0.21,0.0,0.21,0.42]:
 			_spawn_enemy_shot(aim.rotated(angle),300.0,1)
 	_attack_cooldown = 0.74 if phase_two else 1.04
