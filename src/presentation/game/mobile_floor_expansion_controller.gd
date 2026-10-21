@@ -114,6 +114,7 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 	for i in positions.size():
 		var kind_id := roster[i]
 		var enemy = _create_floor_enemy(kind_id)
+		enemy.configure_squad_role(i,positions.size(),encounter_seed)
 		enemy.position = positions[i]
 		enemy.target = player
 		enemy.spawn_grace_time = ENEMY_ACTIVATION_DELAY
