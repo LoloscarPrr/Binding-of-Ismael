@@ -1,0 +1,295 @@
+extends Control
+class_name IsmaelGameShell
+
+# Capa de navegación móvil. El juego se pausa realmente: enemigos, bombas,
+# proyectiles y transiciones no siguen avanzando detrás del menú.
+var _game: Node
+var _progress
+var _audio: Node
+var _started := false
+var _page := "inicio"
+var _modal: Control
+var _shade: ColorRect
+var _panel: Panel
+var _pause_button: Button
+var _heading: Label
+var _subheading: Label
+var _footer: Label
+var _history: RichTextLabel
+var _ambient_slider: HSlider
+var _effects_slider: HSlider
+var _ambient_label: Label
+var _effects_label: Label
+var _page_buttons: Dictionary = {}
+var _audio_ready := false
+
+func configure(game: Node, progress, audio: Node) -> void:
+	_game = game
+	_progress = progress
+	_audio = audio
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_button = _make_button(self, "II  PAUSA", _open_pause)
+	_pause_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_modal = Control.new()
+	_modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_modal)
+	_shade = ColorRect.new()
+	_shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	_shade.color = Color(0.018,0.014,0.019,0.975)
+	_modal.add_child(_shade)
+	_panel = Panel.new()
+	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var surface := StyleBoxFlat.new()
+	surface.bg_color = Color(0.095,0.050,0.052,0.98)
+	surface.border_color = Color(0.66,0.35,0.21,0.95)
+	surface.set_border_width_all(2)
+	surface.set_corner_radius_all(15)
+	_panel.add_theme_stylebox_override("panel",surface)
+	_modal.add_child(_panel)
+	_heading = _make_label(36,Color(1.0,0.85,0.61))
+	_subheading = _make_label(16,Color(0.82,0.74,0.65))
+	_footer = _make_label(14,Color(0.74,0.73,0.69))
+	_history = RichTextLabel.new()
+	_history.mouse_filter = Control.MOUSE_FILTER_STOP
+	_history.scroll_active = true
+	_history.add_theme_font_size_override("normal_font_size",17)
+	_history.add_theme_color_override("default_color",Color(0.91,0.83,0.73))
+	_modal.add_child(_history)
+	_ambient_label = _make_label(19,Color(0.93,0.83,0.66))
+	_effects_label = _make_label(19,Color(0.93,0.83,0.66))
+	_ambient_slider = _make_slider()
+	_effects_slider = _make_slider()
+	_page_buttons["inicio"] = [
+		_make_button(_modal,"COMENZAR DESCENSO",_start_or_resume),
+		_make_button(_modal,"CRÓNICAS DEL DESCENSO",func(): _navigate("cronicas")),
+		_make_button(_modal,"AJUSTES DE AUDIO",func(): _navigate("ajustes"))
+	]
+	_page_buttons["pausa"] = [
+		_make_button(_modal,"CONTINUAR",_start_or_resume),
+		_make_button(_modal,"CRÓNICAS DEL DESCENSO",func(): _navigate("cronicas")),
+		_make_button(_modal,"AJUSTES DE AUDIO",func(): _navigate("ajustes")),
+		_make_button(_modal,"VOLVER AL MENÚ",func(): _navigate("inicio"))
+	]
+	_page_buttons["cronicas"] = [
+		_make_button(_modal,"VOLVER",_go_back)
+	]
+	_page_buttons["ajustes"] = [
+		_make_button(_modal,"VOLVER",_go_back)
+	]
+	if is_instance_valid(_audio):
+		_ambient_slider.value = float(_audio.get("ambience_level")) * 100.0
+		_effects_slider.value = float(_audio.get("sfx_level")) * 100.0
+	_ambient_slider.value_changed.connect(_on_audio_changed)
+	_effects_slider.value_changed.connect(_on_audio_changed)
+	_audio_ready = true
+	resized.connect(_layout)
+	_navigate("inicio")
+	get_tree().paused = true
+	_layout()
+
+func _make_label(font_size: int, ink: Color) -> Label:
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size",font_size)
+	label.add_theme_color_override("font_color",ink)
+	label.add_theme_color_override("font_outline_color",Color(0.015,0.009,0.012))
+	label.add_theme_constant_override("outline_size",4)
+	_modal.add_child(label)
+	return label
+
+func _make_button(parent: Control, title: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = title
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_size_override("font_size",19)
+	button.add_theme_color_override("font_color",Color(0.98,0.90,0.77))
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.19,0.095,0.084,0.99)
+	style.border_color = Color(0.59,0.36,0.26)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(11)
+	style.set_content_margin_all(11)
+	button.add_theme_stylebox_override("normal",style)
+	var hover: StyleBoxFlat = style.duplicate()
+	hover.bg_color = Color(0.34,0.15,0.11,1.0)
+	button.add_theme_stylebox_override("hover",hover)
+	button.add_theme_stylebox_override("pressed",hover)
+	button.pressed.connect(action)
+	parent.add_child(button)
+	return button
+
+func _make_slider() -> HSlider:
+	var slider := HSlider.new()
+	slider.min_value = 0
+	slider.max_value = 100
+	slider.step = 5
+	slider.value = 100
+	slider.mouse_filter = Control.MOUSE_FILTER_STOP
+	_modal.add_child(slider)
+	return slider
+
+func _navigate(target: String) -> void:
+	_page = target
+	_modal.visible = true
+	_pause_button.visible = false
+	if target == "inicio":
+		var buttons: Array = _page_buttons["inicio"]
+		buttons[0].text = "CONTINUAR DESCENSO" if _started else "COMENZAR DESCENSO"
+	_heading.text = "BINDING OF ISMAEL" if target == "inicio" else (
+		"DESCENSO INTERRUMPIDO" if target == "pausa" else (
+		"CRÓNICAS DEL DESCENSO" if target == "cronicas" else "AJUSTES DE AUDIO"
+	))
+	_subheading.text = "CINCO PISOS · TRES DESTINOS · UNA VIDA" if target == "inicio" else (
+		"El sótano puede esperar." if target == "pausa" else (
+		"Cada caída deja una marca." if target == "cronicas" else "Los ajustes se guardan automáticamente."
+	))
+	_footer.text = _progress.summary_text() if _progress != null else ""
+	for name in _page_buttons.keys():
+		for button in _page_buttons[name]:
+			button.visible = name == target
+	_history.visible = target == "cronicas"
+	_ambient_slider.visible = target == "ajustes"
+	_effects_slider.visible = target == "ajustes"
+	_ambient_label.visible = target == "ajustes"
+	_effects_label.visible = target == "ajustes"
+	if target == "cronicas":
+		_refresh_history()
+	if target == "ajustes":
+		_refresh_audio_labels()
+	_layout()
+	get_tree().paused = true
+
+func _refresh_history() -> void:
+	if _progress == null:
+		_history.text = "SIN HISTORIAL DISPONIBLE"
+		return
+	var content := _progress.records_text() + "\n\n"
+	if _progress.recent_runs.is_empty():
+		content += "AÚN NO HAY PARTIDAS REGISTRADAS.\n¡EMPIEZA UN DESCENSO!"
+	else:
+		content += "ÚLTIMOS RECORRIDOS\n\n"
+		var entries: Array = _progress.recent_runs
+		for i in range(entries.size()-1,-1,-1):
+			var run: Dictionary = entries[i]
+			var seconds := maxi(0,int(run.get("seconds",0)))
+			content += "%s  ·  P%d  ·  %02d:%02d  ·  %d bajas  ·  %d salas\n" % [
+				String(run.get("result","PARTIDA")),
+				int(run.get("floor",1)),int(seconds/60),seconds%60,
+				int(run.get("kills",0)),int(run.get("rooms",0))
+			]
+	_history.text = content
+
+func _on_audio_changed(_value: float) -> void:
+	if not _audio_ready:
+		return
+	if is_instance_valid(_audio):
+		_audio.call("set_audio_levels",_ambient_slider.value / 100.0,_effects_slider.value / 100.0)
+	_refresh_audio_labels()
+
+func _refresh_audio_labels() -> void:
+	_ambient_label.text = "AMBIENTE  %d%%" % int(_ambient_slider.value)
+	_effects_label.text = "EFECTOS  %d%%" % int(_effects_slider.value)
+
+func _start_or_resume() -> void:
+	_started = true
+	_modal.visible = false
+	_pause_button.visible = true
+	get_tree().paused = false
+
+func _open_pause() -> void:
+	if not _started or not is_instance_valid(_game):
+		return
+	if bool(_game.get("_game_over")) or bool(_game.get("_run_complete")):
+		return
+	if is_instance_valid(_game.player):
+		_game.player.move_input = Vector2.ZERO
+		_game.player.aim_input = Vector2.ZERO
+	if is_instance_valid(_game.left_stick):
+		_game.left_stick.reset()
+	if is_instance_valid(_game.right_stick):
+		_game.right_stick.reset()
+	_navigate("pausa")
+
+func _go_back() -> void:
+	_navigate("pausa" if _started else "inicio")
+
+func hide_for_game_end() -> void:
+	_modal.visible = false
+	_pause_button.visible = false
+	get_tree().paused = false
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE:
+			if not _modal.visible:
+				_open_pause()
+			elif _page in ["ajustes","cronicas"]:
+				_go_back()
+			elif _page == "pausa":
+				_start_or_resume()
+			get_viewport().set_input_as_handled()
+
+func _layout() -> void:
+	if not is_instance_valid(_panel):
+		return
+	var s := size
+	if s.x <= 1.0 or s.y <= 1.0:
+		return
+	_shade.position = Vector2.ZERO
+	_shade.size = s
+	var px := s.x*0.16
+	var py := s.y*0.065
+	var pw := s.x*0.68
+	var ph := s.y*0.87
+	_panel.position = Vector2(px,py)
+	_panel.size = Vector2(pw,ph)
+	_heading.position = Vector2(px+24,py+ph*0.075)
+	_heading.size = Vector2(pw-48,ph*0.12)
+	_subheading.position = Vector2(px+24,py+ph*0.19)
+	_subheading.size = Vector2(pw-48,ph*0.065)
+	_footer.position = Vector2(px+22,py+ph*0.91)
+	_footer.size = Vector2(pw-44,ph*0.06)
+	_pause_button.position = Vector2(12,12)
+	_pause_button.size = Vector2(116,38)
+	_pause_button.add_theme_font_size_override("font_size",16)
+	var button_w := minf(430.0,pw*0.70)
+	var bx := px+(pw-button_w)*0.5
+	if _page == "inicio" or _page == "pausa":
+		var buttons: Array = _page_buttons[_page]
+		var button_h := clampf(ph*0.095,48.0,60.0)
+		var gap := ph*0.034
+		var y := py+ph*0.345
+		for button in buttons:
+			button.position = Vector2(bx,y)
+			button.size = Vector2(button_w,button_h)
+			y += button_h+gap
+	elif _page == "ajustes":
+		_ambient_label.position = Vector2(bx,py+ph*0.34)
+		_ambient_label.size = Vector2(button_w,38)
+		_ambient_slider.position = Vector2(bx,py+ph*0.415)
+		_ambient_slider.size = Vector2(button_w,40)
+		_effects_label.position = Vector2(bx,py+ph*0.54)
+		_effects_label.size = Vector2(button_w,38)
+		_effects_slider.position = Vector2(bx,py+ph*0.615)
+		_effects_slider.size = Vector2(button_w,40)
+		var back: Button = _page_buttons["ajustes"][0]
+		back.position = Vector2(bx,py+ph*0.765)
+		back.size = Vector2(button_w,55)
+	elif _page == "cronicas":
+		_history.position = Vector2(px+pw*0.105,py+ph*0.31)
+		_history.size = Vector2(pw*0.79,ph*0.44)
+		var back: Button = _page_buttons["cronicas"][0]
+		back.position = Vector2(bx,py+ph*0.785)
+		back.size = Vector2(button_w,55)
+
+func _exit_tree() -> void:
+	if get_tree() != null:
+		get_tree().paused = false
