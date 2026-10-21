@@ -172,7 +172,7 @@ func _refresh_history() -> void:
 	if _progress == null:
 		_history.text = "SIN HISTORIAL DISPONIBLE"
 		return
-	var content := _progress.records_text() + "\n\n"
+	var content: String = _progress.records_text() + "\n\n"
 	if _progress.recent_runs.is_empty():
 		content += "AÚN NO HAY PARTIDAS REGISTRADAS.\n¡EMPIEZA UN DESCENSO!"
 	else:
