@@ -2,17 +2,39 @@ extends Node
 class_name IsmaelAudioDirector
 
 const MIX_RATE := 22050
+const AUDIO_SETTINGS_PATH := "user://audio_settings.cfg"
 
 var _ambience := AudioStreamPlayer.new()
+var ambience_level := 0.65
+var sfx_level := 0.85
 var _floor_index := 1
 var _last_sfx_ms: Dictionary = {}
 var _stream_cache: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("audio_director")
-	_ambience.volume_db = -30.0
+	_load_audio_levels()
+	_apply_ambience_volume()
 	add_child(_ambience)
 	set_floor(1)
+
+func _load_audio_levels() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(AUDIO_SETTINGS_PATH) == OK:
+		ambience_level = clampf(float(cfg.get_value("audio","ambience",0.65)),0.0,1.0)
+		sfx_level = clampf(float(cfg.get_value("audio","effects",0.85)),0.0,1.0)
+
+func set_audio_levels(ambience_value: float, effects_value: float) -> void:
+	ambience_level = clampf(ambience_value,0.0,1.0)
+	sfx_level = clampf(effects_value,0.0,1.0)
+	_apply_ambience_volume()
+	var cfg := ConfigFile.new()
+	cfg.set_value("audio","ambience",ambience_level)
+	cfg.set_value("audio","effects",sfx_level)
+	cfg.save(AUDIO_SETTINGS_PATH)
+
+func _apply_ambience_volume() -> void:
+	_ambience.volume_db = -80.0 if ambience_level <= 0.0 else -30.0 + linear_to_db(ambience_level)
 
 func set_floor(floor_index: int) -> void:
 	var resolved := clampi(floor_index,1,5)
@@ -24,6 +46,8 @@ func set_floor(floor_index: int) -> void:
 	_ambience.play()
 
 func play_sfx(kind: String, intensity: float = 1.0) -> void:
+	if sfx_level <= 0.0:
+		return
 	var cooldown_ms := _cooldown_for(kind)
 	var now := Time.get_ticks_msec()
 	var previous := int(_last_sfx_ms.get(kind,-100000))
@@ -39,7 +63,7 @@ func play_sfx(kind: String, intensity: float = 1.0) -> void:
 		_stream_cache[cache_key] = stream
 	var player := AudioStreamPlayer.new()
 	player.stream = stream
-	player.volume_db = _volume_for(kind)
+	player.volume_db = _volume_for(kind) + linear_to_db(maxf(0.001,sfx_level))
 	add_child(player)
 	player.finished.connect(player.queue_free)
 	player.play()
