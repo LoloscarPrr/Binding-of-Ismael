@@ -2,9 +2,16 @@
 
 Prototipo roguelike 2D para Android inspirado en la estructura de los *twin-stick dungeon shooters*: salas cerradas, combate, proyectiles, enemigos, objetos y progresión por pisos.
 
-## Estado actual — 0.4.2-alpha
+## Estado actual — Fase 10.2 (Android)
 
 - Godot 4.3 + GDScript, en horizontal y con renderizador Compatibility para Android.
+- Cinco pisos: Sótano, Fosas, Catacumbas, Cripta y Abismo, con rutas y finales alternativos.
+- Controlador móvil: menú, pausa, volumen separado e historial de recorridos.
+- Combate con escuadrones deterministas de presión, flanqueo y contención.
+- Señales direccionales para ráfagas, cruces y anillos de proyectiles.
+- Guardián Menor equilibrado por piso; cinco jefes de piso con patrones propios.
+- Apuntado anunciado antes de disparar, sin seguimiento injusto al último instante.
+- El Sepulturero deja una brecha de escape rotatoria en sus anillos.
 - Movimiento con stick virtual izquierdo y apuntado/disparo independiente con el derecho.
 - Multitouch y disparo continuo: Ismael puede moverse en una dirección y disparar en otra.
 - Salas con obstáculos, puertas bloqueadas durante el combate, cámara de recompensa y jefe de piso.
@@ -17,7 +24,7 @@ Prototipo roguelike 2D para Android inspirado en la estructura de los *twin-stic
 - HUD de corazones, recursos, minimapa lineal y barra de vida del jefe.
 - Pickups de corazón, moneda, bomba y llave.
 - Recompensas de movimiento, cadencia, vida, curación, velocidad de proyectil y daño.
-- Dos pisos jugables y reinicio del recorrido al ganar o perder.
+- Cinco pisos jugables y reinicio del recorrido al ganar o perder.
 - GitHub Actions genera un APK debug instalable en cada push a `main`.
 
 ## Arquitectura v2
