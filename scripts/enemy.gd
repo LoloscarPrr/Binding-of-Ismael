@@ -33,6 +33,27 @@ var _attack_cooldown := 1.0
 var _attack_windup := 0.0
 var _attack_windup_total := 0.0
 var _attack_sequence := 0
+var squad_role := "press"
+var squad_flank_sign := 1.0
+var _attack_locked_direction := Vector2.RIGHT
+
+# Coordinación determinista por sala: los perseguidores no entran todos
+# por el mismo eje y el jugador siempre tiene espacio para responder.
+func configure_squad_role(index: int, total: int, encounter_seed: int) -> void:
+	if total < 3 or index == 0:
+		squad_role = "press"
+	elif index % 4 == 1 or index % 4 == 3:
+		squad_role = "flank"
+	else:
+		squad_role = "contain"
+	squad_flank_sign = -1.0 if posmod(encounter_seed + index, 2) == 0 else 1.0
+
+func _planned_attack_type() -> String:
+	if kind == EnemyKind.ORBITER:
+		return "lane"
+	if kind == EnemyKind.BOSS:
+		return "fan" if _attack_sequence % 2 == 0 else "ring"
+	return "lane"
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -119,6 +140,12 @@ func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 	match kind:
 		EnemyKind.CHASER:
 			desired = to_player
+			var distance := global_position.distance_to(target.global_position)
+			var tangent := Vector2(-to_player.y,to_player.x) * squad_flank_sign
+			if squad_role == "flank" and distance > 105.0:
+				desired = (to_player * 0.70 + tangent * 0.72).normalized()
+			elif squad_role == "contain" and distance < 185.0:
+				desired = (to_player * 0.32 + tangent * 0.80).normalized()
 		EnemyKind.DASHER:
 			_dash_timer -= delta
 			if _dash_timer <= 0.0:
@@ -198,6 +225,8 @@ func _update_attack(delta: float) -> void:
 		return
 	_attack_cooldown -= delta
 	if _attack_cooldown <= 0.0:
+		if is_instance_valid(target):
+			_attack_locked_direction = global_position.direction_to(target.global_position)
 		_attack_windup_total = BOSS_WINDUP if kind == EnemyKind.BOSS else ORBITER_WINDUP
 		_attack_windup = _attack_windup_total
 
@@ -205,8 +234,8 @@ func _fire_pending_attack() -> void:
 	if not is_instance_valid(target):
 		return
 	if kind == EnemyKind.ORBITER:
-		var aim_direction: Vector2 = global_position.direction_to(target.global_position)
-		_spawn_enemy_shot(aim_direction, 300.0 + float(_difficulty) * 22.0, 0)
+		# Dispara en la dirección advertida, no persigue al jugador a último instante.
+		_spawn_enemy_shot(_attack_locked_direction, 300.0 + float(_difficulty) * 22.0, 0)
 		_attack_cooldown = maxf(1.05, 1.58 - float(_difficulty) * 0.12)
 		return
 	if kind != EnemyKind.BOSS:
@@ -220,7 +249,7 @@ func _fire_pending_attack() -> void:
 	_attack_cooldown = 0.78 if phase_two else 1.18
 
 func _fire_boss_fan(phase_two: bool) -> void:
-	var aim_direction: Vector2 = global_position.direction_to(target.global_position)
+	var aim_direction: Vector2 = _attack_locked_direction
 	var angles: Array[float] = [-0.24, 0.0, 0.24]
 	if phase_two:
 		angles = [-0.38, -0.19, 0.0, 0.19, 0.38]
@@ -267,6 +296,27 @@ func _draw_attack_telegraph() -> void:
 	var warning := Color(0.94, 0.16, 0.10, 0.42 + progress * 0.38)
 	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 36, warning, 5.0)
 	draw_circle(Vector2.ZERO, 4.0 + progress * 5.0, Color(1.0, 0.46, 0.20, 0.22 + progress * 0.35))
+	# Avíso sobre la trayectoria real. Las ráfagas y anillos se leen antes del daño.
+	var mode := _planned_attack_type()
+	var aim := _attack_locked_direction.normalized()
+	var guide := Color(1.0,0.47,0.23,0.20+progress*0.63)
+	var tip := 185.0 if kind == EnemyKind.BOSS else 112.0
+	if mode == "ring" or mode == "spiral":
+		var count := 10 if kind == EnemyKind.BOSS else 7
+		for i in range(count):
+			var angle := TAU * float(i) / float(count)
+			var spoke := Vector2.RIGHT.rotated(angle)
+			draw_line(spoke * (radius+9.0),spoke * (radius+38.0),guide,2.5)
+	elif mode == "cross":
+		for i in range(4):
+			var axis := Vector2.RIGHT.rotated(float(i)*PI*0.5 + _age*0.55)
+			draw_line(axis*(radius+10.0),axis*tip,guide,3.0)
+	else:
+		var spread := 0.46 if kind == EnemyKind.BOSS else 0.12
+		for angle in [-spread,0.0,spread]:
+			var ray := aim.rotated(angle)
+			draw_line(ray*(radius+8.0),ray*tip,guide,3.0)
+		draw_circle(aim*tip,4.0+progress*3.0,guide)
 
 func _draw() -> void:
 	var flash := _hit_flash > 0.0
