@@ -7,6 +7,7 @@ const PactPedestal = preload("res://scripts/world_pact_pedestal.gd")
 const EventPedestal = preload("res://scripts/world_event_pedestal.gd")
 const RunProgress = preload("res://src/domain/run/run_progress.gd")
 const VictorySummary = preload("res://scripts/victory_summary.gd")
+const GameShell = preload("res://scripts/game_shell.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
@@ -28,6 +29,7 @@ var _legacy_start_applied := false
 var _run_started_msec := 0
 var _enemies_defeated_total := 0
 var _victory_summary: IsmaelVictorySummary
+var _game_shell: IsmaelGameShell
 
 func _ready() -> void:
 	_run_started_msec = Time.get_ticks_msec()
@@ -35,6 +37,17 @@ func _ready() -> void:
 	_run_progress.load_profile()
 	super._ready()
 	_apply_meta_starting_unlocks()
+	_create_game_shell()
+
+func _create_game_shell() -> void:
+	if not is_instance_valid(hud_backdrop):
+		return
+	var layer := hud_backdrop.get_parent()
+	if layer == null or is_instance_valid(_game_shell):
+		return
+	_game_shell = GameShell.new()
+	_game_shell.configure(self,_run_progress,_audio_director)
+	layer.add_child(_game_shell)
 
 func _apply_meta_starting_unlocks() -> void:
 	if _legacy_start_applied or _run_progress == null:
@@ -205,6 +218,8 @@ func _finish_floor() -> void:
 		_meta_completion_recorded = true
 		_record_flags = _run_progress.record_completion(_run_route(),_current_run_stats())
 	if _run_complete:
+		if is_instance_valid(_game_shell):
+			_game_shell.hide_for_game_end()
 		_show_victory_summary(unlocks_before)
 
 func _show_victory_summary(unlocks_before: Dictionary, is_defeat: bool = false) -> void:
@@ -303,6 +318,8 @@ func _on_player_died() -> void:
 	if _game_over:
 		return
 	super._on_player_died()
+	if is_instance_valid(_game_shell):
+		_game_shell.hide_for_game_end()
 	if not _meta_defeat_recorded and _run_progress != null:
 		_meta_defeat_recorded = true
 		_record_flags = _run_progress.record_defeat(_current_run_stats())
