@@ -48,6 +48,7 @@ var _last_aim := Vector2.RIGHT
 var _shoot_pose := 0.0
 var _visual_recoil := 0.0
 var _anim_time := 0.0
+var _shot_generation := 0
 
 func _ready() -> void:
 	collision_layer = 1
@@ -174,15 +175,22 @@ func _spawn_projectile(direction: Vector2) -> void:
 	get_tree().current_scene.add_child(projectile)
 
 func _fire_burst_followups(direction: Vector2, count: int) -> void:
+	var generation := _shot_generation
 	for i in count:
-		await get_tree().create_timer(0.055).timeout
-		if is_dead:
+		# process_always=false: la ráfaga se detiene al pausar el SceneTree.
+		await get_tree().create_timer(0.055,false).timeout
+		if is_dead or generation != _shot_generation or not is_inside_tree():
 			return
 		var resolved_direction := direction
 		if burst_fan_enabled:
 			var sign_value := -1.0 if i%2==0 else 1.0
 			resolved_direction = direction.rotated(sign_value*0.10)
 		_fire_volley(resolved_direction)
+
+func cancel_queued_shots() -> void:
+	_shot_generation += 1
+	_shoot_pose = 0.0
+	_shoot_cooldown = 0.0
 
 func take_contact_damage(amount: int, source_position: Vector2) -> void:
 	if is_dead or _invulnerability>0.0:
