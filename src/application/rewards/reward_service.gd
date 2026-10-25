@@ -52,6 +52,17 @@ func apply(reward_id: String, player: Node, inventory) -> Dictionary:
 		"fortuna":
 			inventory.add_coins(8)
 			inventory.coin_bonus_per_clear = maxi(int(inventory.coin_bonus_per_clear),2)
+		"eco_fragil":
+			# La división de proyectiles se deriva de los objetos poseídos
+			# en _refresh_projectile_build para mantener todas las sinergias.
+			player.set("projectile_speed",float(player.get("projectile_speed"))+35.0)
+		"reloj_ceniza":
+			player.set("fire_rate",maxf(0.095,float(player.get("fire_rate"))-0.016))
+			player.set("floor_shield_enabled",true)
+			player.call("refill_floor_shield")
+		"colmillo_ritual":
+			player.set("projectile_damage",int(player.get("projectile_damage"))+1)
+			player.set("fire_rate",minf(0.33,float(player.get("fire_rate"))+0.025))
 		_:
 			result["changed"] = false
 	if is_instance_valid(player) and player.has_method("sync_domain_state_from_runtime"):
