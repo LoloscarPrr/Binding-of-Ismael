@@ -384,24 +384,28 @@ func _draw_floor_boss(flash: bool) -> void:
 			# CARCELERO: broad, squared body with prison bars.
 			draw_rect(Rect2(-48,-35,96,72),dark)
 			draw_rect(Rect2(-42,-31,84,64),flesh)
+			var bar_tremor := sin(_age*10.0)*2.5 if health*2 <= max_health else 0.0
 			for x in [-27.0,-9.0,9.0,27.0]:
-				draw_line(Vector2(x,-30),Vector2(x,30),rim,5.0)
+				draw_line(Vector2(x+bar_tremor,-30),Vector2(x-bar_tremor,30),rim,5.0)
 			draw_ellipse(Vector2(0,-7),Vector2(13,10),Color.BLACK)
 		2:
 			# MANDÍBULA: low heavy silhouette dominated by a huge toothed mouth.
 			draw_ellipse(Vector2(0,3),Vector2(53,38),dark)
 			draw_ellipse(Vector2(0,0),Vector2(47,33),flesh)
-			draw_ellipse(Vector2(0,10),Vector2(31,16),Color(0.07,0.02,0.015))
+			var jaw_open := 1.0+0.23*absf(sin(_age*4.4))
+			draw_ellipse(Vector2(0,10),Vector2(31,16.0*jaw_open),Color(0.07,0.02,0.015))
 			for x in [-20.0,-10.0,0.0,10.0,20.0]:
 				draw_colored_polygon(PackedVector2Array([Vector2(x-5,1),Vector2(x+5,1),Vector2(x,13)]),rim)
-				draw_colored_polygon(PackedVector2Array([Vector2(x-5,20),Vector2(x+5,20),Vector2(x,9)]),rim)
+				draw_colored_polygon(PackedVector2Array([Vector2(x-5,20.0*jaw_open),Vector2(x+5,20.0*jaw_open),Vector2(x,9.0*jaw_open)]),rim)
 		3:
 			# VIGÍA: tall cyclopean body with rotating sight marks.
 			draw_ellipse(Vector2(0,0),Vector2(39,47),dark)
 			draw_ellipse(Vector2(0,-2),Vector2(34,42),flesh)
 			draw_ellipse(Vector2(0,-8),Vector2(22,18),rim)
 			draw_ellipse(Vector2(0,-8),Vector2(11,14),Color.BLACK)
-			draw_circle(Vector2(0,-10),4.0,Color(0.92,0.28,0.22))
+			var gaze := global_position.direction_to(target.global_position)*5.0 if is_instance_valid(target) else Vector2.ZERO
+			draw_circle(Vector2(0,-10)+gaze,4.8,Color(0.92,0.28,0.22))
+			draw_circle(Vector2(0,-10)+gaze+Vector2(-1.5,-1.2),1.6,Color(1.0,0.82,0.65))
 			for a in [0.0,PI*0.5,PI,PI*1.5]:
 				draw_line(Vector2.RIGHT.rotated(a+_age*0.55)*34.0,Vector2.RIGHT.rotated(a+_age*0.55)*52.0,rim,4.0)
 		4:
@@ -412,6 +416,9 @@ func _draw_floor_boss(flash: bool) -> void:
 			draw_line(Vector2(0,-34),Vector2(0,-58),rim,8.0)
 			draw_colored_polygon(PackedVector2Array([Vector2(-13,-58),Vector2(13,-58),Vector2(0,-72)]),rim)
 			draw_ellipse(Vector2(0,8),Vector2(18,10),Color.BLACK)
+			var fissure := sin(_age*2.7)*3.5
+			draw_line(Vector2(-23,-10),Vector2(-10+fissure,14),Color(0.65,0.80,0.80,0.54),3.0)
+			draw_line(Vector2(-10+fissure,14),Vector2(-19,27),Color(0.65,0.80,0.80,0.40),2.0)
 		_:
 			# HUECO: asymmetric void with fragments orbiting its missing center.
 			draw_ellipse(Vector2(0,0),Vector2(50,43),dark)
@@ -419,8 +426,16 @@ func _draw_floor_boss(flash: bool) -> void:
 			draw_ellipse(Vector2(0,-2),Vector2(24,23),Color(0.015,0.008,0.02))
 			for i in range(5):
 				var a := _age*0.8+TAU*float(i)/5.0
-				draw_circle(Vector2(cos(a),sin(a))*48.0,6.0,rim)
+				var orbital_distance := 48.0+sin(_age*2.2+float(i)*1.9)*6.0
+				var shard_position := Vector2(cos(a),sin(a))*orbital_distance
+				draw_circle(shard_position,5.0+sin(_age*4.0+float(i))*1.4,rim)
+				draw_line(shard_position*0.86,shard_position*1.08,Color(rim.r,rim.g,rim.b,0.34),1.6)
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 	draw_arc(Vector2.ZERO,55.0+sin(_age*3.0)*2.0,0.0,TAU,44,Color(rim.r,rim.g,rim.b,0.52),4.0)
 	if health*2<=max_health:
-		draw_arc(Vector2.ZERO,61.0+sin(_age*6.0)*2.0,0.0,TAU,44,Color(1.0,0.20,0.12,0.56),4.0)
+		var phase_pulse := 0.5+sin(_age*7.0)*0.5
+		draw_arc(Vector2.ZERO,61.0+phase_pulse*5.0,0.0,TAU,44,Color(1.0,0.20,0.12,0.40+phase_pulse*0.27),4.0)
+		for i in range(6):
+			var a := _age*1.5+float(i)*TAU/6.0
+			var p := Vector2.RIGHT.rotated(a)*(65.0+phase_pulse*9.0)
+			draw_circle(p,2.2+phase_pulse*1.6,Color(1.0,0.44,0.22,0.22+phase_pulse*0.54))
