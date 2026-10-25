@@ -34,6 +34,7 @@ func _draw() -> void:
 	_draw_props()
 	_draw_wall_torches()
 	_draw_light_pools()
+	_draw_airborne_motes()
 	_draw_edge_shadows()
 
 func _draw_wall_shell() -> void:
@@ -313,6 +314,37 @@ func _draw_light_pools() -> void:
 		for r in [110.0,80.0,52.0]:
 			var a := 0.018 if r>100.0 else (0.028 if r>70.0 else 0.042)
 			draw_circle(p,r,Color(light.r,light.g,light.b,a))
+
+# Motas y ceniza en movimiento, deterministas y sin nodos/partículas nuevas.
+# Cada piso tiene tono y velocidad propios, con un coste constante.
+func _draw_airborne_motes() -> void:
+	var area_width := room_rect.size.x
+	var area_height := room_rect.size.y
+	if area_width < 100.0 or area_height < 100.0:
+		return
+	var palette: Dictionary = _floor_palette()
+	var light: Color = palette["light"]
+	var count := 23 if room_kind == "jefe" else 16
+	var seed := floor_index*383+room_index*137+room_kind.length()*61
+	for i in range(count):
+		var marker := seed + i*173
+		var x_ratio := float(posmod(marker*29+31,991))/991.0
+		var y_ratio := float(posmod(marker*47+113,983))/983.0
+		var direction := -1.0 if floor_index >= 3 else 1.0
+		var speed_value := 6.0+float(posmod(marker,13))
+		var x_drift := sin(_age*0.8+float(i)*2.1)*8.0
+		var y_motion := fposmod(y_ratio*area_height+_age*speed_value*direction,area_height)
+		var point := room_rect.position+Vector2(x_ratio*area_width+x_drift,y_motion)
+		var pulse := 0.52+0.48*sin(_age*1.6+float(i)*1.9)
+		var alpha := (0.12 if floor_index == 5 else 0.16)*(0.50+pulse*0.50)
+		var radius := 0.9+float(posmod(marker,5))*0.35
+		draw_circle(point,radius,Color(light.r,light.g,light.b,alpha))
+		if posmod(i,4) == 0:
+			draw_line(point,point+Vector2(-0.9,-4.0*direction),Color(light.r,light.g,light.b,alpha*0.57),1.1)
+	if room_kind in ["jefe","minijefe"]:
+		var center := room_rect.get_center()
+		var breathe := 0.5+sin(_age*1.5)*0.5
+		draw_arc(center,96.0+breathe*13.0,0.12,PI-0.12,42,Color(light.r,light.g,light.b,0.11+breathe*0.06),2.4)
 
 func _draw_edge_shadows() -> void:
 	var depth := 34.0
