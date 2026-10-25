@@ -58,6 +58,12 @@ func _apply_meta_starting_unlocks() -> void:
 		_bombs += 1
 		_keys += 1
 		_update_pickup_hud()
+	# Tercera prueba del Eco: recompensa meta discreta para recorridos futuros.
+	if _run_progress.has_unlock("corona_del_eco") and is_instance_valid(player):
+		player.floor_shield_enabled = true
+		player.floor_shield_charges += 1
+		player.sync_domain_state_from_runtime()
+		_on_player_health_changed(player.health,player.max_health)
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	if _run_progress != null:
