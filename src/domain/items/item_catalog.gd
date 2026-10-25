@@ -4,7 +4,8 @@ class_name IsmaelItemCatalog
 const REWARD_ORDER: Array[String] = [
 	"vida","curacion","movimiento","cadencia","proyectil","dano",
 	"buscadora","perforante","escudo","rafaga","mapa","monedero",
-	"doble","carne","adrenalina","lente","alma","polvora","llavero","fortuna"
+	"doble","carne","adrenalina","lente","alma","polvora","llavero","fortuna",
+	"eco_fragil","reloj_ceniza","colmillo_ritual"
 ]
 
 const REWARDS := {
@@ -27,7 +28,10 @@ const REWARDS := {
 	"alma":{"title":"ALMA ENVUELTA","effect":"+2 ESCUDOS"},
 	"polvora":{"title":"SACO DE PÓLVORA","effect":"+5 BOMBAS"},
 	"llavero":{"title":"LLAVERO OXIDADO","effect":"+3 LLAVES"},
-	"fortuna":{"title":"MONEDA NEGRA","effect":"+8 MONEDAS · + ECONOMÍA"}
+	"fortuna":{"title":"MONEDA NEGRA","effect":"+8 MONEDAS · + ECONOMÍA"},
+	"eco_fragil":{"title":"ESQUIRLA DEL ECO","effect":"LÁGRIMAS SE DIVIDEN AL IMPACTAR"},
+	"reloj_ceniza":{"title":"RELOJ DE CENIZA","effect":"+ CADENCIA · ESCUDO POR PISO"},
+	"colmillo_ritual":{"title":"COLMILLO RITUAL","effect":"+ DAÑO · MENOS CADENCIA"}
 }
 
 const REWARD_TAGS := {
@@ -50,7 +54,10 @@ const REWARD_TAGS := {
 	"alma":["supervivencia","defensa"],
 	"polvora":["explosivos"],
 	"llavero":["exploracion","economia"],
-	"fortuna":["economia"]
+	"fortuna":["economia"],
+	"eco_fragil":["proyectil","penetracion"],
+	"reloj_ceniza":["cadencia","defensa"],
+	"colmillo_ritual":["dano","ofensiva"]
 }
 
 const SYNERGIES := {
@@ -93,6 +100,12 @@ const SYNERGIES := {
 		"title":"GEMELO NERVIOSO",
 		"requires_items":["doble","rafaga"],
 		"behavior":{"burst_fan":true}
+	},
+	"eco_sangrante":{
+		"title":"ECO SANGRANTE",
+		"requires_items":["eco_fragil","colmillo_ritual"],
+		"bonus":{"projectile_speed":65.0},
+		"behavior":{"split_homing":true}
 	}
 }
 
