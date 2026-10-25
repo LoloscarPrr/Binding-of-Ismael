@@ -82,6 +82,17 @@ jobs:
             exit 1
           fi
 
+      - name: Run roguelike regression smoke tests
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/ci_smoke.gd 2>&1 | tee build/ci/godot-smoke-tests.log
+          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script|QA FAIL" build/ci/godot-smoke-tests.log; then
+            echo "Regression smoke tests failed"
+            exit 1
+          fi
+          grep -q "QA PASS:" build/ci/godot-smoke-tests.log
+
       - name: Export signed debug APK
         shell: bash
         run: |
