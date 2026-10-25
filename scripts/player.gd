@@ -5,6 +5,7 @@ signal health_changed(current: int, maximum: int)
 signal died
 
 const PlayerState = preload("res://src/domain/player/player_state.gd")
+const MotionTrail = preload("res://scripts/motion_trail.gd")
 const BODY_RADIUS := 28.0
 
 @export var move_speed := 280.0
@@ -59,6 +60,9 @@ func _ready() -> void:
 	shape.shape = circle
 	add_child(shape)
 	health_changed.emit(health,max_health)
+	var trail := MotionTrail.new()
+	trail.follow(self,"player")
+	get_tree().current_scene.add_child(trail)
 	queue_redraw()
 
 func sync_domain_state_from_runtime() -> void:
@@ -260,7 +264,9 @@ func _play_audio_sfx(kind: String, intensity: float = 1.0) -> void:
 func _draw() -> void:
 	var pose_strength := clampf(_shoot_pose/0.13,0.0,1.0)
 	var moving_strength := clampf(velocity.length()/maxf(move_speed,1.0),0.0,1.0)
-	var bob := sin(_anim_time*10.0)*1.8*moving_strength
+	var stride := sin(_anim_time*11.5)*moving_strength
+	var bob := absf(stride)*2.7-1.1*moving_strength+sin(_anim_time*2.1)*0.55
+	var lean := clampf(velocity.x/maxf(move_speed,1.0),-1.0,1.0)*0.043
 	var visual_offset := -_last_aim*_visual_recoil+Vector2(0,bob)
 	var damage_strength := clampf(_damage_recoil/0.16,0.0,1.0)
 	var pose_scale := Vector2(
@@ -268,34 +274,50 @@ func _draw() -> void:
 		1.0-0.035*pose_strength-0.06*damage_strength
 	)
 	visual_offset += -_last_aim*(3.0*damage_strength)
-	draw_set_transform(visual_offset,_last_aim.x*0.018*pose_strength,pose_scale)
+	draw_set_transform(visual_offset,lean+_last_aim.x*0.035*pose_strength,pose_scale)
 	var skin := Color(0.82,0.69,0.61)
 	var skin_shadow := Color(0.60,0.44,0.38)
 	var outline := Color(0.09,0.065,0.058)
 	var shirt := Color(0.46,0.38,0.35)
 	if _invulnerability>0.0 and int(_invulnerability*12.0)%2==0:
 		skin = Color(1.0,0.86,0.86)
-	draw_ellipse(Vector2(0,24),Vector2(25,8),Color(0.02,0.018,0.016,0.38))
-	draw_ellipse(Vector2(-8,15),Vector2(8,13),outline)
-	draw_ellipse(Vector2(8,15),Vector2(8,13),outline)
-	draw_ellipse(Vector2(-8,14),Vector2(5.5,10.5),skin_shadow)
-	draw_ellipse(Vector2(8,14),Vector2(5.5,10.5),skin_shadow)
-	draw_ellipse(Vector2(0,5),Vector2(18,18),outline)
-	draw_ellipse(Vector2(0,4),Vector2(15.5,15.5),shirt)
+	# Piernas, brazos y torso responden a la zancada y al disparo.
+	var left_step := stride*5.5
+	var right_step := -stride*5.5
+	draw_ellipse(Vector2(0,25),Vector2(26,8),Color(0.02,0.018,0.016,0.33))
+	draw_line(Vector2(-8,7),Vector2(-9+left_step,21),outline,12.0)
+	draw_line(Vector2(8,7),Vector2(9+right_step,21),outline,12.0)
+	draw_ellipse(Vector2(-9+left_step,22),Vector2(7.0,9.2),skin_shadow)
+	draw_ellipse(Vector2(9+right_step,22),Vector2(7.0,9.2),skin_shadow)
+	draw_ellipse(Vector2(0,6),Vector2(18,18),outline)
+	draw_ellipse(Vector2(0,5),Vector2(15.5,15.5),shirt)
+	var left_hand := Vector2(-25.0-stride*2.2,-1.0+stride*7.0)
+	var right_hand := Vector2(25.0+stride*2.2,-1.0-stride*7.0)
+	if pose_strength > 0.0:
+		left_hand += _last_aim*pose_strength*7.0
+		right_hand += _last_aim*pose_strength*11.0
+	draw_line(Vector2(-15,-9),left_hand,outline,11.0)
+	draw_line(Vector2(15,-9),right_hand,outline,11.0)
+	draw_line(Vector2(-15,-9),left_hand,skin_shadow,7.0)
+	draw_line(Vector2(15,-9),right_hand,skin_shadow,7.0)
+	draw_circle(left_hand,6.8,outline)
+	draw_circle(right_hand,6.8,outline)
+	draw_circle(left_hand,5.1,skin)
+	draw_circle(right_hand,5.1,skin)
 	draw_ellipse(Vector2(0,-14),Vector2(24,22),outline)
-	draw_circle(Vector2(-22,-12),7.0,outline)
-	draw_circle(Vector2(22,-12),7.0,outline)
-	draw_circle(Vector2(-21,-12),5.2,skin_shadow)
-	draw_circle(Vector2(21,-12),5.2,skin_shadow)
 	draw_ellipse(Vector2(0,-15),Vector2(21,19.5),skin)
+	draw_arc(Vector2(0,-30),14.0,0.36,PI-0.36,18,Color(0.96,0.83,0.72,0.28),2.0)
 	draw_arc(Vector2(0,-13),18.0,0.18,PI-0.18,24,Color(0.47,0.32,0.29,0.22),3.0)
 	var look := _last_aim.limit_length(1.0)*2.8
 	var left_eye := Vector2(-8,-18)+look
 	var right_eye := Vector2(8,-18)+look
-	draw_ellipse(left_eye,Vector2(4.6,5.4),Color(0.025,0.025,0.026))
-	draw_ellipse(right_eye,Vector2(4.6,5.4),Color(0.025,0.025,0.026))
-	draw_circle(left_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
-	draw_circle(right_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
+	var blinking := sin(_anim_time*0.91)+sin(_anim_time*0.37+0.8)>1.965
+	var eye_height := 1.0 if blinking else 5.4
+	draw_ellipse(left_eye,Vector2(4.6,eye_height),Color(0.025,0.025,0.026))
+	draw_ellipse(right_eye,Vector2(4.6,eye_height),Color(0.025,0.025,0.026))
+	if not blinking:
+		draw_circle(left_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
+		draw_circle(right_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
 	draw_ellipse(Vector2(-8,-9)+look*0.25,Vector2(2.0,5.5),Color(0.34,0.65,0.84,0.68))
 	draw_ellipse(Vector2(8,-9)+look*0.25,Vector2(2.0,5.5),Color(0.34,0.65,0.84,0.68))
 	var mouth_size := Vector2(5.5,3.2+pose_strength*2.4)
@@ -304,6 +326,13 @@ func _draw() -> void:
 	if floor_shield_charges>0:
 		draw_arc(Vector2.ZERO,34.0,-PI*0.92,PI*0.92,34,Color(0.78,0.84,0.88,0.72),3.5)
 		draw_circle(Vector2(25,-20),4.2,Color(0.88,0.78,0.48,0.90))
+	if pose_strength > 0.0:
+		var muzzle := _last_aim.normalized()
+		var glow_position := Vector2(0,-12) + muzzle*31.0
+		draw_arc(glow_position,10.0+5.0*pose_strength,0.0,TAU,26,Color(0.51,0.85,1.0,pose_strength*0.40),2.0)
+		for direction_index in [-1,1]:
+			var spark := muzzle.rotated(float(direction_index)*0.52)
+			draw_line(glow_position+spark*8.0,glow_position+spark*(13.0+pose_strength*12.0),Color(0.78,0.93,1.0,pose_strength*0.61),2.0)
 	if _shoot_pose>0.0:
 		var emission_progress := 1.0-pose_strength
 		var tear_origin := Vector2(0,-12)+_last_aim*(10.0+emission_progress*16.0)
