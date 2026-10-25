@@ -14,6 +14,7 @@ var pacts_sealed := 0
 var events_resolved := 0
 var echo_challenges_completed := 0
 var endings: Dictionary = {}
+var boss_defeats: Dictionary = {}
 var unlocks: Dictionary = {}
 
 func load_profile() -> void:
@@ -38,6 +39,9 @@ func load_profile() -> void:
 	pacts_sealed = maxi(0,int(cfg.get_value("progress","pacts_sealed",0)))
 	events_resolved = maxi(0,int(cfg.get_value("progress","events_resolved",0)))
 	echo_challenges_completed = maxi(0,int(cfg.get_value("progress","echo_challenges_completed",0)))
+	var saved_bosses = cfg.get_value("progress","boss_defeats",{})
+	if saved_bosses is Dictionary:
+		boss_defeats = saved_bosses.duplicate(true)
 	var saved_endings = cfg.get_value("progress","endings",{})
 	if saved_endings is Dictionary:
 		endings = saved_endings.duplicate(true)
@@ -57,6 +61,7 @@ func save_profile() -> void:
 	cfg.set_value("progress","events_resolved",events_resolved)
 	cfg.set_value("progress","echo_challenges_completed",echo_challenges_completed)
 	cfg.set_value("progress","endings",endings)
+	cfg.set_value("progress","boss_defeats",boss_defeats)
 	cfg.set_value("progress","unlocks",unlocks)
 	cfg.save(SAVE_PATH)
 
@@ -67,6 +72,23 @@ func record_floor(floor_index: int) -> bool:
 		save_profile()
 		return true
 	return false
+
+func record_boss_defeat(floor_index: int) -> int:
+	var key := str(clampi(floor_index,1,5))
+	var count := maxi(0,int(boss_defeats.get(key,0)))+1
+	boss_defeats[key] = count
+	save_profile()
+	return count
+
+func boss_defeat_count(floor_index: int) -> int:
+	return maxi(0,int(boss_defeats.get(str(clampi(floor_index,1,5)),0)))
+
+func boss_seals_discovered() -> int:
+	var total := 0
+	for floor_number in range(1,6):
+		if boss_defeat_count(floor_number) > 0:
+			total += 1
+	return total
 
 func record_pact() -> void:
 	pacts_sealed += 1
@@ -139,8 +161,9 @@ func _refresh_unlocks() -> void:
 	unlocks["reloj_ceniza"] = events_resolved >= 2 or runs_completed >= 1
 	unlocks["colmillo_ritual"] = pacts_sealed >= 3 or runs_completed >= 2
 	unlocks["corona_del_eco"] = echo_challenges_completed >= 3
+	unlocks["cronicas_cinco_sellos"] = boss_seals_discovered() >= 5
 
 func summary_text() -> String:
-	return "MÁX P%d · RUNS %d · PACTOS %d · EVENTOS %d · ECOS %d · FINALES %d/3" % [
-		max_floor_reached,runs_completed,pacts_sealed,events_resolved,echo_challenges_completed,endings.size()
+	return "MÁX P%d · RUNS %d · SELLOS %d/5 · ECOS %d · FINALES %d/3" % [
+		max_floor_reached,runs_completed,boss_seals_discovered(),echo_challenges_completed,endings.size()
 	]
