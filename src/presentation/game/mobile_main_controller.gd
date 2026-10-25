@@ -315,6 +315,11 @@ func _refresh_projectile_build() -> void:
 		player.projectile_style = "moth"
 	if int(owned.get("perforante",0))>0:
 		player.projectile_style = "needle"
+	if int(owned.get("eco_fragil",0))>0:
+		player.projectile_split_count = maxi(player.projectile_split_count,2)
+		player.projectile_split_spread = maxf(player.projectile_split_spread,0.38)
+		player.projectile_style = "glass"
+		player.projectile_size_scale = maxf(player.projectile_size_scale,1.09)
 	if bool(synergies.get("ojo_hueco",false)):
 		player.projectile_style = "void"
 		player.homing_strength = maxf(player.homing_strength,6.2)
@@ -341,6 +346,10 @@ func _refresh_projectile_build() -> void:
 	if bool(synergies.get("gemelo_nervioso",false)):
 		player.burst_fan_enabled = true
 		player.volley_count = maxi(player.volley_count,2)
+	if bool(synergies.get("eco_sangrante",false)):
+		player.projectile_split_count = maxi(player.projectile_split_count,2)
+		player.projectile_split_homing = true
+		player.projectile_style = "moth"
 
 	if int(owned.get("dano",0))+int(owned.get("lente",0))>=2:
 		player.projectile_size_scale = maxf(player.projectile_size_scale,1.16)
