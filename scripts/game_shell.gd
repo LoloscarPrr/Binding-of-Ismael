@@ -186,6 +186,21 @@ func _refresh_history() -> void:
 				int(run.get("floor",1)),int(seconds/60),seconds%60,
 				int(run.get("kills",0)),int(run.get("rooms",0))
 			]
+	content += "\nDESBLOQUEOS DEL DESCENSO\n"
+	var milestones: Array[Dictionary] = [
+		{"id":"santuario_eco","title":"CÁMARA DEL ECO","requirement":"Completa un recorrido"},
+		{"id":"eco_fragil","title":"ESQUIRLA DEL ECO","requirement":"Llega al piso 3"},
+		{"id":"reloj_ceniza","title":"RELOJ DE CENIZA","requirement":"Resuelve 2 eventos"},
+		{"id":"colmillo_ritual","title":"COLMILLO RITUAL","requirement":"Sella 3 pactos"},
+		{"id":"corona_del_eco","title":"CORONA DEL ECO","requirement":"Supera 3 pruebas del Eco"}
+	]
+	for milestone in milestones:
+		var is_unlocked: bool = _progress.has_unlock(String(milestone["id"]))
+		content += ("%s " % ("[LISTO]" if is_unlocked else "[CERRADO]"))
+		content += String(milestone["title"])
+		if not is_unlocked:
+			content += " · " + String(milestone["requirement"])
+		content += "\n"
 	_history.text = content
 
 func _on_audio_changed(_value: float) -> void:
