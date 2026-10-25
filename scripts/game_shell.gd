@@ -22,6 +22,8 @@ var _ambient_label: Label
 var _effects_label: Label
 var _page_buttons: Dictionary = {}
 var _audio_ready := false
+var _total_paused_msec := 0
+var _paused_at_msec := -1
 
 func configure(game: Node, progress, audio: Node) -> void:
 	_game = game
@@ -89,6 +91,7 @@ func _ready() -> void:
 	_effects_slider.value_changed.connect(_on_audio_changed)
 	_audio_ready = true
 	resized.connect(_layout)
+	_paused_at_msec = Time.get_ticks_msec()
 	_navigate("inicio")
 	get_tree().paused = true
 	_layout()
@@ -215,10 +218,20 @@ func _refresh_audio_labels() -> void:
 	_effects_label.text = "EFECTOS  %d%%" % int(_effects_slider.value)
 
 func _start_or_resume() -> void:
+	_finish_pause_interval()
 	_started = true
 	_modal.visible = false
 	_pause_button.visible = true
 	get_tree().paused = false
+
+func _finish_pause_interval() -> void:
+	if _paused_at_msec >= 0:
+		_total_paused_msec += maxi(0,Time.get_ticks_msec()-_paused_at_msec)
+		_paused_at_msec = -1
+
+func get_paused_duration_msec() -> int:
+	var running := maxi(0,Time.get_ticks_msec()-_paused_at_msec) if _paused_at_msec >= 0 else 0
+	return _total_paused_msec + running
 
 func _open_pause() -> void:
 	if not _started or not is_instance_valid(_game):
@@ -231,14 +244,16 @@ func _open_pause() -> void:
 		actor.set("aim_input",Vector2.ZERO)
 	for control_name in ["left_stick","right_stick"]:
 		var control = _game.get(control_name)
-		if is_instance_valid(control):
+		if is_instance_valid(control) and control.has_method("reset"):
 			control.call("reset")
+	_paused_at_msec = Time.get_ticks_msec()
 	_navigate("pausa")
 
 func _go_back() -> void:
 	_navigate("pausa" if _started else "inicio")
 
 func hide_for_game_end() -> void:
+	_finish_pause_interval()
 	_modal.visible = false
 	_pause_button.visible = false
 	get_tree().paused = false
