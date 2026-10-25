@@ -8,6 +8,7 @@ var trail_kind := "player"
 var _marks: Array[Dictionary] = []
 var _sample_clock := 0.0
 var _age := 0.0
+var _redraw_accumulator := 0.0
 
 func follow(subject: Node2D, kind: String) -> void:
 	actor = subject
@@ -23,6 +24,7 @@ func _process(delta: float) -> void:
 		return
 	_age += delta
 	_sample_clock += delta
+	_redraw_accumulator += delta
 	var speed_value: float = (actor as CharacterBody2D).velocity.length() if actor is CharacterBody2D else 0.0
 	var interval := 0.055 if trail_kind == "player" else 0.075
 	if _sample_clock >= interval and speed_value > (55.0 if trail_kind == "player" else 115.0):
@@ -37,7 +39,12 @@ func _process(delta: float) -> void:
 			_marks[i] = mark
 	while _marks.size() > 6:
 		_marks.remove_at(0)
-	queue_redraw()
+	# Sin rastro no hay nada que redibujar. Limitar este efecto a
+	# 30 FPS reduce el gasto gráfico con muchos enemigos veloces.
+	if _redraw_accumulator >= 1.0/30.0:
+		_redraw_accumulator = 0.0
+		if not _marks.is_empty():
+			queue_redraw()
 
 func _draw() -> void:
 	var ink := Color(0.29,0.73,0.91) if trail_kind == "player" else (
