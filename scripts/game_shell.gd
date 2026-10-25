@@ -154,7 +154,7 @@ func _navigate(target: String) -> void:
 	if target == "inicio":
 		var buttons: Array = _page_buttons["inicio"]
 		buttons[0].text = "CONTINUAR DESCENSO" if _started else "COMENZAR DESCENSO"
-match target:
+	match target:
 		"inicio":
 			_heading.text = "BINDING OF ISMAEL"
 			_subheading.text = "CINCO PISOS · TRES DESTINOS · UNA VIDA"
