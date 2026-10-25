@@ -39,9 +39,16 @@ func load_profile() -> void:
 	pacts_sealed = maxi(0,int(cfg.get_value("progress","pacts_sealed",0)))
 	events_resolved = maxi(0,int(cfg.get_value("progress","events_resolved",0)))
 	echo_challenges_completed = maxi(0,int(cfg.get_value("progress","echo_challenges_completed",0)))
-	var saved_bosses = cfg.get_value("progress","boss_defeats",{})
+	var saved_bosses = cfg.get_value("progress","boss_defeats",null)
 	if saved_bosses is Dictionary:
 		boss_defeats = saved_bosses.duplicate(true)
+	elif saved_bosses == null:
+		# Migración conservadora de los perfiles anteriores a la Fase 11.
+		# Haber entrado en un piso solo garantiza vencer al jefe anterior.
+		# Una victoria completa sí confirma los cinco guardianes.
+		var legacy_defeated := 5 if runs_completed > 0 else maxi(0,max_floor_reached-1)
+		for legacy_floor in range(1,legacy_defeated+1):
+			boss_defeats[str(legacy_floor)] = 1
 	var saved_endings = cfg.get_value("progress","endings",{})
 	if saved_endings is Dictionary:
 		endings = saved_endings.duplicate(true)
