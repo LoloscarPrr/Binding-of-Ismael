@@ -37,6 +37,8 @@ func _draw() -> void:
 	_draw_wall_shell()
 	_draw_floor()
 	_draw_room_markings()
+	if room_kind == "jefe":
+		_draw_boss_seal_arena()
 	_draw_ismael_sigil()
 	_draw_debris()
 	_draw_props()
@@ -196,6 +198,46 @@ func _draw_room_markings() -> void:
 				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
 				draw_line(center+d*18.0,center+d*64.0,Color(0.48,0.42,0.72,0.22),3.0)
 			draw_arc(center,72.0,0.0,TAU,42,Color(0.54,0.46,0.78,0.32),4.0)
+
+func _draw_boss_seal_arena() -> void:
+	# La arena muestra desde el suelo qué sello custodia este piso.
+	var center := room_rect.get_center()
+	var tones: Array[Color] = [
+		Color(0.73,0.24,0.20),Color(0.85,0.44,0.18),Color(0.56,0.38,0.81),
+		Color(0.37,0.68,0.71),Color(0.77,0.31,0.62)
+	]
+	var tint: Color = tones[clampi(floor_index-1,0,4)]
+	var pulse := 0.5+sin(_age*1.4)*0.5
+	var ink := Color(tint.r,tint.g,tint.b,0.18+pulse*0.05)
+	draw_arc(center,100.0,0.0,TAU,52,ink,2.4)
+	draw_arc(center,117.0,0.0,TAU,52,Color(tint.r,tint.g,tint.b,0.12),1.5)
+	for i in range(8):
+		var angle := float(i)*TAU/8.0
+		var radial := Vector2.RIGHT.rotated(angle)
+		draw_line(center+radial*99.0,center+radial*115.0,ink,2.5)
+	match clampi(floor_index,1,5):
+		1: # barrotes de prisión
+			for i in range(-2,3):
+				draw_line(center+Vector2(float(i)*15.0,-42.0),center+Vector2(float(i)*15.0,42.0),ink,3.0)
+		2: # mandíbula de dientes
+			for i in range(-3,4):
+				var xx := float(i)*13.0
+				draw_line(center+Vector2(xx,-28.0),center+Vector2(xx+6.0,-5.0),ink,3.0)
+				draw_line(center+Vector2(xx,28.0),center+Vector2(xx+6.0,5.0),ink,3.0)
+		3: # ojo que todo lo ve
+			draw_arc(center,36.0,PI*0.10,PI*0.90,24,ink,3.0)
+			draw_arc(center,36.0,PI*1.10,PI*1.90,24,ink,3.0)
+			draw_circle(center,13.0,ink)
+		4: # lápida y cruz
+			draw_rect(Rect2(center-Vector2(27,39),Vector2(54,78)),ink,false,3.0)
+			draw_line(center+Vector2(-19,-13),center+Vector2(19,-13),ink,3.0)
+			draw_line(center+Vector2(0,-27),center+Vector2(0,24),ink,3.0)
+		_: # ausencia en el centro de El Hueco
+			draw_arc(center,40.0,0.38,PI*1.82,34,ink,4.0)
+			for i in range(5):
+				var a := _age*0.18+float(i)*TAU/5.0
+				var p := center+Vector2.RIGHT.rotated(a)*53.0
+				draw_line(p,p+Vector2.RIGHT.rotated(a)*12.0,ink,3.0)
 
 func _draw_ismael_sigil() -> void:
 	var center := room_rect.get_center()
