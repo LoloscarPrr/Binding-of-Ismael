@@ -5,6 +5,7 @@ var backdrop: ColorRect
 var title_label: Label
 var subtitle_label: Label
 var _sequence_id := 0
+var _boss_seal_variant := 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -49,6 +50,8 @@ func _layout() -> void:
 	subtitle_label.size = Vector2(s.x*0.80,44.0)
 
 func present(title: String, subtitle: String, duration: float = 1.15, darkness: float = 0.64) -> void:
+	_boss_seal_variant = 0
+	queue_redraw()
 	_sequence_id += 1
 	var current_id := _sequence_id
 	title_label.text = title
@@ -64,6 +67,38 @@ func present(title: String, subtitle: String, duration: float = 1.15, darkness: 
 		if current_id == _sequence_id:
 			visible = false
 	)
+
+func present_boss(title: String, omen: String, floor_number: int) -> void:
+	present(title,omen,1.52,0.63)
+	_boss_seal_variant = clampi(floor_number,1,5)
+	queue_redraw()
+
+func _draw() -> void:
+	if _boss_seal_variant <= 0 or not visible:
+		return
+	var center := size*Vector2(0.5,0.67)
+	var palette: Array[Color] = [
+		Color(0.82,0.28,0.22),Color(0.96,0.52,0.21),Color(0.62,0.46,0.88),
+		Color(0.48,0.77,0.80),Color(0.79,0.33,0.65)
+	]
+	var pigment: Color = palette[_boss_seal_variant-1]
+	draw_circle(center,34.0,Color(0.02,0.009,0.013,0.73))
+	draw_arc(center,34.0,0.0,TAU,48,Color(pigment.r,pigment.g,pigment.b,0.66),2.8)
+	draw_arc(center,43.0,0.30,PI*1.65,48,Color(pigment.r,pigment.g,pigment.b,0.33),1.6)
+	for i in range(_boss_seal_variant+2):
+		var angle := TAU*float(i)/float(_boss_seal_variant+2)-PI*0.5
+		var radial := Vector2.RIGHT.rotated(angle)
+		draw_line(center+radial*18.0,center+radial*32.0,Color(pigment.r,pigment.g,pigment.b,0.85),2.8)
+	if _boss_seal_variant == 3:
+		draw_circle(center,10.0,Color(pigment.r,pigment.g,pigment.b,0.65))
+		draw_circle(center,4.0,Color(0.05,0.012,0.03))
+	elif _boss_seal_variant == 5:
+		draw_circle(center,12.0,Color(0.012,0.005,0.018))
+		draw_arc(center,13.0,0,TAU,28,Color(pigment.r,pigment.g,pigment.b,0.78),2.0)
+	else:
+		draw_colored_polygon(PackedVector2Array([
+			center+Vector2(-9,-11),center+Vector2(9,-11),center+Vector2(0,15)
+		]),Color(pigment.r,pigment.g,pigment.b,0.66))
 
 func present_ending(title: String = "EL HUECO HA CAÍDO", subtitle: String = "ISMAEL ROMPIÓ EL ÚLTIMO SELLO") -> void:
 	_sequence_id += 1
