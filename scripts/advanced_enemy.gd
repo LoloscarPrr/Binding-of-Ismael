@@ -290,6 +290,7 @@ func _fire_hollow_pattern(phase_two: bool) -> void:
 	_attack_cooldown = 0.52 if phase_two else 0.76
 
 func _draw() -> void:
+	_draw_presence_aura()
 	var flash := _hit_flash>0.0
 	match advanced_kind:
 		AdvancedKind.BRUTE:
@@ -301,6 +302,7 @@ func _draw() -> void:
 		AdvancedKind.FLOOR_BOSS:
 			_draw_floor_boss(flash)
 	_draw_attack_telegraph()
+	_draw_reaction_sparks()
 	if elite_variant:
 		draw_arc(Vector2.ZERO,37.0+sin(_age*5.0)*2.0,0.0,TAU,30,Color(0.95,0.68,0.18,0.78),3.5)
 		draw_circle(Vector2(0,-30),4.5,Color(1.0,0.82,0.28,0.82))
