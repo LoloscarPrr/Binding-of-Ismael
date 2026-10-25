@@ -66,6 +66,7 @@ func _apply_meta_starting_unlocks() -> void:
 		_on_player_health_changed(player.health,player.max_health)
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
+	_clear_player_projectiles()
 	# Cancela ráfagas que nacieron en otra sala: evita proyectiles
 	# heredados y reinicios de disparos durante la transición.
 	if is_instance_valid(player):
@@ -328,6 +329,13 @@ func _show_victory_summary(unlocks_before: Dictionary, is_defeat: bool = false) 
 	if is_instance_valid(reward_label):
 		reward_label.visible = false
 
+func _clear_player_projectiles() -> void:
+	# Antes no se limpiaban las lágrimas al cambiar de sala.
+	# Conservarlas podía causar colisiones fantasma en nuevas habitaciones.
+	for projectile in get_tree().get_nodes_in_group("player_projectiles"):
+		if is_instance_valid(projectile) and not projectile.is_queued_for_deletion():
+			projectile.queue_free()
+
 func _current_run_stats() -> Dictionary:
 	var paused_msec := _game_shell.get_paused_duration_msec() if is_instance_valid(_game_shell) else 0
 	var seconds := maxi(0,int((Time.get_ticks_msec()-_run_started_msec-paused_msec)/1000))
@@ -347,6 +355,7 @@ func _current_run_stats() -> Dictionary:
 func _on_player_died() -> void:
 	if _game_over:
 		return
+	_clear_player_projectiles()
 	super._on_player_died()
 	if is_instance_valid(_game_shell):
 		_game_shell.hide_for_game_end()
