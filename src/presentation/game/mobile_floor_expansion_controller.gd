@@ -1,6 +1,7 @@
 extends "res://src/presentation/game/mobile_destructible_room_controller.gd"
 
 const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
+const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
 const SpecialEnemy = preload("res://scripts/special_enemy.gd")
 
@@ -213,11 +214,10 @@ func _spawn_boss() -> void:
 	if is_instance_valid(boss_hud):
 		boss_hud.show_boss(FloorCatalog.boss_name(_floor_index),boss.health)
 	if is_instance_valid(presentation_overlay):
-		presentation_overlay.present(
+		presentation_overlay.present_boss(
 			FloorCatalog.boss_name(_floor_index),
-			"GUARDIÁN DE %s" % FloorCatalog.floor_name(_floor_index),
-			1.12,
-			0.58
+			BossSeals.omen(_floor_index),
+			_floor_index
 		)
 	_audio_sfx("boss_phase",0.85)
 
