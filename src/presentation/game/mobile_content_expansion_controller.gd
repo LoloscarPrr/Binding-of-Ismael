@@ -8,6 +8,9 @@ const EventPedestal = preload("res://scripts/world_event_pedestal.gd")
 const RunProgress = preload("res://src/domain/run/run_progress.gd")
 const VictorySummary = preload("res://scripts/victory_summary.gd")
 const GameShell = preload("res://scripts/game_shell.gd")
+const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
+const BossSealPedestal = preload("res://scripts/world_reward_pedestal.gd")
+const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
@@ -16,6 +19,8 @@ var _curse_rooms_remaining := 0
 var _curse_active_in_room := false
 var _rare_event_states: Dictionary = {}
 var _echo_sanctuary_states: Dictionary = {}
+var _boss_seal_offers: Dictionary = {}
+var _boss_seal_claimed: Dictionary = {}
 var _floor_mutator := "normal"
 var _mutator_floor := 0
 var _route_blood := 0
@@ -88,6 +93,8 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 		if is_instance_valid(reward_label):
 			reward_label.text = "PACTO MALDITO · %d SALAS RESTANTES" % _curse_rooms_remaining
 	_spawn_content_hazards()
+	if _room_kind == "jefe" and _room_cleared and _boss_seal_offers.has(_floor_index):
+		_spawn_boss_seal_offerings()
 	if _room_kind == "inicio" and _floor_mutator != "normal":
 		if is_instance_valid(status_label):
 			status_label.text = "MUTADOR · %s" % _mutator_title()
@@ -928,6 +935,8 @@ func _on_enemy_defeated(enemy) -> void:
 		_enemies_defeated_total += 1
 	var was_cleared := _room_cleared
 	super._on_enemy_defeated(enemy)
+	if not was_cleared and _room_cleared and _room_kind == "jefe":
+		_on_guardian_defeated()
 	if not was_cleared and _room_cleared and _room_kind == "santuario_eco":
 		var key := _rare_event_key()
 		if String(_echo_sanctuary_states.get(key,"")) == "trial":
@@ -946,6 +955,60 @@ func _on_enemy_defeated(enemy) -> void:
 		_spawn_pickup_at("coin5",Vector2(0.56,0.61))
 		status_label.text = "MALDICIÓN SUPERADA"
 		reward_label.text = "La cámara dejó una recompensa excepcional"
+
+func _on_guardian_defeated() -> void:
+	if _boss_seal_offers.has(_floor_index):
+		return
+	var first_defeat := true
+	if _run_progress != null:
+		first_defeat = _run_progress.boss_defeat_count(_floor_index) == 0
+		_run_progress.record_boss_defeat(_floor_index)
+	var snapshot: Dictionary = _build_state.snapshot()
+	var owned: Dictionary = snapshot.get("owned_items",{})
+	var seed := _dungeon.seed_value + _floor_index*137 + _room_index*19
+	_boss_seal_offers[_floor_index] = BossSeals.reward_choices(_floor_index,seed,owned)
+	_spawn_boss_seal_offerings()
+	status_label.text = BossSeals.seal_title(_floor_index)
+	reward_label.text = ("NUEVO SELLO DESCUBIERTO · " if first_defeat else "") + "ELIGE UNA SOLA BENDICIÓN"
+	_audio_sfx("room_clear",1.15)
+
+func _spawn_boss_seal_offerings() -> void:
+	if bool(_boss_seal_claimed.get(_floor_index,false)):
+		return
+	if not _boss_seal_offers.has(_floor_index):
+		return
+	var offers: Array = _boss_seal_offers[_floor_index]
+	if offers.size() < 2:
+		return
+	for node in get_tree().get_nodes_in_group("reward_offerings"):
+		if is_instance_valid(node) and not node.is_queued_for_deletion():
+			return
+	var ratios: Array[Vector2] = [Vector2(0.38,0.59),Vector2(0.62,0.59)]
+	for i in range(2):
+		var reward_id := String(offers[i])
+		var pedestal := BossSealPedestal.new()
+		pedestal.configure_reward(reward_id,_reward_name(reward_id))
+		pedestal.position = room_rect.position + room_rect.size*ratios[i]
+		pedestal.claimed.connect(_on_boss_seal_claimed)
+		ItemAssetView.attach(pedestal,"reward",reward_id,72.0,Vector2(0,-10),3)
+		add_child(pedestal)
+
+func _on_boss_seal_claimed(reward_id: String) -> void:
+	if _room_kind != "jefe" or not _room_cleared or bool(_boss_seal_claimed.get(_floor_index,false)):
+		return
+	var offers: Array = _boss_seal_offers.get(_floor_index,[])
+	if not offers.has(reward_id):
+		return
+	_boss_seal_claimed[_floor_index] = true
+	_apply_reward(reward_id)
+	for pedestal in get_tree().get_nodes_in_group("reward_offerings"):
+		if is_instance_valid(pedestal):
+			pedestal.queue_free()
+	_last_reward = reward_id
+	status_label.text = "BENDICIÓN DEL SELLO RECIBIDA"
+	reward_label.text = _reward_name(reward_id).replace("\n"," — ")
+	_audio_sfx("pickup",1.3)
+	queue_redraw()
 
 func _clear_content_hazards() -> void:
 	for hazard in get_tree().get_nodes_in_group("room_hazards"):
