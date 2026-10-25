@@ -1,6 +1,8 @@
 extends Control
 class_name IsmaelGameShell
 
+const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
+
 # Capa de navegación móvil. El juego se pausa realmente: enemigos, bombas,
 # proyectiles y transiciones no siguen avanzando detrás del menú.
 var _game
@@ -70,13 +72,18 @@ func _ready() -> void:
 	_page_buttons["inicio"] = [
 		_make_button(_modal,"COMENZAR DESCENSO",_start_or_resume),
 		_make_button(_modal,"CRÓNICAS DEL DESCENSO",func(): _navigate("cronicas")),
+		_make_button(_modal,"CÓDICE DE LOS CINCO SELLOS",func(): _navigate("codice")),
 		_make_button(_modal,"AJUSTES DE AUDIO",func(): _navigate("ajustes"))
 	]
 	_page_buttons["pausa"] = [
 		_make_button(_modal,"CONTINUAR",_start_or_resume),
 		_make_button(_modal,"CRÓNICAS DEL DESCENSO",func(): _navigate("cronicas")),
+		_make_button(_modal,"CÓDICE DE LOS CINCO SELLOS",func(): _navigate("codice")),
 		_make_button(_modal,"AJUSTES DE AUDIO",func(): _navigate("ajustes")),
 		_make_button(_modal,"VOLVER AL MENÚ",func(): _navigate("inicio"))
+	]
+	_page_buttons["codice"] = [
+		_make_button(_modal,"VOLVER",_go_back)
 	]
 	_page_buttons["cronicas"] = [
 		_make_button(_modal,"VOLVER",_go_back)
@@ -147,25 +154,35 @@ func _navigate(target: String) -> void:
 	if target == "inicio":
 		var buttons: Array = _page_buttons["inicio"]
 		buttons[0].text = "CONTINUAR DESCENSO" if _started else "COMENZAR DESCENSO"
-	_heading.text = "BINDING OF ISMAEL" if target == "inicio" else (
-		"DESCENSO INTERRUMPIDO" if target == "pausa" else (
-		"CRÓNICAS DEL DESCENSO" if target == "cronicas" else "AJUSTES DE AUDIO"
-	))
-	_subheading.text = "CINCO PISOS · TRES DESTINOS · UNA VIDA" if target == "inicio" else (
-		"El sótano puede esperar." if target == "pausa" else (
-		"Cada caída deja una marca." if target == "cronicas" else "Los ajustes se guardan automáticamente."
-	))
+match target:
+		"inicio":
+			_heading.text = "BINDING OF ISMAEL"
+			_subheading.text = "CINCO PISOS · TRES DESTINOS · UNA VIDA"
+		"pausa":
+			_heading.text = "DESCENSO INTERRUMPIDO"
+			_subheading.text = "El sótano puede esperar."
+		"cronicas":
+			_heading.text = "CRÓNICAS DEL DESCENSO"
+			_subheading.text = "Cada caída deja una marca."
+		"codice":
+			_heading.text = "CÓDICE DE LOS CINCO SELLOS"
+			_subheading.text = "Derrota guardianes para revelar sus secretos."
+		_:
+			_heading.text = "AJUSTES DE AUDIO"
+			_subheading.text = "Los ajustes se guardan automáticamente."
 	_footer.text = _progress.summary_text() if _progress != null else ""
 	for name in _page_buttons.keys():
 		for button in _page_buttons[name]:
 			button.visible = name == target
-	_history.visible = target == "cronicas"
+	_history.visible = target in ["cronicas","codice"]
 	_ambient_slider.visible = target == "ajustes"
 	_effects_slider.visible = target == "ajustes"
 	_ambient_label.visible = target == "ajustes"
 	_effects_label.visible = target == "ajustes"
 	if target == "cronicas":
 		_refresh_history()
+	if target == "codice":
+		_refresh_codex()
 	if target == "ajustes":
 		_refresh_audio_labels()
 	_layout()
@@ -205,6 +222,19 @@ func _refresh_history() -> void:
 			content += " · " + String(milestone["requirement"])
 		content += "\n"
 	_history.text = content
+
+func _refresh_codex() -> void:
+	if _progress == null:
+		_history.text = "NO HAY PERFIL DISPONIBLE"
+		return
+	var text_value := "LOS CINCO SELLOS · %d/5 DESCUBIERTOS\n\n" % _progress.boss_seals_discovered()
+	for floor_number in range(1,6):
+		text_value += BossSeals.codex_entry(floor_number,_progress.boss_defeat_count(floor_number))
+		text_value += "\n"
+	if _progress.has_unlock("cronicas_cinco_sellos"):
+		text_value += "LOS CINCO SELLOS HAN SIDO ROTOS.\n"
+		text_value += "Ya conoces a los custodios del Abismo.\n"
+	_history.text = text_value
 
 func _on_audio_changed(_value: float) -> void:
 	if not _audio_ready:
@@ -263,7 +293,7 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			if not _modal.visible:
 				_open_pause()
-			elif _page in ["ajustes","cronicas"]:
+			elif _page in ["ajustes","cronicas","codice"]:
 				_go_back()
 			elif _page == "pausa":
 				_start_or_resume()
@@ -296,9 +326,9 @@ func _layout() -> void:
 	var bx := px+(pw-button_w)*0.5
 	if _page == "inicio" or _page == "pausa":
 		var buttons: Array = _page_buttons[_page]
-		var button_h := clampf(ph*0.095,48.0,60.0)
-		var gap := ph*0.034
-		var y := py+ph*0.345
+		var button_h := clampf(ph*0.085,33.0,50.0)
+		var gap := maxf(6.0,ph*0.018)
+		var y := py+ph*0.31
 		for button in buttons:
 			button.position = Vector2(bx,y)
 			button.size = Vector2(button_w,button_h)
@@ -315,10 +345,10 @@ func _layout() -> void:
 		var back: Button = _page_buttons["ajustes"][0]
 		back.position = Vector2(bx,py+ph*0.765)
 		back.size = Vector2(button_w,55)
-	elif _page == "cronicas":
+	elif _page in ["cronicas","codice"]:
 		_history.position = Vector2(px+pw*0.105,py+ph*0.31)
 		_history.size = Vector2(pw*0.79,ph*0.44)
-		var back: Button = _page_buttons["cronicas"][0]
+		var back: Button = _page_buttons[_page][0]
 		back.position = Vector2(bx,py+ph*0.785)
 		back.size = Vector2(button_w,55)
 
