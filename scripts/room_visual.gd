@@ -6,13 +6,21 @@ var room_kind := "combate"
 var floor_index := 1
 var room_index := 1
 var _age := 0.0
+var _visual_update_accum := 0.0
+const VISUAL_REFRESH_SECONDS := 1.0/30.0
 
 func _ready() -> void:
 	set_process(true)
 
 func _process(delta: float) -> void:
 	_age += delta
-	queue_redraw()
+	_visual_update_accum += delta
+	# El escenario se actualiza a 30 Hz; la física y los sprites
+	# siguen a frecuencia completa. Se evita redibujar docenas de
+	# polígonos, luces y partículas en cada frame de Android.
+	if _visual_update_accum >= VISUAL_REFRESH_SECONDS:
+		_visual_update_accum = fmod(_visual_update_accum,VISUAL_REFRESH_SECONDS)
+		queue_redraw()
 
 func configure(rect: Rect2, kind: String, floor_number: int, room_number: int) -> void:
 	room_rect = rect
