@@ -66,6 +66,10 @@ func _apply_meta_starting_unlocks() -> void:
 		_on_player_health_changed(player.health,player.max_health)
 
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
+	# Cancela ráfagas que nacieron en otra sala: evita proyectiles
+	# heredados y reinicios de disparos durante la transición.
+	if is_instance_valid(player):
+		player.cancel_queued_shots()
 	if _run_progress != null:
 		_run_progress.record_floor(_floor_index)
 	if _mutator_floor != _floor_index and _dungeon != null:
@@ -325,7 +329,8 @@ func _show_victory_summary(unlocks_before: Dictionary, is_defeat: bool = false) 
 		reward_label.visible = false
 
 func _current_run_stats() -> Dictionary:
-	var seconds := maxi(0,int((Time.get_ticks_msec()-_run_started_msec)/1000))
+	var paused_msec := _game_shell.get_paused_duration_msec() if is_instance_valid(_game_shell) else 0
+	var seconds := maxi(0,int((Time.get_ticks_msec()-_run_started_msec-paused_msec)/1000))
 	var owned: Dictionary = _build_state.snapshot().get("owned_items",{})
 	var item_count := 0
 	for count in owned.values():
@@ -437,6 +442,16 @@ func _open_echo_sanctuary() -> void:
 		status_label.text = "EL ECO FUE RECLAMADO"
 		reward_label.text = "El santuario ya no tiene ofrendas"
 		_mark_current_room_cleared(false)
+		_transition_locked = false
+		return
+	if state == "trial":
+		# Si Ismael salió durante la prueba, esta se puede continuar
+		# al regresar. Nunca dejamos pedestales que ya no responden.
+		var depth := _dungeon.distance(_current_cell)+_floor_index+2
+		var count := mini(3+_floor_index,FloorCatalog.enemy_cap(_floor_index))
+		_spawn_enemy_pack(count,depth)
+		status_label.text = "PRUEBA DEL ECO · REANUDADA"
+		reward_label.text = "DERROTA A LOS ENEMIGOS PARA OBTENER TU RELIQUIA"
 		_transition_locked = false
 		return
 	status_label.text = "CÁMARA DEL ECO"
