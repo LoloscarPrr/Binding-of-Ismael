@@ -8,9 +8,7 @@ const EventPedestal = preload("res://scripts/world_event_pedestal.gd")
 const RunProgress = preload("res://src/domain/run/run_progress.gd")
 const VictorySummary = preload("res://scripts/victory_summary.gd")
 const GameShell = preload("res://scripts/game_shell.gd")
-const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
 const BossSealPedestal = preload("res://scripts/world_reward_pedestal.gd")
-const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
