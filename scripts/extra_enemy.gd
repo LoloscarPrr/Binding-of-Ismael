@@ -77,7 +77,9 @@ func _fire_pending_attack() -> void:
 func _fire_turret_attack() -> void:
 	if not is_instance_valid(target):
 		return
-	var aim := global_position.direction_to(target.global_position)
+	# La torreta mantiene la dirección advertida durante el windup.
+	# Así el jugador puede esquivar leyendo la señal, sin autoapuntado tardío.
+	var aim := _attack_locked_direction
 	var count := 1
 	if floor_variant >= 3:
 		count = 3
