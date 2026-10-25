@@ -3,6 +3,7 @@ class_name IsmaelEnemy
 
 const CombatBurst = preload("res://scripts/combat_burst.gd")
 const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
+const MotionTrail = preload("res://scripts/motion_trail.gd")
 
 signal defeated(enemy)
 signal health_changed(current: int, maximum: int)
@@ -65,6 +66,10 @@ func _ready() -> void:
 	shape.shape = circle
 	add_child(shape)
 	_orbit_sign = -1.0 if get_instance_id() % 2 == 0 else 1.0
+	if kind == EnemyKind.DASHER or kind == EnemyKind.BOSS:
+		var trail := MotionTrail.new()
+		trail.follow(self,"boss" if kind == EnemyKind.BOSS else "dash")
+		get_tree().current_scene.add_child(trail)
 	health_changed.emit(health, max_health)
 	queue_redraw()
 
@@ -319,6 +324,7 @@ func _draw_attack_telegraph() -> void:
 		draw_circle(aim*tip,4.0+progress*3.0,guide)
 
 func _draw() -> void:
+	_draw_presence_aura()
 	var flash := _hit_flash > 0.0
 	match kind:
 		EnemyKind.CHASER:
@@ -330,6 +336,37 @@ func _draw() -> void:
 		EnemyKind.BOSS:
 			_draw_boss(flash)
 	_draw_attack_telegraph()
+	_draw_reaction_sparks()
+
+# Sombras, pulso y golpes comparten la misma capa en TODOS los arquetipos.
+func _draw_presence_aura() -> void:
+	var motion := clampf(velocity.length()/maxf(speed,1.0),0.0,2.0)
+	if kind == EnemyKind.BOSS:
+		var phase_two := health*2 <= max_health
+		var pulse := 0.5+sin(_age*(6.5 if phase_two else 2.9))*0.5
+		draw_circle(Vector2(0,8),70.0+pulse*7.0,Color(0.75,0.13,0.13,(0.025 if phase_two else 0.012)+pulse*0.026))
+		for i in range(6):
+			var arc_angle := TAU*float(i)/6.0+_age*(0.48 if phase_two else 0.22)
+			var from_point := Vector2.RIGHT.rotated(arc_angle)*63.0
+			var to_point := Vector2.RIGHT.rotated(arc_angle+0.10)*73.0
+			draw_line(from_point,to_point,Color(0.90,0.23,0.19,0.34+pulse*0.20),2.0)
+	elif motion > 0.35:
+		var shadow_length := clampf(motion*13.0,0.0,23.0)
+		var axis := -velocity.normalized()
+		draw_line(axis*10.0,axis*(20.0+shadow_length),Color(0.16,0.09,0.11,0.25),7.0)
+
+func _draw_reaction_sparks() -> void:
+	if _hit_recoil > 0.0:
+		var strength := clampf(_hit_recoil/0.12,0.0,1.0)
+		for i in range(5):
+			var angle := _age*2.5+TAU*float(i)/5.0
+			var ray := Vector2.RIGHT.rotated(angle)
+			draw_line(ray*25.0,ray*(28.0+19.0*strength),Color(1.0,0.68,0.34,0.72*strength),2.8)
+	if kind == EnemyKind.DASHER and _dash_timer > 0.55 and _dash_timer <= 1.30 and velocity.length()>130.0:
+		var behind := -velocity.normalized()
+		for i in range(3):
+			var side := behind.rotated((float(i)-1.0)*0.28)
+			draw_line(side*25.0,side*(36.0+float(i)*4.0),Color(0.95,0.34,0.12,0.24+float(i)*0.12),2.0)
 
 func _draw_chaser(flash: bool) -> void:
 	var outline := Color(0.10,0.025,0.028)
