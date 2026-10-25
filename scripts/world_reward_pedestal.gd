@@ -131,8 +131,53 @@ func _draw_object() -> void:
 			_draw_map()
 		"monedero":
 			_draw_purse()
+		"eco_fragil":
+			_draw_echo_shard()
+		"reloj_ceniza":
+			_draw_ash_clock()
+		"colmillo_ritual":
+			_draw_ritual_fang()
 		_:
 			draw_circle(Vector2.ZERO,22.0,Color(0.72,0.58,0.30))
+
+# Nuevas reliquias con silueta propia; no reutilizar círculos genéricos.
+func _draw_echo_shard() -> void:
+	var crystal := PackedVector2Array([
+		Vector2(-12,-32),Vector2(8,-24),Vector2(27,-7),
+		Vector2(5,31),Vector2(-17,13),Vector2(-26,-5)
+	])
+	draw_colored_polygon(crystal,Color(0.36,0.73,0.94))
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-12,-32),Vector2(-3,-12),Vector2(5,31),Vector2(-17,13)
+	]),Color(0.18,0.30,0.65))
+	draw_line(Vector2(-12,-32),Vector2(27,-7),Color(0.89,0.97,1.0),3.0)
+	draw_line(Vector2(-3,-12),Vector2(5,31),Color(0.89,0.97,1.0,0.70),2.5)
+	draw_circle(Vector2(5,-9),3.5,Color(1.0,0.96,0.90))
+
+func _draw_ash_clock() -> void:
+	draw_rect(Rect2(-22,-32,44,64),Color(0.14,0.09,0.08))
+	draw_line(Vector2(-25,-33),Vector2(25,-33),Color(0.72,0.49,0.24),5.0)
+	draw_line(Vector2(-25,33),Vector2(25,33),Color(0.72,0.49,0.24),5.0)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-18,-27),Vector2(18,-27),Vector2(0,0)
+	]),Color(0.72,0.54,0.40))
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(0,0),Vector2(-18,27),Vector2(18,27)
+	]),Color(0.32,0.21,0.17))
+	draw_circle(Vector2(0,17),6.0,Color(0.98,0.55,0.27))
+	draw_line(Vector2(0,-5),Vector2(0,10),Color(0.97,0.67,0.38),2.3)
+
+func _draw_ritual_fang() -> void:
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-27,-25),Vector2(17,-31),Vector2(26,-11),
+		Vector2(15,4),Vector2(-4,32),Vector2(-15,13)
+	]),Color(0.83,0.76,0.61))
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-27,-25),Vector2(-10,-17),Vector2(-4,32),
+		Vector2(-15,13)
+	]),Color(0.48,0.26,0.25))
+	draw_line(Vector2(-9,-13),Vector2(10,-19),Color(0.61,0.08,0.10),4.0)
+	draw_circle(Vector2(15,-18),4.0,Color(0.67,0.08,0.09))
 
 func _draw_heart() -> void:
 	var c := Color(0.76,0.05,0.07)
