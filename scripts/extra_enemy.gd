@@ -97,6 +97,7 @@ func _fire_turret_attack() -> void:
 	_attack_cooldown = maxf(0.68 if elite_variant else 0.82,(1.30 if elite_variant else 1.55)-float(floor_variant)*0.10)
 
 func _draw() -> void:
+	_draw_presence_aura()
 	var flash := _hit_flash>0.0
 	match extra_kind:
 		ExtraKind.FLYER:
@@ -106,6 +107,7 @@ func _draw() -> void:
 		ExtraKind.LEAPER:
 			_draw_leaper(flash)
 	_draw_attack_telegraph()
+	_draw_reaction_sparks()
 	if elite_variant:
 		draw_arc(Vector2.ZERO,31.0+sin(_age*6.0)*2.0,0.0,TAU,28,Color(0.94,0.70,0.20,0.80),3.0)
 		draw_circle(Vector2(0,-25),4.0,Color(1.0,0.84,0.30,0.86))
