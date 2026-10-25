@@ -23,7 +23,7 @@ func _process(delta: float) -> void:
 		return
 	_age += delta
 	_sample_clock += delta
-	var speed_value := actor.velocity.length() if actor is CharacterBody2D else 0.0
+	var speed_value: float = (actor as CharacterBody2D).velocity.length() if actor is CharacterBody2D else 0.0
 	var interval := 0.055 if trail_kind == "player" else 0.075
 	if _sample_clock >= interval and speed_value > (55.0 if trail_kind == "player" else 115.0):
 		_sample_clock = 0.0
