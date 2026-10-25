@@ -6,6 +6,7 @@ const ItemCatalog = preload("res://src/domain/items/item_catalog.gd")
 const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
 const RunProgress = preload("res://src/domain/run/run_progress.gd")
 const Player = preload("res://scripts/player.gd")
+const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -23,6 +24,7 @@ func _run_tests() -> void:
 	_test_item_definitions()
 	_test_floor_rosters()
 	_test_metaprogression()
+	_test_boss_seals()
 	_test_shot_cancellation()
 	if _errors.is_empty():
 		print("QA PASS: %d checks" % _checks)
@@ -70,6 +72,25 @@ func _test_metaprogression() -> void:
 	_assert(progress.has_unlock("santuario_eco"),"Cámara del Eco no desbloquea al ganar")
 	progress.echo_challenges_completed = 3
 	_assert(progress.has_unlock("corona_del_eco"),"Corona no desbloquea con tres desafíos")
+
+func _test_boss_seals() -> void:
+	var progress = RunProgress.new()
+	_assert(progress.boss_seals_discovered() == 0,"Perfil nuevo debe empezar sin sellos")
+	for floor_number in range(1,6):
+		var definition: Dictionary = BossSeals.definition(floor_number)
+		_assert(not String(definition.get("name","")).is_empty(),"Falta nombre de guardián")
+		_assert(not String(definition.get("omen","")).is_empty(),"Falta presagio de guardián")
+		var choices: Array[String] = BossSeals.reward_choices(floor_number,12345)
+		_assert(choices.size() == 2,"Cada guardián debe tener dos bendiciones")
+		_assert(choices[0] != choices[1],"Ofertas del jefe no son diferentes")
+		_assert(choices == BossSeals.reward_choices(floor_number,12345),"Ofertas de sello no son deterministas")
+		for reward_id in choices:
+			_assert(ItemCatalog.reward_ids().has(reward_id),"Sello tiene recompensa inexistente: "+reward_id)
+		progress.boss_defeats[str(floor_number)] = floor_number
+		_assert(progress.boss_defeat_count(floor_number) == floor_number,"Conteo de guardián incorrecto")
+		_assert(BossSeals.codex_entry(floor_number,1).contains("\n"),"Códice sin saltos de línea")
+	_assert(progress.boss_seals_discovered() == 5,"No se registraron los cinco sellos")
+	_assert(progress.has_unlock("cronicas_cinco_sellos"),"Códice completo no desbloquea")
 
 func _test_shot_cancellation() -> void:
 	var player = Player.new()
