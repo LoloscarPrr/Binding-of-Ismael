@@ -15,6 +15,7 @@ var _pact_offers: Dictionary = {}
 var _curse_rooms_remaining := 0
 var _curse_active_in_room := false
 var _rare_event_states: Dictionary = {}
+var _echo_sanctuary_states: Dictionary = {}
 var _floor_mutator := "normal"
 var _mutator_floor := 0
 var _route_blood := 0
@@ -154,6 +155,19 @@ func _prepare_extra_room_kinds() -> void:
 			var pact_cell: Vector2i = candidates[pact_index]
 			candidates.remove_at(pact_index)
 			_set_content_room_kind(pact_cell,"pacto")
+	if _floor_index >= 2 and _run_progress != null and _run_progress.has_unlock("santuario_eco") and not candidates.is_empty():
+		var echo_roll := posmod(_dungeon.seed_value+_floor_index*211+37,100)
+		if echo_roll < 52:
+			var echo_index := -1
+			for i in range(candidates.size()):
+				if _dungeon.route_role(candidates[i]) == "branch":
+					echo_index = i
+					break
+			if echo_index < 0:
+				echo_index = candidates.size()-1
+			var echo_cell: Vector2i = candidates[echo_index]
+			candidates.remove_at(echo_index)
+			_set_content_room_kind(echo_cell,"santuario_eco")
 	if _floor_index >= 2 and not candidates.is_empty():
 		_set_content_room_kind(candidates.pop_front(),"maldicion")
 	if _floor_index >= 3 and not candidates.is_empty():
@@ -255,7 +269,12 @@ func _show_victory_summary(unlocks_before: Dictionary, is_defeat: bool = false) 
 		"reliquias_archivo":"RELIQUIAS DEL ARCHIVO",
 		"eventos_profundos":"EVENTOS PROFUNDOS",
 		"pacto_profundo":"PACTOS PROFUNDOS",
-		"marca_del_hueco":"MARCA DEL HUECO"
+		"marca_del_hueco":"MARCA DEL HUECO",
+		"santuario_eco":"CÁMARA DEL ECO",
+		"eco_fragil":"ESQUIRLA DEL ECO",
+		"reloj_ceniza":"RELOJ DE CENIZA",
+		"colmillo_ritual":"COLMILLO RITUAL",
+		"corona_del_eco":"CORONA DEL ECO"
 	}
 	if _run_progress != null:
 		for id in unlocked_labels.keys():
@@ -363,9 +382,16 @@ func _room_title() -> String:
 		"biblioteca": return "ARCHIVO PROHIBIDO"
 		"pacto": return "CÁMARA DE PACTO"
 		"evento": return "EVENTO RARO"
+		"santuario_eco": return "CÁMARA DEL ECO"
 	return super._room_title()
 
 func _spawn_room_after_entry(generation: int) -> void:
+	if _room_kind == "santuario_eco":
+		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
+		if generation != _spawn_generation or _game_over:
+			return
+		_open_echo_sanctuary()
+		return
 	if _room_kind == "evento":
 		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 		if generation != _spawn_generation or _game_over:
@@ -397,6 +423,70 @@ func _spawn_room_after_entry(generation: int) -> void:
 		queue_redraw()
 		return
 	super._spawn_room_after_entry(generation)
+
+func _open_echo_sanctuary() -> void:
+	var key := _rare_event_key()
+	var state := String(_echo_sanctuary_states.get(key,""))
+	if state == "claimed":
+		status_label.text = "EL ECO FUE RECLAMADO"
+		reward_label.text = "El santuario ya no tiene ofrendas"
+		_mark_current_room_cleared(false)
+		_transition_locked = false
+		return
+	status_label.text = "CÁMARA DEL ECO"
+	reward_label.text = "UN CAMINO EXIGE RECURSOS. EL OTRO EXIGE SANGRE."
+	_spawn_echo_choice("pagar_eco","ABRIR EL SELLO","COSTE: 2 LLAVES + 1 BOMBA","RELOJ DE CENIZA",Vector2(0.36,0.53))
+	_spawn_echo_choice("luchar_eco","DESPERTAR EL ECO","COSTE: COMBATE INTENSO","RELIQUIA OCULTA",Vector2(0.64,0.53))
+	_transition_locked = false
+
+func _spawn_echo_choice(id: String,title: String,cost: String,reward: String,ratio: Vector2) -> void:
+	var pedestal := EventPedestal.new()
+	pedestal.configure_choice(id,title,cost,reward)
+	pedestal.position = room_rect.position+room_rect.size*ratio
+	pedestal.chosen.connect(_on_echo_sanctuary_choice)
+	add_child(pedestal)
+
+func _echo_sanctuary_reward() -> String:
+	var pool: Array[String] = ["eco_fragil","reloj_ceniza"]
+	if _run_progress != null and _run_progress.has_unlock("colmillo_ritual"):
+		pool.append("colmillo_ritual")
+	var seed := absi(_dungeon.seed_value+_floor_index*107+_current_cell.x*137+_current_cell.y*43)
+	return pool[seed % pool.size()]
+
+func _on_echo_sanctuary_choice(choice_id: String) -> void:
+	var key := _rare_event_key()
+	if _room_cleared or String(_echo_sanctuary_states.get(key,"")) != "":
+		return
+	if choice_id == "pagar_eco":
+		if _keys < 2 or _bombs < 1:
+			status_label.text = "OFRENDA INSUFICIENTE"
+			reward_label.text = "Necesitas 2 llaves y 1 bomba, o puedes luchar"
+			_reset_event_offerings_after_failed_payment()
+			return
+		_keys -= 2
+		_bombs -= 1
+		var reward := "reloj_ceniza" if _run_progress != null and _run_progress.has_unlock("reloj_ceniza") else "escudo"
+		_apply_reward(reward)
+		_echo_sanctuary_states[key] = "claimed"
+		_route_wanderer += 1
+		_consume_event_offerings()
+		_mark_current_room_cleared(false)
+		_update_pickup_hud()
+		status_label.text = "EL SELLO RESPONDIÓ"
+		reward_label.text = "El santuario te entregó %s" % _reward_name(reward).replace("\n"," — ")
+		_audio_sfx("pickup",1.1)
+		return
+	if choice_id != "luchar_eco":
+		_reset_event_offerings_after_failed_payment()
+		return
+	_echo_sanctuary_states[key] = "trial"
+	_consume_event_offerings()
+	var depth := _dungeon.distance(_current_cell)+_floor_index+2
+	var count := mini(3+_floor_index,FloorCatalog.enemy_cap(_floor_index))
+	_spawn_enemy_pack(count,depth)
+	status_label.text = "PRUEBA DEL ECO"
+	reward_label.text = "SOBREVIVE PARA OBTENER UNA RELIQUIA ESPECIAL"
+	_audio_sfx("boss_phase",1.0)
 
 func _rare_event_key() -> String:
 	return "%d:%d:%d" % [_floor_index,_current_cell.x,_current_cell.y]
@@ -667,6 +757,12 @@ func _library_choices() -> Array[String]:
 	]
 	if _run_progress != null and _run_progress.has_unlock("reliquias_archivo"):
 		pool.append_array(["carne","polvora","llavero"])
+	if _run_progress != null and _run_progress.has_unlock("eco_fragil"):
+		pool.append("eco_fragil")
+	if _run_progress != null and _run_progress.has_unlock("reloj_ceniza"):
+		pool.append("reloj_ceniza")
+	if _run_progress != null and _run_progress.has_unlock("colmillo_ritual"):
+		pool.append("colmillo_ritual")
 	var seed := absi(_floor_index*131+_current_cell.x*92821+_current_cell.y*68917)
 	var first := pool[seed%pool.size()]
 	var second := pool[(seed*3+5)%pool.size()]
@@ -749,10 +845,11 @@ func _create_room_door(direction: Vector2i) -> void:
 		"maldicion": door.modulate = Color(0.64,0.12,0.16,1.0)
 		"pacto": door.modulate = Color(0.72,0.18,0.22,1.0)
 		"evento": door.modulate = Color(0.54,0.68,0.34,1.0)
+		"santuario_eco": door.modulate = Color(0.35,0.72,0.82,1.0)
 
 func _spawn_clear_pickup() -> void:
 	super._spawn_clear_pickup()
-	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto","evento"]:
+	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto","evento","santuario_eco"]:
 		return
 	if _floor_mutator == "enjambre":
 		_coins += 1
@@ -801,6 +898,19 @@ func _on_enemy_defeated(enemy) -> void:
 		_enemies_defeated_total += 1
 	var was_cleared := _room_cleared
 	super._on_enemy_defeated(enemy)
+	if not was_cleared and _room_cleared and _room_kind == "santuario_eco":
+		var key := _rare_event_key()
+		if String(_echo_sanctuary_states.get(key,"")) == "trial":
+			_echo_sanctuary_states[key] = "claimed"
+			var reward := _echo_sanctuary_reward()
+			_apply_reward(reward)
+			_spawn_pickup_at("soul",Vector2(0.50,0.61))
+			_route_blood += 1
+			if _run_progress != null:
+				_run_progress.record_echo_challenge()
+			status_label.text = "EL ECO FUE SOMETIDO"
+			reward_label.text = "GANASTE %s · +1 ALMA" % _reward_name(reward).replace("\n"," — ")
+			_audio_sfx("boss_death",1.1)
 	if not was_cleared and _room_cleared and _room_kind == "maldicion":
 		_spawn_pickup_at("soul",Vector2(0.44,0.61))
 		_spawn_pickup_at("coin5",Vector2(0.56,0.61))
