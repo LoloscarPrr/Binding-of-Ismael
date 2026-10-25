@@ -12,6 +12,7 @@ var most_rooms_cleared := 0
 var recent_runs: Array[Dictionary] = []
 var pacts_sealed := 0
 var events_resolved := 0
+var echo_challenges_completed := 0
 var endings: Dictionary = {}
 var unlocks: Dictionary = {}
 
@@ -36,6 +37,7 @@ func load_profile() -> void:
 		recent_runs.remove_at(0)
 	pacts_sealed = maxi(0,int(cfg.get_value("progress","pacts_sealed",0)))
 	events_resolved = maxi(0,int(cfg.get_value("progress","events_resolved",0)))
+	echo_challenges_completed = maxi(0,int(cfg.get_value("progress","echo_challenges_completed",0)))
 	var saved_endings = cfg.get_value("progress","endings",{})
 	if saved_endings is Dictionary:
 		endings = saved_endings.duplicate(true)
@@ -53,6 +55,7 @@ func save_profile() -> void:
 	cfg.set_value("progress","recent_runs",recent_runs)
 	cfg.set_value("progress","pacts_sealed",pacts_sealed)
 	cfg.set_value("progress","events_resolved",events_resolved)
+	cfg.set_value("progress","echo_challenges_completed",echo_challenges_completed)
 	cfg.set_value("progress","endings",endings)
 	cfg.set_value("progress","unlocks",unlocks)
 	cfg.save(SAVE_PATH)
@@ -71,6 +74,10 @@ func record_pact() -> void:
 
 func record_event() -> void:
 	events_resolved += 1
+	save_profile()
+
+func record_echo_challenge() -> void:
+	echo_challenges_completed += 1
 	save_profile()
 
 func record_completion(ending_id: String, stats: Dictionary = {}) -> Dictionary:
@@ -127,8 +134,13 @@ func _refresh_unlocks() -> void:
 	unlocks["eventos_profundos"] = events_resolved >= 3 or runs_completed >= 1
 	unlocks["pacto_profundo"] = pacts_sealed >= 4 or runs_completed >= 2
 	unlocks["marca_del_hueco"] = endings.size() >= 2 or runs_completed >= 3
+	unlocks["santuario_eco"] = runs_completed >= 1
+	unlocks["eco_fragil"] = max_floor_reached >= 3 or runs_completed >= 1
+	unlocks["reloj_ceniza"] = events_resolved >= 2 or runs_completed >= 1
+	unlocks["colmillo_ritual"] = pacts_sealed >= 3 or runs_completed >= 2
+	unlocks["corona_del_eco"] = echo_challenges_completed >= 3
 
 func summary_text() -> String:
-	return "MÁX P%d · RUNS %d · PACTOS %d · EVENTOS %d · FINALES %d/3" % [
-		max_floor_reached,runs_completed,pacts_sealed,events_resolved,endings.size()
+	return "MÁX P%d · RUNS %d · PACTOS %d · EVENTOS %d · ECOS %d · FINALES %d/3" % [
+		max_floor_reached,runs_completed,pacts_sealed,events_resolved,echo_challenges_completed,endings.size()
 	]
