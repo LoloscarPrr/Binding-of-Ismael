@@ -98,6 +98,7 @@ func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 			return super._desired_movement(to_player,delta)
 
 func _draw() -> void:
+	_draw_presence_aura()
 	var flash := _hit_flash>0.0
 	match special_kind:
 		SpecialKind.SHIELDED:
@@ -107,6 +108,7 @@ func _draw() -> void:
 		SpecialKind.SPLITTER:
 			_draw_splitter(flash)
 	_draw_attack_telegraph()
+	_draw_reaction_sparks()
 
 func _draw_shielded(flash: bool) -> void:
 	var body := Color(0.95,0.88,0.80) if flash else Color(0.27,0.21,0.18)
