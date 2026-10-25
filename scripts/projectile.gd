@@ -16,8 +16,13 @@ var split_homing := false
 var _split_triggered := false
 var _age := 0.0
 var _hit_ids: Dictionary = {}
+var _cached_homing_target: Node2D
+var _target_refresh_remaining := 0.0
+const HOMING_REFRESH_SECONDS := 0.13
+const MAX_ACTIVE_PLAYER_PROJECTILES := 160
 
 func _ready() -> void:
+	add_to_group("player_projectiles")
 	z_index = 6
 	collision_layer = 4
 	collision_mask = 10
@@ -71,18 +76,22 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 func _steer_toward_enemy(delta: float) -> void:
-	var nearest: Node2D = null
-	var nearest_distance := 430.0 if void_synergy else 300.0
-	for candidate in get_tree().get_nodes_in_group("enemies"):
-		if not is_instance_valid(candidate) or not candidate is Node2D:
-			continue
-		var distance := global_position.distance_to(candidate.global_position)
-		if distance < nearest_distance:
-			nearest = candidate
-			nearest_distance = distance
-	if nearest == null:
+	_target_refresh_remaining -= delta
+	var target_valid := is_instance_valid(_cached_homing_target) and not _cached_homing_target.is_queued_for_deletion()
+	if _target_refresh_remaining <= 0.0 or not target_valid:
+		_target_refresh_remaining = HOMING_REFRESH_SECONDS
+		_cached_homing_target = null
+		var nearest_dist_squared := 430.0*430.0 if void_synergy else 300.0*300.0
+		for candidate in get_tree().get_nodes_in_group("enemies"):
+			if not is_instance_valid(candidate) or not candidate is Node2D or candidate.is_queued_for_deletion():
+				continue
+			var distance_squared := global_position.distance_squared_to(candidate.global_position)
+			if distance_squared < nearest_dist_squared:
+				_cached_homing_target = candidate
+				nearest_dist_squared = distance_squared
+	if not is_instance_valid(_cached_homing_target):
 		return
-	var desired := global_position.direction_to(nearest.global_position)
+	var desired := global_position.direction_to(_cached_homing_target.global_position)
 	var steer_cap := 0.30 if void_synergy else 0.22
 	direction = direction.lerp(desired,clampf(homing_strength*delta,0.0,steer_cap)).normalized()
 
@@ -103,7 +112,13 @@ func _spawn_split_projectiles(ignored_body_id: int) -> void:
 	if split_count <= 0 or _split_triggered:
 		return
 	_split_triggered = true
-	var child_count := clampi(split_count,1,3)
+	# Prioriza disparos principales. Evita que una build con división
+	# sature física, dibujo y memoria con cientos de proyectiles secundarios.
+	var live_count := get_tree().get_nodes_in_group("player_projectiles").size()
+	var free_slots := maxi(0,MAX_ACTIVE_PLAYER_PROJECTILES-live_count)
+	var child_count := mini(clampi(split_count,1,3),free_slots)
+	if child_count <= 0:
+		return
 	var total_spread := split_spread*float(maxi(1,child_count-1))
 	for i in range(child_count):
 		var t := 0.5 if child_count == 1 else float(i)/float(child_count-1)
