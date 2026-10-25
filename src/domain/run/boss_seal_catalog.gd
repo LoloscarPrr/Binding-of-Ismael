@@ -66,8 +66,8 @@ static func codex_entry(floor_index: int, victories: int) -> String:
 	var title := String(entry["name"])
 	var seal := String(entry["seal"])
 	if victories <= 0:
-		return "P%d · ??? · SELLO SIN DESCUBRIR\\nVence al guardián para descubrir su historia.\\n" % floor_index
-	return "P%d · %s · %s\\nDERROTADO %d %s\\n%s\\nESTRATEGIA: %s\\n" % [
+		return "P%d · ??? · SELLO SIN DESCUBRIR\nVence al guardián para descubrir su historia.\n" % floor_index
+	return "P%d · %s · %s\nDERROTADO %d %s\n%s\nESTRATEGIA: %s\n" % [
 		floor_index,title,seal,victories,"VEZ" if victories == 1 else "VECES",
 		String(entry["lore"]),String(entry["tip"])
 	]
