@@ -192,6 +192,13 @@ func cancel_queued_shots() -> void:
 	_shoot_pose = 0.0
 	_shoot_cooldown = 0.0
 
+# Protege al entrar a un jefe mientras termina su presentación.
+# Se suma a otras ventanas de invulnerabilidad, nunca las acorta.
+func grant_room_entry_protection(seconds: float) -> void:
+	if not is_dead:
+		_invulnerability = maxf(_invulnerability,maxf(0.0,seconds))
+		queue_redraw()
+
 func take_contact_damage(amount: int, source_position: Vector2) -> void:
 	if is_dead or _invulnerability>0.0:
 		return
