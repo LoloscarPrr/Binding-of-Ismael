@@ -9,6 +9,8 @@ const Player = preload("res://scripts/player.gd")
 const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
 const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
+const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
+const BossHud = preload("res://scripts/boss_hud.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -28,6 +30,7 @@ func _run_tests() -> void:
 	_test_metaprogression()
 	_test_boss_seals()
 	_test_boss_mechanics()
+	_test_boss_phases()
 	_test_shot_cancellation()
 	if _errors.is_empty():
 		print("QA PASS: %d checks" % _checks)
@@ -115,6 +118,37 @@ func _test_boss_mechanics() -> void:
 		_assert(guardian.floor_variant == floor_number,"Mecánica del jefe asignada al piso equivocado")
 		_assert(guardian.max_health >= 60,"El guardián principal fue confundido con minijefe")
 		guardian.free()
+
+func _test_boss_phases() -> void:
+	_assert(BossPhases.phase_for_health(110,110) == 1,"El jefe debe iniciar en fase I")
+	_assert(BossPhases.phase_for_health(61,110) == 1,"La fase II se activó antes del umbral")
+	_assert(BossPhases.phase_for_health(60,110) == 2,"La fase II no se activa al 55%")
+	_assert(BossPhases.phase_for_health(28,110) == 2,"La fase III se activó demasiado pronto")
+	_assert(BossPhases.phase_for_health(27,110) == 3,"La fase III no se activa al 25%")
+	_assert(BossPhases.phase_for_health(0,110) == 0,"Los jefes muertos no deben cambiar de fase")
+	_assert(BossPhases.mechanic_stride(3) >= 3,"La última fase satura las marcas del suelo")
+	_assert(BossPhases.attack_multiplier(3) >= 0.80,"La última fase dispara demasiado rápido")
+	for floor_number in range(1,6):
+		var title_two := BossPhases.phase_title(floor_number,2)
+		var title_three := BossPhases.phase_title(floor_number,3)
+		_assert(not title_two.is_empty() and not title_three.is_empty(),"Faltan avisos de fases en piso %d" % floor_number)
+		_assert(title_two != title_three,"Las fases tienen el mismo anuncio en piso %d" % floor_number)
+		var guardian = AdvancedEnemy.new()
+		guardian.configure_advanced("boss",floor_number)
+		_assert(guardian.get("_boss_phase") == 1,"El jefe inicia fuera de fase I")
+		_assert(guardian.get("_boss_base_speed") > 0.0,"La velocidad base del jefe no se conserva")
+		guardian.free()
+	var minor = AdvancedEnemy.new()
+	minor.configure_advanced("boss",1)
+	minor.health = 8
+	minor.max_health = 8
+	_assert(minor.health == 8,"El Guardián Menor no conserva su balance")
+	minor.free()
+	var hud = BossHud.new()
+	hud.show_boss("PRUEBA",110)
+	hud.set_phase(2)
+	_assert(hud.boss_phase == 2,"La barra no muestra el cambio de fase")
+	hud.free()
 
 func _test_shot_cancellation() -> void:
 	var player = Player.new()
