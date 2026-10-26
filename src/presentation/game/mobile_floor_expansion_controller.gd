@@ -11,6 +11,10 @@ var _room_layout_profile := "abierta"
 func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_challenge_waves_total = FloorCatalog.challenge_waves(_floor_index)
 	super._begin_room(entry_direction)
+	# Tiempo suficiente para terminar la aparición y leer al guardián;
+	# no se aplica en salas ordinarias ni modifica la vida del jugador.
+	if _room_kind in ["jefe","minijefe"] and not _room_cleared and is_instance_valid(player):
+		player.grant_room_entry_protection(2.90 if _room_kind == "jefe" else 2.05)
 	if is_instance_valid(floor_label):
 		floor_label.text = "P%d · %s" % [_floor_index,FloorCatalog.floor_name(_floor_index)]
 	if is_instance_valid(room_label) and _dungeon != null:
