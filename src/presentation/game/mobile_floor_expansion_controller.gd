@@ -2,6 +2,7 @@ extends "res://src/presentation/game/mobile_destructible_room_controller.gd"
 
 const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
 const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
+const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
 const SpecialEnemy = preload("res://scripts/special_enemy.gd")
 
@@ -207,12 +208,14 @@ func _spawn_boss() -> void:
 	boss.spawn_grace_time = 1.35
 	boss.set_movement_bounds(room_rect)
 	boss.defeated.connect(_on_enemy_defeated)
+	boss.boss_phase_changed.connect(_on_floor_boss_phase_changed)
 	add_child(boss)
 	_enemies_alive = 1
 	if not boss.health_changed.is_connected(_on_boss_health_changed):
 		boss.health_changed.connect(_on_boss_health_changed)
 	if is_instance_valid(boss_hud):
 		boss_hud.show_boss(FloorCatalog.boss_name(_floor_index),boss.health)
+		boss_hud.set_phase(1)
 	if is_instance_valid(presentation_overlay):
 		presentation_overlay.present_boss(
 			FloorCatalog.boss_name(_floor_index),
@@ -220,6 +223,15 @@ func _spawn_boss() -> void:
 			_floor_index
 		)
 	_audio_sfx("boss_phase",0.85)
+
+func _on_floor_boss_phase_changed(phase_number: int, phase_title: String) -> void:
+	if _game_over or _run_complete:
+		return
+	if is_instance_valid(boss_hud):
+		boss_hud.set_phase(phase_number)
+	if is_instance_valid(presentation_overlay):
+		presentation_overlay.present(phase_title,BossPhases.phase_subtitle(phase_number),1.06,0.47)
+	_audio_sfx("boss_phase",1.14 if phase_number == 3 else 0.98)
 
 func _refresh_floor_exit_label(opened: bool) -> void:
 	if not is_instance_valid(floor_exit_label) or _room_kind != "jefe":
