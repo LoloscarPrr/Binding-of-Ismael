@@ -4,6 +4,7 @@ class_name IsmaelEnemy
 const CombatBurst = preload("res://scripts/combat_burst.gd")
 const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
 const MotionTrail = preload("res://scripts/motion_trail.gd")
+const ObstacleNavigator = preload("res://scripts/enemy_obstacle_navigator.gd")
 
 signal defeated(enemy)
 signal health_changed(current: int, maximum: int)
@@ -12,6 +13,8 @@ const BODY_RADIUS := 25.0
 const SEPARATION_DISTANCE := 72.0
 const ORBITER_WINDUP := 0.34
 const BOSS_WINDUP := 0.52
+const NAV_REFRESH_SECONDS := 0.28
+const NAV_CORNER_REACHED_RADIUS := 26.0
 
 enum EnemyKind { CHASER, DASHER, ORBITER, BOSS }
 
@@ -37,6 +40,11 @@ var _attack_sequence := 0
 var squad_role := "press"
 var squad_flank_sign := 1.0
 var _attack_locked_direction := Vector2.RIGHT
+var _navigation_clock := 0.0
+var _navigation_waypoint := Vector2.ZERO
+var _navigation_has_detour := false
+var _navigation_blocked_time := 0.0
+var _navigation_last_position := Vector2.ZERO
 
 # Coordinación determinista por sala: los perseguidores no entran todos
 # por el mismo eje y el jugador siempre tiene espacio para responder.
@@ -112,6 +120,14 @@ func _physics_process(delta: float) -> void:
 		return
 	var to_player: Vector2 = global_position.direction_to(target.global_position)
 	var desired := _desired_movement(to_player,delta)
+	# Rodea coberturas físicas cuando bloquean la ruta a Ismael.
+	# Se respeta la dirección de embestida una vez iniciada, para que
+	# los avisos previos de los enemigos rápidos sigan siendo honestos.
+	var dashing := kind == EnemyKind.DASHER and _dash_timer > 0.55 and _dash_timer <= 1.30
+	if not dashing:
+		var detour := _navigation_direction(delta)
+		if detour.length_squared() > 0.01:
+			desired = detour
 	var separation := Vector2.ZERO
 	for other in get_tree().get_nodes_in_group("enemies"):
 		if other == self:
@@ -131,7 +147,15 @@ func _physics_process(delta: float) -> void:
 		speed_multiplier *= 0.22
 	var locomotion := steering.normalized() * speed * speed_multiplier if steering.length() > 0.01 else Vector2.ZERO
 	velocity = locomotion+_impact_velocity
+	var old_location := global_position
 	move_and_slide()
+	if speed_multiplier > 0.4 and locomotion.length() > 50.0 and target.global_position.distance_to(global_position) > 100.0:
+		if global_position.distance_to(old_location) < 1.2:
+			_navigation_blocked_time += delta
+		else:
+			_navigation_blocked_time = maxf(0.0,_navigation_blocked_time-delta*2.0)
+	else:
+		_navigation_blocked_time = 0.0
 	for i in get_slide_collision_count():
 		var collider := get_slide_collision(i).get_collider()
 		if collider is IsmaelPlayer:
@@ -139,6 +163,52 @@ func _physics_process(delta: float) -> void:
 	clamp_to_bounds()
 	_update_attack(delta)
 	queue_redraw()
+
+func _navigation_direction(delta: float) -> Vector2:
+	_navigation_clock -= delta
+	if _navigation_has_detour and global_position.distance_to(_navigation_waypoint) < NAV_CORNER_REACHED_RADIUS:
+		_navigation_clock = 0.0
+	if _navigation_clock <= 0.0:
+		_navigation_clock = NAV_REFRESH_SECONDS + float(get_instance_id()%4)*0.035
+		_update_navigation_waypoint()
+	if not _navigation_has_detour:
+		return Vector2.ZERO
+	return global_position.direction_to(_navigation_waypoint)
+
+func _update_navigation_waypoint() -> void:
+	_navigation_has_detour = false
+	if not is_instance_valid(target):
+		return
+	var blocks: Array[Rect2] = []
+	var radius := (38.0 if kind == EnemyKind.BOSS else 23.0)*maxf(0.5,scale.x)+4.0
+	for item in get_tree().get_nodes_in_group("room_obstacles"):
+		if not is_instance_valid(item) or item.is_queued_for_deletion() or not item is IsmaelRoomObstacle:
+			continue
+		var obstacle: IsmaelRoomObstacle = item
+		var rect := Rect2(obstacle.global_position-obstacle.obstacle_size*0.5,obstacle.obstacle_size)
+		blocks.append(rect.grow(radius))
+	for item in get_tree().get_nodes_in_group("room_rocks"):
+		if not is_instance_valid(item) or item.is_queued_for_deletion() or not item is IsmaelDestructibleRock:
+			continue
+		var rock: IsmaelDestructibleRock = item
+		var half := IsmaelDestructibleRock.COLLISION_RADIUS*rock.scale.x
+		blocks.append(Rect2(rock.global_position-Vector2.ONE*half,Vector2.ONE*half*2.0).grow(radius))
+	if blocks.is_empty():
+		return
+	var origin := global_position
+	var goal := target.global_position
+	if ObstacleNavigator.segment_is_clear(origin,goal,blocks):
+		# Si el rol de flanqueo quedó atorado en una esquina, cambia
+		# temporalmente a persecución directa hasta salir de allí.
+		if _navigation_blocked_time > 0.48:
+			_navigation_waypoint = goal
+			_navigation_has_detour = true
+		return
+	var bounds := movement_bounds.grow(-radius-14.0)
+	var corner := ObstacleNavigator.next_corner(origin,goal,blocks,bounds)
+	if corner != goal:
+		_navigation_waypoint = corner
+		_navigation_has_detour = true
 
 func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 	var desired := to_player
