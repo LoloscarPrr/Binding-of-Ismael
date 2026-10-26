@@ -2,6 +2,9 @@ extends "res://scripts/enemy.gd"
 class_name IsmaelAdvancedEnemy
 
 const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
+const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
+
+signal boss_phase_changed(phase_number: int, phase_title: String)
 
 # Extra archetypes layer on top of the stable enemy movement/combat contract.
 # BRUTE reuses pursuit, SPITTER keeps distance and shoots, STALKER reuses dash
@@ -11,7 +14,10 @@ enum AdvancedKind { BRUTE, SPITTER, STALKER, FLOOR_BOSS }
 var advanced_kind: AdvancedKind = AdvancedKind.BRUTE
 var floor_variant := 1
 var elite_variant := false
-var _phase_two_announced := false
+var _boss_phase := 1
+var _phase_transition_remaining := 0.0
+var _boss_base_speed := 0.0
+var _boss_transition_count := 0
 var _boss_damage_window_start := -1.0
 var _boss_damage_window_total := 0
 
@@ -41,6 +47,8 @@ func configure_advanced(kind_id: String, floor_index: int) -> void:
 			health = boss_health_curve[clampi(floor_variant-1,0,boss_health_curve.size()-1)]
 			max_health = health
 			speed = 88.0+floor_variant*5.0
+			_boss_base_speed = speed
+			_boss_phase = 1
 			scale = Vector2(1.0+minf(0.12,float(floor_variant-1)*0.025),1.0+minf(0.12,float(floor_variant-1)*0.025))
 		_:
 			advanced_kind = AdvancedKind.BRUTE
@@ -112,32 +120,43 @@ func _desired_movement(to_player: Vector2, delta: float) -> Vector2:
 			return super._desired_movement(to_player,delta)
 
 func _boss_movement(to_player: Vector2) -> Vector2:
+	if _phase_transition_remaining > 0.0:
+		return Vector2.ZERO
 	if not is_instance_valid(target):
 		return Vector2.ZERO
 	var distance := global_position.distance_to(target.global_position)
 	var tangent := Vector2(-to_player.y,to_player.x)
+	# Aumento de movilidad específico por jefe, sin aumentar su vida.
+	# Se multiplica una sola vez desde la velocidad base: no se acumula.
+	if _boss_base_speed > 0.0 and max_health >= 60:
+		speed = _boss_base_speed * BossPhases.speed_multiplier(floor_variant,_boss_phase)
+	var tension := 1.0 if _boss_phase == 1 else (1.26 if _boss_phase == 2 else 1.48)
 	match clampi(floor_variant,1,5):
 		1:
 			# EL CARCELERO owns the middle distance and slides sideways like a closing gate.
 			var radial := to_player*clampf((distance-225.0)/110.0,-0.85,0.85)
-			return (tangent*sin(_age*1.15)*0.95+radial).normalized()
+			return (tangent*sin(_age*(1.15+float(_boss_phase-1)*0.45))*0.95*tension+radial).normalized()
 		2:
 			# LA MANDÍBULA relentlessly closes space, only easing off at contact range.
 			if distance<92.0:
 				return (tangent*0.55-to_player*0.24).normalized()
-			return (to_player+tangent*sin(_age*2.6)*0.20).normalized()
+			return (to_player*tension+tangent*sin(_age*(2.6+_boss_phase*0.55))*0.20).normalized()
 		3:
 			# EL VIGÍA protects long firing lanes and rotates around Ismael.
 			var radial := to_player*clampf((distance-305.0)/115.0,-1.0,0.72)
-			return (tangent*0.92+radial).normalized()
+			var orbit_sign := 1.0
+			if _boss_phase >= 2 and posmod(int(_age/2.5),2) == 1:
+				orbit_sign = -1.0
+			return (tangent*0.92*orbit_sign*tension+radial).normalized()
 		4:
 			# EL SEPULTURERO drifts deliberately while keeping the player inside ring patterns.
 			var radial := to_player*clampf((distance-245.0)/145.0,-0.62,0.62)
-			return (tangent*sin(_age*0.72)*0.56+radial).normalized()
+			var direction_flip := -1.0 if _boss_phase == 3 and posmod(int(_age/3.0),2) == 1 else 1.0
+			return (tangent*sin(_age*(0.72+0.24*float(_boss_phase-1)))*0.56*tension*direction_flip+radial).normalized()
 		_:
 			# EL HUECO never settles: pursuit and orbit trade dominance continuously.
 			var pulse := 0.5+0.5*sin(_age*1.35)
-			return (to_player*(0.45+pulse*0.70)+tangent*sin(_age*2.0)*(0.35+0.55*(1.0-pulse))).normalized()
+			return (to_player*(0.45+pulse*0.70)*tension+tangent*sin(_age*(2.0+0.40*float(_boss_phase-1)))*(0.35+0.55*(1.0-pulse))).normalized()
 
 func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	# Las builds de multitiro conservan sus proyectiles y sinergias, pero
@@ -154,13 +173,32 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 		if applied <= 0:
 			return
 		_boss_damage_window_total += applied
-	var was_above_half := health*2 > max_health
 	super.take_damage(applied,source_position)
-	if advanced_kind != AdvancedKind.FLOOR_BOSS or _phase_two_announced:
+	if advanced_kind != AdvancedKind.FLOOR_BOSS or max_health < 60 or health <= 0:
 		return
-	if was_above_half and health > 0 and health*2 <= max_health:
-		_phase_two_announced = true
-		_spawn_phase_two_feedback()
+	var resolved_phase := BossPhases.phase_for_health(health,max_health)
+	if resolved_phase > _boss_phase:
+		_start_boss_phase(resolved_phase)
+
+func _start_boss_phase(phase_number: int) -> void:
+	_boss_phase = clampi(phase_number,1,3)
+	_boss_transition_count += 1
+	_phase_transition_remaining = 0.78 if _boss_phase == 2 else 0.98
+	_attack_windup = 0.0
+	_attack_windup_total = 0.0
+	_attack_cooldown = _phase_transition_remaining + 0.14
+	if is_inside_tree():
+		boss_phase_changed.emit(_boss_phase,BossPhases.phase_title(floor_variant,_boss_phase))
+	_spawn_phase_two_feedback()
+
+func _update_attack(delta: float) -> void:
+	if advanced_kind == AdvancedKind.FLOOR_BOSS and max_health >= 60 and _phase_transition_remaining > 0.0:
+		_phase_transition_remaining = maxf(0.0,_phase_transition_remaining-delta)
+		_attack_windup = 0.0
+		_attack_cooldown = maxf(_attack_cooldown,_phase_transition_remaining+0.14)
+		queue_redraw()
+		return
+	super._update_attack(delta)
 
 func _spawn_phase_two_feedback() -> void:
 	if not is_inside_tree():
@@ -172,7 +210,7 @@ func _spawn_phase_two_feedback() -> void:
 	vfx.global_position = global_position
 	_hit_flash = 0.34
 	_attack_windup = 0.0
-	_attack_cooldown = 0.34
+	_attack_cooldown = maxf(_attack_cooldown,_phase_transition_remaining+0.14)
 	queue_redraw()
 
 func _fire_pending_attack() -> void:
@@ -202,7 +240,7 @@ func _fire_spitter_attack() -> void:
 func _fire_floor_boss_attack() -> void:
 	if not is_instance_valid(target):
 		return
-	var phase_two := health*2 <= max_health
+	var phase_two := _boss_phase >= 2
 	match clampi(floor_variant,1,5):
 		1:
 			_fire_jailer_pattern(phase_two)
@@ -216,8 +254,10 @@ func _fire_floor_boss_attack() -> void:
 			_fire_hollow_pattern(phase_two)
 	# Una amenaza espacial extra cada pocos patrones, no en cada disparo.
 	# El jugador ve la señal antes de que la zona pueda dañarlo.
-	if max_health >= 60 and _attack_sequence % (3 if phase_two else 4) == 1:
+	if max_health >= 60 and _attack_sequence % BossPhases.mechanic_stride(_boss_phase) == 1:
 		_spawn_signature_mechanic(phase_two)
+	# La última fase acelera el ritmo, sin reducir la advertencia del suelo.
+	_attack_cooldown = maxf(0.48,_attack_cooldown*BossPhases.attack_multiplier(_boss_phase))
 	_attack_sequence += 1
 
 func _safe_mechanic_position(point: Vector2, margin: float = 67.0) -> Vector2:
