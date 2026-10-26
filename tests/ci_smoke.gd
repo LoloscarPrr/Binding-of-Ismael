@@ -14,6 +14,8 @@ const BossHud = preload("res://scripts/boss_hud.gd")
 const ShopSystem = preload("res://scripts/shop_system.gd")
 const FloorController = preload("res://src/presentation/game/mobile_floor_expansion_controller.gd")
 const ObstacleNavigator = preload("res://scripts/enemy_obstacle_navigator.gd")
+const EnemyActor = preload("res://scripts/enemy.gd")
+const SolidRoomObstacle = preload("res://scripts/room_obstacle.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -36,6 +38,7 @@ func _run_tests() -> void:
 	_test_boss_phases()
 	_test_shop_layout_and_guardian_spawns()
 	_test_enemy_obstacle_navigation()
+	await _test_enemy_pathfinding_in_physics()
 	_test_shot_cancellation()
 	if _errors.is_empty():
 		print("QA PASS: %d checks" % _checks)
@@ -210,6 +213,43 @@ func _test_enemy_obstacle_navigation() -> void:
 	_assert(ObstacleNavigator.segment_is_clear(right_enemy,right_corner,columns),"No puede llegar a la esquina desde la derecha")
 	var none: Array[Rect2] = []
 	_assert(ObstacleNavigator.next_corner(left_enemy,middle_player,none,arena) == middle_player,"El camino sin obstáculos debe ser directo")
+
+func _test_enemy_pathfinding_in_physics() -> void:
+	# Reproduce la captura: Ismael permanece en medio, dos enemigos
+	# avanzan desde los extremos detrás de dos coberturas sólidas.
+	var stage := Node2D.new()
+	root.add_child(stage)
+	var arena := Rect2(40.0,50.0,1240.0,560.0)
+	for obstacle_center in [Vector2(465,315),Vector2(895,315)]:
+		var wall = SolidRoomObstacle.new()
+		wall.configure(Vector2(110,156),2)
+		wall.position = obstacle_center
+		stage.add_child(wall)
+	var stationary_target := Node2D.new()
+	stationary_target.position = Vector2(680,315)
+	stage.add_child(stationary_target)
+	var left = EnemyActor.new()
+	left.configure(EnemyActor.EnemyKind.CHASER,1)
+	left.speed = 235.0
+	left.target = stationary_target
+	left.position = Vector2(275,315)
+	left.set_movement_bounds(arena)
+	stage.add_child(left)
+	var right = EnemyActor.new()
+	right.configure(EnemyActor.EnemyKind.CHASER,1)
+	right.speed = 235.0
+	right.target = stationary_target
+	right.position = Vector2(1080,315)
+	right.set_movement_bounds(arena)
+	stage.add_child(right)
+	for frame in range(280):
+		await physics_frame
+	_assert(left.global_position.x > 570.0,"Enemigo izquierdo se quedó empujando la columna")
+	_assert(right.global_position.x < 790.0,"Enemigo derecho se quedó empujando la columna")
+	_assert(left.global_position.distance_to(stationary_target.global_position) < 195.0,"Enemigo izquierdo no rodea la cobertura")
+	_assert(right.global_position.distance_to(stationary_target.global_position) < 195.0,"Enemigo derecho no rodea la cobertura")
+	stage.queue_free()
+	await physics_frame
 
 func _test_shot_cancellation() -> void:
 	var player = Player.new()
