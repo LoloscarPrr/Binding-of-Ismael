@@ -4,6 +4,7 @@ class_name IsmaelBossHud
 var boss_name := "GUARDIÁN"
 var current_health := 0
 var max_health := 1
+var boss_phase := 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -15,7 +16,12 @@ func show_boss(name: String, health: int) -> void:
 	boss_name = name
 	current_health = health
 	max_health = maxi(1, health)
+	boss_phase = 0
 	visible = true
+	queue_redraw()
+
+func set_phase(value: int) -> void:
+	boss_phase = clampi(value,0,3)
 	queue_redraw()
 
 func set_health(value: int) -> void:
@@ -64,6 +70,16 @@ func _draw() -> void:
 		Color(0.72,0.075,0.065)
 	)
 	draw_rect(bar_rect,Color(0.84,0.60,0.34),false,4.0)
+	if boss_phase > 0:
+		# Dos muescas persistentes: límites de las fases II y III.
+		for threshold in [0.55,0.25]:
+			var marker_x := bar_rect.position.x+bar_rect.size.x*threshold
+			draw_line(Vector2(marker_x,bar_rect.position.y+2),Vector2(marker_x,bar_rect.end.y-2),Color(1.0,0.83,0.53,0.75),2.0)
+		var stage_text := "I" if boss_phase == 1 else ("II" if boss_phase == 2 else "III")
+		var stage_color := Color(1.0,0.83,0.52) if boss_phase == 1 else (
+			Color(1.0,0.62,0.32) if boss_phase == 2 else Color(1.0,0.36,0.34)
+		)
+		draw_string(font,Vector2(size.x-75.0,27),stage_text,HORIZONTAL_ALIGNMENT_LEFT,-1.0,17,stage_color)
 
 	var hp_text := "%d / %d" % [current_health,max_health]
 	var hp_size := font.get_string_size(hp_text,HORIZONTAL_ALIGNMENT_LEFT,-1.0,hp_font_size)
