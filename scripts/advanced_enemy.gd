@@ -1,6 +1,8 @@
 extends "res://scripts/enemy.gd"
 class_name IsmaelAdvancedEnemy
 
+const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
+
 # Extra archetypes layer on top of the stable enemy movement/combat contract.
 # BRUTE reuses pursuit, SPITTER keeps distance and shoots, STALKER reuses dash
 # movement with a much smaller/faster body, and FLOOR_BOSS scales by floor.
@@ -212,7 +214,61 @@ func _fire_floor_boss_attack() -> void:
 			_fire_gravedigger_pattern(phase_two)
 		_:
 			_fire_hollow_pattern(phase_two)
+	# Una amenaza espacial extra cada pocos patrones, no en cada disparo.
+	# El jugador ve la señal antes de que la zona pueda dañarlo.
+	if max_health >= 60 and _attack_sequence % (3 if phase_two else 4) == 1:
+		_spawn_signature_mechanic(phase_two)
 	_attack_sequence += 1
+
+func _safe_mechanic_position(point: Vector2, margin: float = 67.0) -> Vector2:
+	return Vector2(
+		clampf(point.x,movement_bounds.position.x+margin,movement_bounds.end.x-margin),
+		clampf(point.y,movement_bounds.position.y+margin,movement_bounds.end.y-margin)
+	)
+
+func _create_mechanic_zone(kind_id: String, center: Vector2, phase_two: bool, aim: Vector2 = Vector2.RIGHT) -> void:
+	if get_tree().get_nodes_in_group("boss_mechanics").size() >= 6:
+		return
+	var zone := BossMechanicZone.new()
+	zone.configure(kind_id,0.82 if phase_two else 1.02,0.72 if phase_two else 0.58,aim)
+	get_tree().current_scene.add_child(zone)
+	zone.global_position = _safe_mechanic_position(center,61.0 if kind_id != "mirada" else 36.0)
+
+func _spawn_signature_mechanic(phase_two: bool) -> void:
+	if not is_inside_tree() or not is_instance_valid(target):
+		return
+	var toward := _attack_locked_direction.normalized()
+	var tangent := Vector2(-toward.y,toward.x)
+	var target_position: Vector2 = target.global_position
+	var advance := Vector2.ZERO
+	if target is CharacterBody2D:
+		advance = (target as CharacterBody2D).velocity * 0.19
+	match clampi(floor_variant,1,5):
+		1:
+			# El Carcelero cierra ambos costados; deja el eje central libre.
+			for side in [-1.0,1.0]:
+				_create_mechanic_zone("grillete",target_position+tangent*side*108.0,phase_two)
+		2:
+			# La Mandíbula muerde donde Ismael se dirigía, nunca lo sigue.
+			_create_mechanic_zone("mordida",target_position+advance,phase_two)
+		3:
+			# El Vigía traza un haz largo, anunciado y esquivable lateralmente.
+			_create_mechanic_zone("mirada",global_position+toward*172.0,phase_two,toward)
+		4:
+			# El Sepulturero cierra dos lugares alternos dejando una salida.
+			var shift := tangent*105.0
+			_create_mechanic_zone("tumba",target_position+advance*0.48+shift,phase_two)
+			_create_mechanic_zone("tumba",target_position+advance*0.48-shift,phase_two)
+		_:
+			# El Hueco alterna ecos de los sellos anteriores sin generar spam.
+			match _attack_sequence % 3:
+				0:
+					_create_mechanic_zone("vacio",target_position+advance,phase_two)
+				1:
+					_create_mechanic_zone("mirada",global_position+toward*172.0,phase_two,toward)
+				_:
+					_create_mechanic_zone("vacio",target_position+tangent*102.0,phase_two)
+					_create_mechanic_zone("vacio",target_position-tangent*102.0,phase_two)
 
 func _fire_jailer_pattern(phase_two: bool) -> void:
 	var aim := _attack_locked_direction
