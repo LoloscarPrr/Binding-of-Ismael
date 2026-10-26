@@ -187,7 +187,7 @@ func _spawn_miniboss() -> void:
 		elite.scale *= 0.76
 	else:
 		elite.scale *= 1.10
-	elite.position = room_rect.position+room_rect.size*Vector2(0.50,0.32)
+	elite.position = _safe_guardian_spawn_position(Vector2(0.50,0.32))
 	elite.target = player
 	elite.spawn_grace_time = 0.9
 	elite.set_movement_bounds(room_rect)
@@ -200,12 +200,36 @@ func _spawn_miniboss() -> void:
 	if is_instance_valid(boss_hud):
 		boss_hud.show_boss("GUARDIÁN MENOR",elite.health)
 
+# El spawn se decide DESPUÉS del retardo de entrada. El jugador
+# puede moverse durante ese retardo, por lo que un punto fijo causa
+# apariciones prácticamente encima de Ismael, especialmente en puertas norte.
+func _safe_guardian_spawn_position(preferred_ratio: Vector2) -> Vector2:
+	var preferred := room_rect.position+room_rect.size*preferred_ratio
+	if not is_instance_valid(player):
+		return preferred
+	var minimum_distance := maxf(225.0,minf(room_rect.size.x,room_rect.size.y)*0.46)
+	if preferred.distance_to(player.global_position) >= minimum_distance:
+		return preferred
+	var alternatives: Array[Vector2] = [
+		Vector2(0.50,0.72),Vector2(0.25,0.28),Vector2(0.75,0.28),
+		Vector2(0.25,0.72),Vector2(0.75,0.72),Vector2(0.50,0.28)
+	]
+	var safest := preferred
+	var best_distance := preferred.distance_squared_to(player.global_position)
+	for ratio in alternatives:
+		var candidate := room_rect.position+room_rect.size*ratio
+		var distance_squared := candidate.distance_squared_to(player.global_position)
+		if distance_squared > best_distance:
+			safest = candidate
+			best_distance = distance_squared
+	return safest
+
 func _spawn_boss() -> void:
 	var boss = AdvancedEnemy.new()
 	boss.configure_advanced("boss",_floor_index)
-	boss.position = Vector2(room_rect.get_center().x,room_rect.position.y+room_rect.size.y*0.28)
+	boss.position = _safe_guardian_spawn_position(Vector2(0.50,0.28))
 	boss.target = player
-	boss.spawn_grace_time = 1.35
+	boss.spawn_grace_time = 1.70
 	boss.set_movement_bounds(room_rect)
 	boss.defeated.connect(_on_enemy_defeated)
 	boss.boss_phase_changed.connect(_on_floor_boss_phase_changed)
