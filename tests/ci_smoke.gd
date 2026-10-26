@@ -11,6 +11,8 @@ const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
 const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
 const BossHud = preload("res://scripts/boss_hud.gd")
+const ShopSystem = preload("res://scripts/shop_system.gd")
+const FloorController = preload("res://src/presentation/game/mobile_floor_expansion_controller.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -31,6 +33,7 @@ func _run_tests() -> void:
 	_test_boss_seals()
 	_test_boss_mechanics()
 	_test_boss_phases()
+	_test_shop_layout_and_guardian_spawns()
 	_test_shot_cancellation()
 	if _errors.is_empty():
 		print("QA PASS: %d checks" % _checks)
@@ -149,6 +152,34 @@ func _test_boss_phases() -> void:
 	hud.set_phase(2)
 	_assert(hud.boss_phase == 2,"La barra no muestra el cambio de fase")
 	hud.free()
+
+func _test_shop_layout_and_guardian_spawns() -> void:
+	var slots: Array[Vector2] = ShopSystem.compact_slot_ratios()
+	_assert(slots.size() == 6,"La tienda perdió productos")
+	_assert(ShopSystem.COMPACT_ITEM_SCALE <= 0.72,"Los ítems de tienda siguen gigantes")
+	for index in range(slots.size()):
+		var ratio: Vector2 = slots[index]
+		_assert(ratio.x >= 0.25 and ratio.x <= 0.75,"La tienda invade los bordes")
+		_assert(ratio.y >= 0.26 and ratio.y <= 0.73,"La tienda invade las entradas")
+		for previous in range(index):
+			_assert(ratio.distance_to(slots[previous]) >= 0.14,"Dos ítems de tienda demasiado juntos")
+	var arena = FloorController.new()
+	var player = Player.new()
+	arena.room_rect = Rect2(0.0,0.0,1100.0,550.0)
+	arena.player = player
+	for door_position in [
+		Vector2(550.0,92.0),Vector2(550.0,458.0),
+		Vector2(92.0,275.0),Vector2(1008.0,275.0),
+		Vector2(550.0,154.0)
+	]:
+		player.position = door_position
+		var safe_position: Vector2 = arena._safe_guardian_spawn_position(Vector2(0.50,0.28))
+		_assert(safe_position.distance_to(player.position) >= 225.0,"Jefe aparece demasiado cerca de la entrada")
+		_assert(arena.room_rect.has_point(safe_position),"Jefe aparece fuera de la sala")
+	player.grant_room_entry_protection(2.90)
+	_assert(float(player.get("_invulnerability")) >= 2.90,"La protección de entrada no se activa")
+	player.free()
+	arena.free()
 
 func _test_shot_cancellation() -> void:
 	var player = Player.new()
