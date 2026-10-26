@@ -73,7 +73,7 @@ func _draw() -> void:
 	if boss_phase > 0:
 		# Dos muescas persistentes: límites de las fases II y III.
 		for threshold in [0.55,0.25]:
-			var marker_x := bar_rect.position.x+bar_rect.size.x*threshold
+			var marker_x: float = bar_rect.position.x+bar_rect.size.x*float(threshold)
 			draw_line(Vector2(marker_x,bar_rect.position.y+2),Vector2(marker_x,bar_rect.end.y-2),Color(1.0,0.83,0.53,0.75),2.0)
 		var stage_text := "I" if boss_phase == 1 else ("II" if boss_phase == 2 else "III")
 		var stage_color := Color(1.0,0.83,0.52) if boss_phase == 1 else (
