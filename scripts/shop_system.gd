@@ -5,6 +5,16 @@ const ShopConsumableItemScript = preload("res://scripts/shop_consumable_item.gd"
 const ItemCatalog = preload("res://src/domain/items/item_catalog.gd")
 const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 
+# Se conserva el inventario de seis productos; solo se reduce la
+# huella visual, etiquetas y volumen de contacto físico en la sala.
+const COMPACT_ITEM_SCALE := 0.63
+
+static func compact_slot_ratios() -> Array[Vector2]:
+	return [
+		Vector2(0.35,0.34),Vector2(0.50,0.34),Vector2(0.65,0.34),
+		Vector2(0.35,0.62),Vector2(0.50,0.62),Vector2(0.65,0.62)
+	]
+
 var _scene_instance_id := 0
 var _active_shop_key := ""
 var _sold_items: Dictionary = {}
@@ -43,17 +53,14 @@ func _prepare_shop(scene: Node, floor_index: int, shop_key: String) -> void:
 		status_label.text = "TIENDA DEL ERRANTE"
 	var reward_label = scene.get("reward_label")
 	if is_instance_valid(reward_label):
-		reward_label.text = "Mejoras arriba · recursos abajo · camina sobre un objeto para comprar"
+		reward_label.text = "Tienda compacta · mejoras arriba, recursos abajo · toca el objeto para comprar"
 	_spawn_shop_items(scene,floor_index,shop_key)
 	scene.queue_redraw()
 
 func _spawn_shop_items(scene: Node, floor_index: int, shop_key: String) -> void:
 	var room_rect: Rect2 = scene.get("room_rect")
 	var stock: Array[Dictionary] = ItemCatalog.shop_stock(floor_index)
-	var slots: Array[Vector2] = [
-		Vector2(0.28,0.35),Vector2(0.50,0.35),Vector2(0.72,0.35),
-		Vector2(0.28,0.66),Vector2(0.50,0.66),Vector2(0.72,0.66)
-	]
+	var slots: Array[Vector2] = compact_slot_ratios()
 	for i in stock.size():
 		if i >= slots.size():
 			break
@@ -66,6 +73,7 @@ func _spawn_shop_items(scene: Node, floor_index: int, shop_key: String) -> void:
 		var item = ShopConsumableItemScript.new() if item_type=="pickup" else ShopItemScript.new()
 		item.configure(item_id,int(data["cost"]),String(data["name"]))
 		item.position = room_rect.position+room_rect.size*slots[i]
+		item.scale = Vector2.ONE*COMPACT_ITEM_SCALE
 		item.purchase_requested.connect(_on_purchase_requested.bind(item_key,item_type,item_id))
 		ItemAssetView.attach(item,item_type,item_id,60.0,Vector2(0,-7),3)
 		scene.add_child(item)
