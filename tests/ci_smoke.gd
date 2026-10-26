@@ -13,6 +13,7 @@ const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
 const BossHud = preload("res://scripts/boss_hud.gd")
 const ShopSystem = preload("res://scripts/shop_system.gd")
 const FloorController = preload("res://src/presentation/game/mobile_floor_expansion_controller.gd")
+const ObstacleNavigator = preload("res://scripts/enemy_obstacle_navigator.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -34,6 +35,7 @@ func _run_tests() -> void:
 	_test_boss_mechanics()
 	_test_boss_phases()
 	_test_shop_layout_and_guardian_spawns()
+	_test_enemy_obstacle_navigation()
 	_test_shot_cancellation()
 	if _errors.is_empty():
 		print("QA PASS: %d checks" % _checks)
@@ -180,6 +182,34 @@ func _test_shop_layout_and_guardian_spawns() -> void:
 	_assert(float(player.get("_invulnerability")) >= 2.90,"La protección de entrada no se activa")
 	player.free()
 	arena.free()
+
+func _test_enemy_obstacle_navigation() -> void:
+	var arena := Rect2(50,70,1240,570)
+	var pillar := Rect2(450,225,126,138)
+	var obstacle: Array[Rect2] = [pillar]
+	var enemy_position := Vector2(320,295)
+	var ismael_position := Vector2(750,295)
+	_assert(not ObstacleNavigator.segment_is_clear(enemy_position,ismael_position,obstacle),"Prueba de bloqueo no detecta una columna")
+	var first_corner: Vector2 = ObstacleNavigator.next_corner(enemy_position,ismael_position,obstacle,arena)
+	_assert(first_corner != ismael_position,"El enemigo sigue intentando atravesar la columna")
+	_assert(arena.has_point(first_corner),"El desvío sale de la sala")
+	_assert(ObstacleNavigator.segment_is_clear(enemy_position,first_corner,obstacle),"El camino hasta la esquina también choca")
+	var open_goal := Vector2(360,110)
+	_assert(ObstacleNavigator.next_corner(enemy_position,open_goal,obstacle,arena) == open_goal,"Desvío innecesario con ruta despejada")
+	var columns: Array[Rect2] = [
+		Rect2(365,215,100,130),Rect2(725,205,100,150)
+	]
+	var left_enemy := Vector2(225,275)
+	var middle_player := Vector2(600,275)
+	var side_corner := ObstacleNavigator.next_corner(left_enemy,middle_player,columns,arena)
+	_assert(side_corner != middle_player,"Un enemigo lateral permanece atrapado detrás de una cobertura")
+	_assert(ObstacleNavigator.segment_is_clear(left_enemy,side_corner,columns),"No puede llegar a la esquina de cobertura")
+	var right_enemy := Vector2(960,275)
+	var right_corner := ObstacleNavigator.next_corner(right_enemy,middle_player,columns,arena)
+	_assert(right_corner != middle_player,"El enemigo del costado derecho ignora la cobertura")
+	_assert(ObstacleNavigator.segment_is_clear(right_enemy,right_corner,columns),"No puede llegar a la esquina desde la derecha")
+	var none: Array[Rect2] = []
+	_assert(ObstacleNavigator.next_corner(left_enemy,middle_player,none,arena) == middle_player,"El camino sin obstáculos debe ser directo")
 
 func _test_shot_cancellation() -> void:
 	var player = Player.new()
