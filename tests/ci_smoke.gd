@@ -7,6 +7,8 @@ const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
 const RunProgress = preload("res://src/domain/run/run_progress.gd")
 const Player = preload("res://scripts/player.gd")
 const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
+const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
+const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -25,6 +27,7 @@ func _run_tests() -> void:
 	_test_floor_rosters()
 	_test_metaprogression()
 	_test_boss_seals()
+	_test_boss_mechanics()
 	_test_shot_cancellation()
 	if _errors.is_empty():
 		print("QA PASS: %d checks" % _checks)
@@ -91,6 +94,27 @@ func _test_boss_seals() -> void:
 		_assert(BossSeals.codex_entry(floor_number,1).contains("\n"),"Códice sin saltos de línea")
 	_assert(progress.boss_seals_discovered() == 5,"No se registraron los cinco sellos")
 	_assert(progress.has_unlock("cronicas_cinco_sellos"),"Códice completo no desbloquea")
+
+func _test_boss_mechanics() -> void:
+	var kinds: Array[String] = ["grillete","mordida","mirada","tumba","vacio"]
+	for id in kinds:
+		var zone = BossMechanicZone.new()
+		zone.configure(id,0.35,0.08,Vector2.UP)
+		_assert(zone.mechanic_kind == id,"Mecánica de jefe incorrecta: " + id)
+		_assert(zone.telegraph_time >= 0.70,"Aviso de daño muy corto: " + id)
+		_assert(zone.active_time >= 0.35,"Ventana de daño incorrecta: " + id)
+		_assert(zone.area_radius > 0.0,"Área sin tamaño: " + id)
+		if id == "mirada":
+			_assert(zone.beam_length >= 300.0,"Haz del Vigía demasiado corto")
+			_assert(is_equal_approx(zone.rotation,-PI*0.5),"Haz mal orientado")
+		zone.free()
+	for floor_number in range(1,6):
+		var guardian = AdvancedEnemy.new()
+		guardian.configure_advanced("boss",floor_number)
+		_assert(guardian.advanced_kind == AdvancedEnemy.AdvancedKind.FLOOR_BOSS,"Jefe sin comportamiento avanzado")
+		_assert(guardian.floor_variant == floor_number,"Mecánica del jefe asignada al piso equivocado")
+		_assert(guardian.max_health >= 60,"El guardián principal fue confundido con minijefe")
+		guardian.free()
 
 func _test_shot_cancellation() -> void:
 	var player = Player.new()
