@@ -934,6 +934,7 @@ func _on_enemy_defeated(enemy) -> void:
 	var was_cleared := _room_cleared
 	super._on_enemy_defeated(enemy)
 	if not was_cleared and _room_cleared and _room_kind == "jefe":
+		_clear_boss_mechanics()
 		_on_guardian_defeated()
 	if not was_cleared and _room_cleared and _room_kind == "santuario_eco":
 		var key := _rare_event_key()
@@ -1008,7 +1009,13 @@ func _on_boss_seal_claimed(reward_id: String) -> void:
 	_audio_sfx("pickup",1.3)
 	queue_redraw()
 
+func _clear_boss_mechanics() -> void:
+	for mechanic in get_tree().get_nodes_in_group("boss_mechanics"):
+		if is_instance_valid(mechanic) and not mechanic.is_queued_for_deletion():
+			mechanic.queue_free()
+
 func _clear_content_hazards() -> void:
+	_clear_boss_mechanics()
 	for hazard in get_tree().get_nodes_in_group("room_hazards"):
 		if is_instance_valid(hazard):
 			hazard.queue_free()
