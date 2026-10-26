@@ -38,7 +38,9 @@ func _try_open_shop(scene: Node) -> void:
 	var floor_index := int(scene.get("_floor_index"))
 	var cell: Vector2i = scene.get("_current_cell")
 	var shop_key := "%d:%d:%d" % [floor_index,cell.x,cell.y]
-	if _active_shop_key==shop_key and not get_tree().get_nodes_in_group("shop_items").is_empty():
+	# Si ya se preparó la tienda, no regenerar productos ni tocar el HUD
+	# cada fotograma (también cuando se ha agotado todo el inventario).
+	if _active_shop_key == shop_key:
 		return
 	_active_shop_key = shop_key
 	_prepare_shop(scene,floor_index,shop_key)
