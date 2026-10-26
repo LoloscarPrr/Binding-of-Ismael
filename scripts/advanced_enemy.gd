@@ -399,9 +399,25 @@ func _draw() -> void:
 			_draw_floor_boss(flash)
 	_draw_attack_telegraph()
 	_draw_reaction_sparks()
+	if advanced_kind == AdvancedKind.FLOOR_BOSS and max_health >= 60:
+		_draw_boss_phase_runes()
 	if elite_variant:
 		draw_arc(Vector2.ZERO,37.0+sin(_age*5.0)*2.0,0.0,TAU,30,Color(0.95,0.68,0.18,0.78),3.5)
 		draw_circle(Vector2(0,-30),4.5,Color(1.0,0.82,0.28,0.82))
+
+func _draw_boss_phase_runes() -> void:
+	if _boss_phase < 2:
+		return
+	var brightness := 0.38+sin(_age*(4.0+_boss_phase))*0.15
+	var ink := Color(1.0,0.48 if _boss_phase == 2 else 0.22,0.26,brightness)
+	var count := 4 if _boss_phase == 2 else 7
+	for i in range(count):
+		var angle := TAU*float(i)/float(count)+_age*(0.22 if _boss_phase == 2 else -0.36)
+		var line_dir := Vector2.RIGHT.rotated(angle)
+		draw_line(line_dir*63.0,line_dir*(77.0+sin(_age*5.0+float(i))*3.0),ink,2.0)
+	if _phase_transition_remaining > 0.0:
+		var t := clampf(_phase_transition_remaining/0.98,0.0,1.0)
+		draw_arc(Vector2.ZERO,74.0+(1.0-t)*26.0,0.0,TAU,42,Color(1.0,0.69,0.31,0.16+0.37*t),3.0)
 
 func _draw_brute(flash: bool) -> void:
 	var outline := Color(0.055,0.045,0.04)
@@ -480,7 +496,7 @@ func _draw_floor_boss(flash: bool) -> void:
 			# CARCELERO: broad, squared body with prison bars.
 			draw_rect(Rect2(-48,-35,96,72),dark)
 			draw_rect(Rect2(-42,-31,84,64),flesh)
-			var bar_tremor := sin(_age*10.0)*2.5 if health*2 <= max_health else 0.0
+			var bar_tremor := sin(_age*10.0)*2.5 if _boss_phase >= 2 else 0.0
 			for x in [-27.0,-9.0,9.0,27.0]:
 				draw_line(Vector2(x+bar_tremor,-30),Vector2(x-bar_tremor,30),rim,5.0)
 			draw_ellipse(Vector2(0,-7),Vector2(13,10),Color.BLACK)
@@ -528,7 +544,7 @@ func _draw_floor_boss(flash: bool) -> void:
 				draw_line(shard_position*0.86,shard_position*1.08,Color(rim.r,rim.g,rim.b,0.34),1.6)
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 	draw_arc(Vector2.ZERO,55.0+sin(_age*3.0)*2.0,0.0,TAU,44,Color(rim.r,rim.g,rim.b,0.52),4.0)
-	if health*2<=max_health:
+	if _boss_phase >= 2:
 		var phase_pulse := 0.5+sin(_age*7.0)*0.5
 		draw_arc(Vector2.ZERO,61.0+phase_pulse*5.0,0.0,TAU,44,Color(1.0,0.20,0.12,0.40+phase_pulse*0.27),4.0)
 		for i in range(6):
