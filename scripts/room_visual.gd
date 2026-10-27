@@ -226,7 +226,7 @@ func _draw_secret_crypt_mark() -> void:
 	var ink := Color(0.46,0.82,0.89,0.16+flicker*0.08)
 	draw_arc(center,87.0,0.0,TAU,48,ink,2.6)
 	for side in [-1.0,1.0]:
-		var x := center.x+side*41.0
+		var x: float = center.x+float(side)*41.0
 		draw_line(Vector2(x,center.y-48),Vector2(x,center.y+45),ink,3.0)
 		draw_circle(Vector2(x,center.y-49),6.0,Color(0.86,0.60,0.35,0.23+flicker*0.16))
 	draw_line(center+Vector2(-41,8),center+Vector2(41,8),ink,3.0)
