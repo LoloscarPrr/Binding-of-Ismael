@@ -211,6 +211,9 @@ func _refresh_history() -> void:
 		var record := int(_progress.guardian_echo_victories.get(str(floor_number),0))
 		if record > 0:
 			content += "P%d · %d PRUEBAS SUPERADAS\n" % [floor_number,record]
+	content += "\nSECRETOS DE LA FASE 11.5\n"
+	content += "CRIPTAS REVELADAS · %d\n" % _progress.secret_vaults_opened
+	content += "ANOMALÍAS SUPERADAS · %d\n" % _progress.anomalies_cleared
 	content += "\nDESBLOQUEOS DEL DESCENSO\n"
 	var milestones: Array[Dictionary] = [
 		{"id":"santuario_eco","title":"CÁMARA DEL ECO","requirement":"Completa un recorrido"},
@@ -218,7 +221,10 @@ func _refresh_history() -> void:
 		{"id":"reloj_ceniza","title":"RELOJ DE CENIZA","requirement":"Resuelve 2 eventos"},
 		{"id":"colmillo_ritual","title":"COLMILLO RITUAL","requirement":"Sella 3 pactos"},
 		{"id":"corona_del_eco","title":"CORONA DEL ECO","requirement":"Supera 3 pruebas del Eco"},
-		{"id":"testigo_cinco_ecos","title":"TESTIGO DE LOS CINCO ECOS","requirement":"Vence a los Ecos de los cinco pisos · +1 llave al iniciar"}
+		{"id":"testigo_cinco_ecos","title":"TESTIGO DE LOS CINCO ECOS","requirement":"Vence a los Ecos de los cinco pisos · +1 llave al iniciar"},
+		{"id":"criptas_ocultas","title":"CRIPTAS DEL DESCENSO","requirement":"Completa un recorrido para descubrir criptas ocultas"},
+		{"id":"anomalias_del_descenso","title":"ANOMALÍAS","requirement":"Completa un recorrido para activar desafíos variables"},
+		{"id":"sello_del_cartografo","title":"SELLO DEL CARTÓGRAFO","requirement":"Revela 3 criptas y supera 3 anomalías · +1 bomba al iniciar"}
 	]
 	for milestone in milestones:
 		var is_unlocked: bool = _progress.has_unlock(String(milestone["id"]))
