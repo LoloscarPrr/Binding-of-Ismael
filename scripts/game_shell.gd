@@ -206,13 +206,19 @@ func _refresh_history() -> void:
 				int(run.get("floor",1)),int(seconds/60),seconds%60,
 				int(run.get("kills",0)),int(run.get("rooms",0))
 			]
+	content += "\nECOS DE LOS GUARDIANES · %d/5 PISOS VENCIDOS\n" % _progress.guardian_echo_floors_completed()
+	for floor_number in range(1,6):
+		var record := int(_progress.guardian_echo_victories.get(str(floor_number),0))
+		if record > 0:
+			content += "P%d · %d PRUEBAS SUPERADAS\n" % [floor_number,record]
 	content += "\nDESBLOQUEOS DEL DESCENSO\n"
 	var milestones: Array[Dictionary] = [
 		{"id":"santuario_eco","title":"CÁMARA DEL ECO","requirement":"Completa un recorrido"},
 		{"id":"eco_fragil","title":"ESQUIRLA DEL ECO","requirement":"Llega al piso 3"},
 		{"id":"reloj_ceniza","title":"RELOJ DE CENIZA","requirement":"Resuelve 2 eventos"},
 		{"id":"colmillo_ritual","title":"COLMILLO RITUAL","requirement":"Sella 3 pactos"},
-		{"id":"corona_del_eco","title":"CORONA DEL ECO","requirement":"Supera 3 pruebas del Eco"}
+		{"id":"corona_del_eco","title":"CORONA DEL ECO","requirement":"Supera 3 pruebas del Eco"},
+		{"id":"testigo_cinco_ecos","title":"TESTIGO DE LOS CINCO ECOS","requirement":"Vence a los Ecos de los cinco pisos · +1 llave al iniciar"}
 	]
 	for milestone in milestones:
 		var is_unlocked: bool = _progress.has_unlock(String(milestone["id"]))
