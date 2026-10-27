@@ -41,6 +41,10 @@ func _draw() -> void:
 		_draw_boss_seal_arena()
 	elif room_kind == "eco_guardian":
 		_draw_guardian_echo_mark()
+	elif room_kind == "anomalia":
+		_draw_anomaly_floor_mark()
+	elif room_kind == "supersecreta":
+		_draw_secret_crypt_mark()
 	_draw_ismael_sigil()
 	_draw_debris()
 	_draw_props()
@@ -111,6 +115,8 @@ func _floor_color() -> Color:
 		"recompensa": color = Color(0.17,0.135,0.073)
 		"jefe": color = Color(0.13,0.060,0.058)
 		"eco_guardian": color = Color(0.070,0.100,0.135)
+		"anomalia": color = Color(0.115,0.073,0.119)
+		"supersecreta": color = Color(0.075,0.064,0.110)
 		"tienda": color = Color(0.155,0.112,0.065)
 		"desafio": color = Color(0.145,0.075,0.055)
 		"minijefe": color = Color(0.115,0.055,0.065)
@@ -201,6 +207,30 @@ func _draw_room_markings() -> void:
 				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
 				draw_line(center+d*18.0,center+d*64.0,Color(0.48,0.42,0.72,0.22),3.0)
 			draw_arc(center,72.0,0.0,TAU,42,Color(0.54,0.46,0.78,0.32),4.0)
+
+func _draw_anomaly_floor_mark() -> void:
+	var center := room_rect.get_center()
+	var pulse := 0.45+0.55*sin(_age*1.9)
+	var color := Color(0.81,0.40,0.86,0.17+pulse*0.08)
+	draw_arc(center,105.0,0.18,PI*1.85,44,color,3.0)
+	for i in range(3):
+		var a := float(i)*TAU/3.0+_age*0.14
+		var spoke := Vector2.RIGHT.rotated(a)
+		draw_line(center+spoke*27.0,center+spoke*91.0,color,3.0)
+		draw_circle(center+spoke*94.0,7.0,Color(color.r,color.g,color.b,0.21))
+	draw_arc(center,43.0,PI*0.2,PI*1.9,26,Color(0.91,0.66,0.36,0.25+pulse*0.12),2.0)
+
+func _draw_secret_crypt_mark() -> void:
+	var center := room_rect.get_center()
+	var flicker := 0.5+sin(_age*1.4)*0.5
+	var ink := Color(0.46,0.82,0.89,0.16+flicker*0.08)
+	draw_arc(center,87.0,0.0,TAU,48,ink,2.6)
+	for side in [-1.0,1.0]:
+		var x := center.x+side*41.0
+		draw_line(Vector2(x,center.y-48),Vector2(x,center.y+45),ink,3.0)
+		draw_circle(Vector2(x,center.y-49),6.0,Color(0.86,0.60,0.35,0.23+flicker*0.16))
+	draw_line(center+Vector2(-41,8),center+Vector2(41,8),ink,3.0)
+	draw_arc(center+Vector2(0,-15),18.0,0.0,TAU,26,Color(0.91,0.62,0.35,0.22+flicker*0.16),2.0)
 
 func _draw_guardian_echo_mark() -> void:
 	var center := room_rect.get_center()
