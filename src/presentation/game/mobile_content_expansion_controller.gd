@@ -9,6 +9,8 @@ const RunProgress = preload("res://src/domain/run/run_progress.gd")
 const VictorySummary = preload("res://scripts/victory_summary.gd")
 const GameShell = preload("res://scripts/game_shell.gd")
 const BossSealPedestal = preload("res://scripts/world_reward_pedestal.gd")
+const GuardianEchoCatalog = preload("res://src/domain/run/guardian_echo_catalog.gd")
+const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
@@ -17,6 +19,7 @@ var _curse_rooms_remaining := 0
 var _curse_active_in_room := false
 var _rare_event_states: Dictionary = {}
 var _echo_sanctuary_states: Dictionary = {}
+var _guardian_echo_states: Dictionary = {}
 var _boss_seal_offers: Dictionary = {}
 var _boss_seal_claimed: Dictionary = {}
 var _floor_mutator := "normal"
@@ -161,6 +164,19 @@ func _prepare_extra_room_kinds() -> void:
 		var event_cell: Vector2i = candidates[event_index]
 		candidates.remove_at(event_index)
 		_set_content_room_kind(event_cell,"evento")
+	# Una Cámara del Guardián por piso como máximo, sin eliminar
+	# salas especiales ya seleccionadas ni convertir la sala del jefe.
+	if not candidates.is_empty() and GuardianEchoCatalog.should_appear(_dungeon.seed_value,_floor_index):
+		var guardian_index := -1
+		for i in range(candidates.size()):
+			if _dungeon.route_role(candidates[i]) == "branch":
+				guardian_index = i
+				break
+		if guardian_index < 0:
+			guardian_index = candidates.size()-1
+		var guardian_cell: Vector2i = candidates[guardian_index]
+		candidates.remove_at(guardian_index)
+		_set_content_room_kind(guardian_cell,"eco_guardian")
 	if _floor_index >= 2 and not candidates.is_empty():
 		var pact_index := -1
 		for i in range(candidates.size()):
@@ -408,9 +424,16 @@ func _room_title() -> String:
 		"pacto": return "CÁMARA DE PACTO"
 		"evento": return "EVENTO RARO"
 		"santuario_eco": return "CÁMARA DEL ECO"
+		"eco_guardian": return GuardianEchoCatalog.title(_floor_index)
 	return super._room_title()
 
 func _spawn_room_after_entry(generation: int) -> void:
+	if _room_kind == "eco_guardian":
+		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
+		if generation != _spawn_generation or _game_over:
+			return
+		_open_guardian_echo_room()
+		return
 	if _room_kind == "santuario_eco":
 		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 		if generation != _spawn_generation or _game_over:
@@ -448,6 +471,97 @@ func _spawn_room_after_entry(generation: int) -> void:
 		queue_redraw()
 		return
 	super._spawn_room_after_entry(generation)
+
+func _open_guardian_echo_room() -> void:
+	var key := _rare_event_key()
+	var state := String(_guardian_echo_states.get(key,""))
+	if _room_cleared or state == "claimed":
+		_mark_current_room_cleared(false)
+		_transition_locked = false
+		status_label.text = "ECO SILENCIADO"
+		reward_label.text = "Ya reclamaste la bendición de este guardián"
+		return
+	if state == "trial":
+		# Reingreso seguro: nunca deja una sala sin enemigos ni salida.
+		_spawn_guardian_echo_encounter()
+		status_label.text = "PRUEBA DEL ECO · REANUDADA"
+		reward_label.text = "Derrota al Custodio para romper la protección del grupo"
+		return
+	status_label.text = GuardianEchoCatalog.title(_floor_index)
+	reward_label.text = "ELIGE: COMBATE ÉLITE O TRIBUTO MALDITO"
+	_spawn_guardian_echo_choice("luchar_guardian","DESAFIAR EL ECO","COSTE: COMBATE ÉLITE","RELIQUIA DEL PISO",Vector2(0.36,0.52))
+	_spawn_guardian_echo_choice("tributo_guardian","OFRENDA MALDITA","COSTE: %d MONEDAS + 2 SALAS MALDITAS" % GuardianEchoCatalog.tribute_cost(_floor_index),"RELIQUIA DEL PISO",Vector2(0.64,0.52))
+	_transition_locked = false
+
+func _spawn_guardian_echo_choice(choice: String,title: String,cost: String,reward: String,ratio: Vector2) -> void:
+	var pedestal := EventPedestal.new()
+	pedestal.configure_choice(choice,title,cost,reward)
+	pedestal.position = room_rect.position+room_rect.size*ratio
+	pedestal.scale = Vector2.ONE*0.82
+	pedestal.chosen.connect(_on_guardian_echo_choice)
+	add_child(pedestal)
+
+func _on_guardian_echo_choice(choice_id: String) -> void:
+	var key := _rare_event_key()
+	if _room_cleared or String(_guardian_echo_states.get(key,"")) != "":
+		return
+	if choice_id == "tributo_guardian":
+		var price := GuardianEchoCatalog.tribute_cost(_floor_index)
+		if _coins < price:
+			status_label.text = "TRIBUTO INSUFICIENTE"
+			reward_label.text = "Necesitas %d monedas o puedes luchar" % price
+			_reset_event_offerings_after_failed_payment()
+			return
+		_coins -= price
+		_curse_rooms_remaining = maxi(_curse_rooms_remaining,2)
+		_route_blood += 1
+		_guardian_echo_states[key] = "claimed"
+		_consume_event_offerings()
+		_apply_reward(GuardianEchoCatalog.reward(_floor_index))
+		_mark_current_room_cleared(false)
+		_update_pickup_hud()
+		status_label.text = "EL ECO ACEPTÓ EL TRIBUTO"
+		reward_label.text = "Bendición obtenida · las próximas 2 salas serán más difíciles"
+		_audio_sfx("pickup",1.1)
+		return
+	if choice_id != "luchar_guardian":
+		_reset_event_offerings_after_failed_payment()
+		return
+	_guardian_echo_states[key] = "trial"
+	_consume_event_offerings()
+	_spawn_guardian_echo_encounter()
+	status_label.text = "PRUEBA: " + GuardianEchoCatalog.title(_floor_index)
+	reward_label.text = "CUSTODIO AZUL PROTEGE AL GRUPO · HERALDO NARANJA ATACA"
+
+func _spawn_guardian_echo_encounter() -> void:
+	# Estas salas mantienen todo el tiempo los portales cerrados
+	# durante el combate; la prueba no puede regalar daño al aparecer.
+	var count := GuardianEchoCatalog.trial_enemy_count(_floor_index)
+	var positions: Array[Vector2] = _deterministic_spawn_positions(count)
+	var supporters := GuardianEchoCatalog.support_roster(_floor_index)
+	var seed := absi(_dungeon.seed_value+_floor_index*173+_room_index*43)
+	_enemies_alive = positions.size()
+	for i in positions.size():
+		var enemy
+		if i < 2:
+			enemy = GuardianEchoElite.new()
+			enemy.configure_echo("warden" if i == 0 else "hunter",_floor_index)
+		else:
+			var kind_id := String(supporters[posmod(seed+i,supporters.size())])
+			enemy = _create_floor_enemy(kind_id)
+			enemy.echo_squad_member = true
+		enemy.configure_squad_role(i,positions.size(),seed)
+		enemy.position = positions[i]
+		enemy.target = player
+		enemy.spawn_grace_time = 1.10
+		enemy.set_movement_bounds(room_rect)
+		enemy.defeated.connect(_on_enemy_defeated)
+		add_child(enemy)
+	_set_door_open(false)
+	_transition_locked = false
+	if is_instance_valid(player):
+		player.grant_room_entry_protection(1.40)
+	_audio_sfx("boss_phase",0.93)
 
 func _open_echo_sanctuary() -> void:
 	var key := _rare_event_key()
@@ -881,10 +995,11 @@ func _create_room_door(direction: Vector2i) -> void:
 		"pacto": door.modulate = Color(0.72,0.18,0.22,1.0)
 		"evento": door.modulate = Color(0.54,0.68,0.34,1.0)
 		"santuario_eco": door.modulate = Color(0.35,0.72,0.82,1.0)
+		"eco_guardian": door.modulate = Color(0.38,0.67,0.94,1.0)
 
 func _spawn_clear_pickup() -> void:
 	super._spawn_clear_pickup()
-	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto","evento","santuario_eco"]:
+	if _room_kind in ["inicio","recompensa","tienda","biblioteca","pacto","evento","santuario_eco","eco_guardian"]:
 		return
 	if _floor_mutator == "enjambre":
 		_coins += 1
@@ -936,6 +1051,16 @@ func _on_enemy_defeated(enemy) -> void:
 	if not was_cleared and _room_cleared and _room_kind == "jefe":
 		_clear_boss_mechanics()
 		_on_guardian_defeated()
+	if not was_cleared and _room_cleared and _room_kind == "eco_guardian":
+		var key := _rare_event_key()
+		if String(_guardian_echo_states.get(key,"")) == "trial":
+			_guardian_echo_states[key] = "claimed"
+			var reward := GuardianEchoCatalog.reward(_floor_index)
+			_apply_reward(reward)
+			_route_witness += 1
+			status_label.text = "ECO DEL GUARDIÁN VENCIDO"
+			reward_label.text = "Ganaste %s · la protección del Custodio desapareció" % _reward_name(reward).replace("\n"," — ")
+			_audio_sfx("boss_death",1.0)
 	if not was_cleared and _room_cleared and _room_kind == "santuario_eco":
 		var key := _rare_event_key()
 		if String(_echo_sanctuary_states.get(key,"")) == "trial":
