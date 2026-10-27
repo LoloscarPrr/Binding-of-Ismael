@@ -19,6 +19,7 @@ const SolidRoomObstacle = preload("res://scripts/room_obstacle.gd")
 const GuardianEchoCatalog = preload("res://src/domain/run/guardian_echo_catalog.gd")
 const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
 const BuildBalance = preload("res://src/domain/items/build_balance.gd")
+const SecretRunCatalog = preload("res://src/domain/run/secret_run_catalog.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -41,6 +42,7 @@ func _run_tests() -> void:
 	_test_boss_mechanics()
 	_test_boss_phases()
 	_test_guardian_echoes()
+	_test_secrets_and_anomalies()
 	_test_shop_layout_and_guardian_spawns()
 	_test_enemy_obstacle_navigation()
 	await _test_enemy_pathfinding_in_physics()
@@ -238,6 +240,40 @@ func _test_guardian_echoes() -> void:
 		profile.guardian_echo_victories[str(floor_number)] = 1
 	_assert(profile.guardian_echo_floors_completed() == 5,"No se contabilizan los cinco Ecos")
 	_assert(profile.has_unlock("testigo_cinco_ecos"),"No se desbloquea la llave del Testigo")
+
+func _test_secrets_and_anomalies() -> void:
+	var progress = RunProgress.new()
+	_assert(not progress.has_unlock("criptas_ocultas"),"Las criptas deben esperar la primera victoria")
+	_assert(not progress.has_unlock("anomalias_del_descenso"),"La anomalía apareció en una primera partida")
+	progress.runs_completed = 1
+	_assert(progress.has_unlock("criptas_ocultas"),"No se abrieron las criptas tras completar una partida")
+	_assert(progress.has_unlock("anomalias_del_descenso"),"No se habilitaron las anomalías tras ganar")
+	var variants: Dictionary = {}
+	for cell_x in range(-12,13):
+		var variant := SecretRunCatalog.vault_variant(192,4,Vector2i(cell_x,3))
+		variants[variant] = true
+		_assert(not SecretRunCatalog.vault_title(variant).is_empty(),"Cripta sin identidad propia")
+		for risk in [false,true]:
+			var reward := SecretRunCatalog.vault_reward(variant,risk)
+			_assert(ItemCatalog.reward_ids().has(reward),"Cripta ofrece reliquia inexistente")
+	_assert(variants.size() == 3,"Falta una variante de las criptas")
+	var encounter_modes: Dictionary = {}
+	var anomaly_seen := 0
+	for seed_value in range(100):
+		if SecretRunCatalog.anomaly_appears(seed_value,3):
+			anomaly_seen += 1
+		var kind := SecretRunCatalog.anomaly_variant(seed_value,3,Vector2i(2,5))
+		encounter_modes[kind] = true
+		_assert(SecretRunCatalog.anomaly_bonus_enemies(kind) <= 2,"Anomalía satura la sala")
+		_assert(not SecretRunCatalog.anomaly_description(kind).is_empty(),"Anomalía sin pista visual")
+	_assert(anomaly_seen >= 30 and anomaly_seen <= 70,"Frecuencia de anomalías fuera del rango")
+	_assert(encounter_modes.size() == 3,"Las anomalías no varían entre partidas")
+	_assert(not SecretRunCatalog.anomaly_appears(61,1),"Anomalías demasiado pronto")
+	progress.secret_vaults_opened = 2
+	progress.anomalies_cleared = 3
+	_assert(not progress.has_unlock("sello_del_cartografo"),"El logro se desbloquea prematuramente")
+	progress.secret_vaults_opened = 3
+	_assert(progress.has_unlock("sello_del_cartografo"),"No se desbloquea el Sello del Cartógrafo")
 
 func _test_shop_layout_and_guardian_spawns() -> void:
 	var slots: Array[Vector2] = ShopSystem.compact_slot_ratios()
