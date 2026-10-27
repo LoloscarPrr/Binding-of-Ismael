@@ -39,6 +39,8 @@ func _draw() -> void:
 	_draw_room_markings()
 	if room_kind == "jefe":
 		_draw_boss_seal_arena()
+	elif room_kind == "eco_guardian":
+		_draw_guardian_echo_mark()
 	_draw_ismael_sigil()
 	_draw_debris()
 	_draw_props()
@@ -108,6 +110,7 @@ func _floor_color() -> Color:
 	match room_kind:
 		"recompensa": color = Color(0.17,0.135,0.073)
 		"jefe": color = Color(0.13,0.060,0.058)
+		"eco_guardian": color = Color(0.070,0.100,0.135)
 		"tienda": color = Color(0.155,0.112,0.065)
 		"desafio": color = Color(0.145,0.075,0.055)
 		"minijefe": color = Color(0.115,0.055,0.065)
@@ -198,6 +201,31 @@ func _draw_room_markings() -> void:
 				var d := Vector2.RIGHT.rotated(deg_to_rad(float(a)))
 				draw_line(center+d*18.0,center+d*64.0,Color(0.48,0.42,0.72,0.22),3.0)
 			draw_arc(center,72.0,0.0,TAU,42,Color(0.54,0.46,0.78,0.32),4.0)
+
+func _draw_guardian_echo_mark() -> void:
+	var center := room_rect.get_center()
+	var pulse := 0.5+sin(_age*1.35)*0.5
+	var ink := Color(0.43,0.77,0.98,0.16+pulse*0.07)
+	draw_circle(center,91.0,Color(0.05,0.15,0.24,0.17+pulse*0.04))
+	draw_arc(center,89.0,0.0,TAU,52,ink,3.0)
+	draw_arc(center,108.0,0.20,PI*1.80,45,Color(0.72,0.42,0.87,0.20),2.0)
+	var corners: PackedVector2Array = PackedVector2Array()
+	for i in range(5):
+		var angle := -PI*0.5+float(i)*TAU/5.0
+		var point := center+Vector2.RIGHT.rotated(angle)*67.0
+		corners.append(point)
+		var glyph_direction := Vector2.RIGHT.rotated(angle)
+		draw_line(point,point+glyph_direction*15.0,ink,2.5)
+	for i in range(5):
+		draw_line(corners[i],corners[(i+2)%5],Color(ink.r,ink.g,ink.b,ink.a*0.63),1.9)
+	var inner := Color(0.91,0.65,0.28,0.28+pulse*0.10)
+	for i in range(clampi(floor_index,1,5)):
+		var angle := float(i)*TAU/5.0-PI*0.5
+		draw_circle(center+Vector2.RIGHT.rotated(angle)*25.0,4.0,inner)
+	for ratio in [0.19,0.81]:
+		var p := room_rect.position+room_rect.size*Vector2(ratio,0.19)
+		draw_circle(p,14.0,Color(0.05,0.08,0.12,0.42))
+		draw_arc(p,14.0,0.0,TAU,20,Color(0.42,0.77,0.99,0.25+pulse*0.18),2.5)
 
 func _draw_boss_seal_arena() -> void:
 	# La arena muestra desde el suelo qué sello custodia este piso.
