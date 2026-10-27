@@ -97,7 +97,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_clear_content_hazards()
 	super._begin_room(entry_direction)
 	_curse_active_in_room = false
-	if _curse_rooms_remaining > 0 and _room_kind in ["combate","emboscada","desafio","minijefe","maldicion"]:
+	if _curse_rooms_remaining > 0 and _room_kind in ["combate","emboscada","desafio","minijefe","maldicion","anomalia"]:
 		_curse_active_in_room = true
 		_curse_rooms_remaining -= 1
 		if is_instance_valid(reward_label):
@@ -1100,6 +1100,7 @@ func _create_room_door(direction: Vector2i) -> void:
 		"evento": door.modulate = Color(0.54,0.68,0.34,1.0)
 		"santuario_eco": door.modulate = Color(0.35,0.72,0.82,1.0)
 		"eco_guardian": door.modulate = Color(0.38,0.67,0.94,1.0)
+		"anomalia": door.modulate = Color(0.78,0.42,0.89,1.0)
 
 func _spawn_clear_pickup() -> void:
 	super._spawn_clear_pickup()
