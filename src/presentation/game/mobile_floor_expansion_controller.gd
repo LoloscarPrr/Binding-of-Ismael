@@ -28,6 +28,13 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 			reward_label.text = FloorCatalog.floor_identity(_floor_index)
 
 func _build_room_layout() -> void:
+	if _room_kind == "eco_guardian":
+		# Dos coberturas laterales de altura moderada: el centro es
+		# transitable y los enemigos pueden rodearlas con el navegador.
+		_room_layout_profile = "duelo"
+		_add_obstacle(Vector2(0.26,0.56),Vector2(0.055,0.11),clampi(_floor_index-1,0,4))
+		_add_obstacle(Vector2(0.74,0.56),Vector2(0.055,0.11),clampi(_floor_index-1,0,4))
+		return
 	if _room_kind in ["inicio","recompensa","tienda","sacrificio","secreta","supersecreta","biblioteca","pacto","evento"]:
 		_room_layout_profile = "abierta"
 		return
