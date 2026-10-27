@@ -1272,11 +1272,13 @@ func _clear_content_hazards() -> void:
 			hazard.queue_free()
 
 func _spawn_content_hazards() -> void:
-	if _room_kind not in ["combate","emboscada","desafio","maldicion"]:
+	if _room_kind not in ["combate","emboscada","desafio","maldicion","anomalia"]:
 		return
 	var ratios: Array[Vector2] = _hazard_ratios_for_layout()
 	var count := 0
-	if _room_kind == "maldicion":
+	if _room_kind == "anomalia" and _current_anomaly_variant() == "ceniza":
+		count = 3+int(_floor_index>=4)
+	elif _room_kind == "maldicion":
 		count = 4+int(_floor_index>=4)
 	elif _room_kind == "desafio":
 		count = 1+int(_floor_index>=3)
@@ -1288,7 +1290,7 @@ func _spawn_content_hazards() -> void:
 			4: count = 2
 			_: count = 3
 	if _room_layout_profile == "abierta":
-		count = mini(count,1)
+		count = mini(count,2 if _room_kind == "anomalia" else 1)
 	elif _room_layout_profile in ["embudo","corredor_maldito"]:
 		count = mini(count+1,5)
 	var seed := absi(_floor_index*193+_current_cell.x*92821+_current_cell.y*68917+_room_index*17)
@@ -1306,7 +1308,7 @@ func _spawn_content_hazards() -> void:
 				kind = "fire" if i%2==1 else "spike"
 			_:
 				kind = "fire" if i%2==0 else "spike"
-		if _room_kind == "maldicion" and i>=maxi(0,count-2):
+		if (_room_kind == "maldicion" or (_room_kind == "anomalia" and _current_anomaly_variant() == "ceniza")) and i>=maxi(0,count-2):
 			kind = "fire"
 		var hazard_id := 100+i
 		var room_key := _obstacle_room_key()
