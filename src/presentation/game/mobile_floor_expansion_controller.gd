@@ -119,6 +119,12 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 		_room_kind,
 		_room_layout_profile
 	)
+	# Una amenaza táctica por encuentro en builds tardías; nunca se
+	# agregan enemigos, HP o daño. Mantiene la dificultad por lectura.
+	var owned: Dictionary = _build_state.snapshot().get("owned_items",{})
+	roster = BuildBalance.adapt_late_encounter(
+		roster,_floor_index,BuildBalance.total_items(owned),_room_kind,encounter_seed
+	)
 	if is_instance_valid(status_label) and _room_kind in ["combate","emboscada","desafio","maldicion"]:
 		status_label.text = "%s · %s" % [
 			FloorCatalog.encounter_name(_floor_index,encounter_seed,_room_kind,_room_layout_profile),
