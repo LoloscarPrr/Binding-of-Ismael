@@ -18,6 +18,7 @@ const EnemyActor = preload("res://scripts/enemy.gd")
 const SolidRoomObstacle = preload("res://scripts/room_obstacle.gd")
 const GuardianEchoCatalog = preload("res://src/domain/run/guardian_echo_catalog.gd")
 const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
+const BuildBalance = preload("res://src/domain/items/build_balance.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -33,6 +34,7 @@ func _assert(condition: bool, message: String) -> void:
 
 func _run_tests() -> void:
 	_test_item_definitions()
+	_test_build_balance()
 	_test_floor_rosters()
 	_test_metaprogression()
 	_test_boss_seals()
@@ -63,6 +65,41 @@ func _test_item_definitions() -> void:
 		_assert(ids.has(id),"Falta reliquia meta: " + id)
 	var synergy: Dictionary = ItemCatalog.synergy_definition("eco_sangrante")
 	_assert(not synergy.is_empty(),"Se perdió sinergia Eco Sangrante")
+
+func _test_build_balance() -> void:
+	var normal := BuildBalance.effective_fire_interval(0.18,1,1,0)
+	var double := BuildBalance.effective_fire_interval(0.18,2,1,0)
+	var overloaded := BuildBalance.effective_fire_interval(0.09,3,3,3)
+	_assert(is_equal_approx(normal,0.18),"Cambió la cadencia de un jugador nuevo")
+	_assert(is_equal_approx(double,0.18),"El disparo doble normal fue castigado")
+	_assert(overloaded > 0.12 and overloaded < 0.22,"La build de 40 objetos se vuelve injusta o satura la CPU")
+	_assert(BuildBalance.available_primary_shots(0,3) == 3,"Los tiros básicos fueron limitados")
+	_assert(BuildBalance.available_primary_shots(139,3) == 1,"No se respeta el límite de proyectiles")
+	_assert(BuildBalance.available_primary_shots(140,3) == 0,"El límite de Android no funciona")
+	var owned: Dictionary = {"dano":5,"lente":4,"vida":3,"buscadora":1,"cadencia":5}
+	_assert(BuildBalance.reward_score("dano",owned,ItemCatalog.synergy_definitions(),ItemCatalog) <
+		BuildBalance.reward_score("eco_fragil",owned,ItemCatalog.synergy_definitions(),ItemCatalog),
+		"El sistema sigue prefiriendo duplicados planos")
+	var pool := ItemCatalog.reward_ids()
+	var choice_one := BuildBalance.choose_two(pool,owned,ItemCatalog.synergy_definitions(),ItemCatalog,"dano",123456)
+	var choice_two := BuildBalance.choose_two(pool,owned,ItemCatalog.synergy_definitions(),ItemCatalog,"dano",123456)
+	_assert(choice_one == choice_two,"Las recompensas cambian al volver a entrar en la misma sala")
+	_assert(choice_one.size() == 2 and choice_one[0] != choice_one[1],"Dos pedestales ofrecen el mismo objeto")
+	_assert(not choice_one.has("dano"),"Reaparece inmediatamente la última recompensa")
+	var fresh_picks := 0
+	for test_seed in range(100):
+		var picks := BuildBalance.choose_two(pool,owned,ItemCatalog.synergy_definitions(),ItemCatalog,"",test_seed)
+		for reward_id in picks:
+			if int(owned.get(reward_id,0)) == 0:
+				fresh_picks += 1
+	_assert(fresh_picks > 120,"Las builds largas reciben demasiados objetos duplicados")
+	# La progresión de los guardianes mantiene su vida base sin inflarla.
+	for floor_number in range(1,6):
+		var guardian = AdvancedEnemy.new()
+		guardian.configure_advanced("boss",floor_number)
+		var curve: Array[int] = [110,150,195,245,305]
+		_assert(guardian.max_health == curve[floor_number-1],"Se aumentó la vida de un guardián")
+		guardian.free()
 
 func _test_floor_rosters() -> void:
 	for floor_number in range(1,6):
