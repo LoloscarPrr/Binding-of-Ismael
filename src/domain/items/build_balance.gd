@@ -22,6 +22,30 @@ static func effective_fire_interval(base_rate: float, volley: int, burst: int, s
 static func available_primary_shots(active_count: int, desired: int) -> int:
 	return mini(maxi(0,desired),maxi(0,PRIMARY_PROJECTILE_LIMIT-active_count))
 
+static func total_items(owned: Dictionary) -> int:
+	var total := 0
+	for id in owned.keys():
+		total += maxi(0,int(owned[id]))
+	return total
+
+static func adapt_late_encounter(roster: Array[String], floor_index: int, owned_count: int, room_kind: String, encounter_seed: int) -> Array[String]:
+	var result := roster.duplicate()
+	# Después de ~20 reliquias, una amenaza requiere posicionamiento,
+	# no más enemigos ni vida extra. No modifica minibosses ni guardianes.
+	if owned_count < 18 or floor_index < 3 or result.size() < 4:
+		return result
+	if room_kind not in ["combate","emboscada","desafio","maldicion"]:
+		return result
+	var tactical := "spitter" if floor_index == 3 else ("stalker" if floor_index == 4 else "turret")
+	if result.has(tactical) or result.has(tactical+"_elite"):
+		return result
+	for offset in range(result.size()):
+		var i := posmod(encounter_seed+offset,result.size())
+		if result[i] in ["chaser","flyer","brute","shielded","splitter"]:
+			result[i] = tactical
+			break
+	return result
+
 static func reward_score(id: String, owned: Dictionary, synergies: Dictionary, catalog) -> float:
 	var copies := maxi(0,int(owned.get(id,0)))
 	var weight := 5.0/(1.0+float(copies)*2.2)
