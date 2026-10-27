@@ -13,6 +13,8 @@ var recent_runs: Array[Dictionary] = []
 var pacts_sealed := 0
 var events_resolved := 0
 var echo_challenges_completed := 0
+var secret_vaults_opened := 0
+var anomalies_cleared := 0
 var guardian_echo_victories: Dictionary = {}
 var endings: Dictionary = {}
 var boss_defeats: Dictionary = {}
@@ -40,6 +42,8 @@ func load_profile() -> void:
 	pacts_sealed = maxi(0,int(cfg.get_value("progress","pacts_sealed",0)))
 	events_resolved = maxi(0,int(cfg.get_value("progress","events_resolved",0)))
 	echo_challenges_completed = maxi(0,int(cfg.get_value("progress","echo_challenges_completed",0)))
+	secret_vaults_opened = maxi(0,int(cfg.get_value("progress","secret_vaults_opened",0)))
+	anomalies_cleared = maxi(0,int(cfg.get_value("progress","anomalies_cleared",0)))
 	var stored_guardian_echoes = cfg.get_value("progress","guardian_echo_victories",{})
 	if stored_guardian_echoes is Dictionary:
 		guardian_echo_victories = stored_guardian_echoes.duplicate(true)
@@ -71,6 +75,8 @@ func save_profile() -> void:
 	cfg.set_value("progress","pacts_sealed",pacts_sealed)
 	cfg.set_value("progress","events_resolved",events_resolved)
 	cfg.set_value("progress","echo_challenges_completed",echo_challenges_completed)
+	cfg.set_value("progress","secret_vaults_opened",secret_vaults_opened)
+	cfg.set_value("progress","anomalies_cleared",anomalies_cleared)
 	cfg.set_value("progress","guardian_echo_victories",guardian_echo_victories)
 	cfg.set_value("progress","endings",endings)
 	cfg.set_value("progress","boss_defeats",boss_defeats)
@@ -121,6 +127,14 @@ func guardian_echo_floors_completed() -> int:
 		if int(guardian_echo_victories.get(str(floor_index),0)) > 0:
 			result += 1
 	return result
+
+func record_secret_vault() -> void:
+	secret_vaults_opened += 1
+	save_profile()
+
+func record_anomaly_clear() -> void:
+	anomalies_cleared += 1
+	save_profile()
 
 func record_echo_challenge() -> void:
 	echo_challenges_completed += 1
@@ -187,6 +201,9 @@ func _refresh_unlocks() -> void:
 	unlocks["corona_del_eco"] = echo_challenges_completed >= 3
 	unlocks["cronicas_cinco_sellos"] = boss_seals_discovered() >= 5
 	unlocks["testigo_cinco_ecos"] = guardian_echo_floors_completed() >= 5
+	unlocks["criptas_ocultas"] = runs_completed >= 1
+	unlocks["anomalias_del_descenso"] = runs_completed >= 1
+	unlocks["sello_del_cartografo"] = secret_vaults_opened >= 3 and anomalies_cleared >= 3
 
 func summary_text() -> String:
 	return "MÁX P%d · RUNS %d · SELLOS %d/5 · ECOS %d · FINALES %d/3" % [
