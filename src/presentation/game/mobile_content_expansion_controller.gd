@@ -65,6 +65,9 @@ func _apply_meta_starting_unlocks() -> void:
 		_keys += 1
 		_update_pickup_hud()
 	# Tercera prueba del Eco: recompensa meta discreta para recorridos futuros.
+	if _run_progress.has_unlock("testigo_cinco_ecos"):
+		_keys += 1
+		_update_pickup_hud()
 	if _run_progress.has_unlock("corona_del_eco") and is_instance_valid(player):
 		player.floor_shield_enabled = true
 		player.floor_shield_charges += 1
@@ -1058,6 +1061,8 @@ func _on_enemy_defeated(enemy) -> void:
 			var reward := GuardianEchoCatalog.reward(_floor_index)
 			_apply_reward(reward)
 			_route_witness += 1
+			if _run_progress != null:
+				_run_progress.record_guardian_echo_victory(_floor_index)
 			status_label.text = "ECO DEL GUARDIÁN VENCIDO"
 			reward_label.text = "Ganaste %s · la protección del Custodio desapareció" % _reward_name(reward).replace("\n"," — ")
 			_audio_sfx("boss_death",1.0)
