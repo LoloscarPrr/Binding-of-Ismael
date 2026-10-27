@@ -11,6 +11,7 @@ const GameShell = preload("res://scripts/game_shell.gd")
 const BossSealPedestal = preload("res://scripts/world_reward_pedestal.gd")
 const GuardianEchoCatalog = preload("res://src/domain/run/guardian_echo_catalog.gd")
 const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
+const SecretRunCatalog = preload("res://src/domain/run/secret_run_catalog.gd")
 
 var _prepared_content_floor := 0
 var _unlocked_treasure_rooms: Dictionary = {}
@@ -20,6 +21,8 @@ var _curse_active_in_room := false
 var _rare_event_states: Dictionary = {}
 var _echo_sanctuary_states: Dictionary = {}
 var _guardian_echo_states: Dictionary = {}
+var _secret_vault_states: Dictionary = {}
+var _anomaly_completion_states: Dictionary = {}
 var _boss_seal_offers: Dictionary = {}
 var _boss_seal_claimed: Dictionary = {}
 var _floor_mutator := "normal"
@@ -65,6 +68,9 @@ func _apply_meta_starting_unlocks() -> void:
 		_keys += 1
 		_update_pickup_hud()
 	# Tercera prueba del Eco: recompensa meta discreta para recorridos futuros.
+	if _run_progress.has_unlock("sello_del_cartografo"):
+		_bombs += 1
+		_update_pickup_hud()
 	if _run_progress.has_unlock("testigo_cinco_ecos"):
 		_keys += 1
 		_update_pickup_hud()
@@ -203,6 +209,18 @@ func _prepare_extra_room_kinds() -> void:
 			var echo_cell: Vector2i = candidates[echo_index]
 			candidates.remove_at(echo_index)
 			_set_content_room_kind(echo_cell,"santuario_eco")
+	if _run_progress != null and _run_progress.has_unlock("anomalias_del_descenso") and not candidates.is_empty():
+		if SecretRunCatalog.anomaly_appears(_dungeon.seed_value,_floor_index):
+			var anomaly_index := -1
+			for i in range(candidates.size()):
+				if _dungeon.route_role(candidates[i]) == "branch":
+					anomaly_index = i
+					break
+			if anomaly_index < 0:
+				anomaly_index = candidates.size()-1
+			var anomaly_cell: Vector2i = candidates[anomaly_index]
+			candidates.remove_at(anomaly_index)
+			_set_content_room_kind(anomaly_cell,"anomalia")
 	if _floor_index >= 2 and not candidates.is_empty():
 		_set_content_room_kind(candidates.pop_front(),"maldicion")
 	if _floor_index >= 3 and not candidates.is_empty():
@@ -428,9 +446,22 @@ func _room_title() -> String:
 		"evento": return "EVENTO RARO"
 		"santuario_eco": return "CÁMARA DEL ECO"
 		"eco_guardian": return GuardianEchoCatalog.title(_floor_index)
+		"anomalia": return SecretRunCatalog.anomaly_title(_current_anomaly_variant())
 	return super._room_title()
 
 func _spawn_room_after_entry(generation: int) -> void:
+	if _room_kind == "anomalia":
+		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
+		if generation != _spawn_generation or _game_over:
+			return
+		var variant := _current_anomaly_variant()
+		var depth := _dungeon.distance(_current_cell)
+		var count := mini(2+depth+_floor_index,8)
+		_spawn_enemy_pack(count,depth)
+		_transition_locked = false
+		status_label.text = SecretRunCatalog.anomaly_title(variant)
+		reward_label.text = SecretRunCatalog.anomaly_description(variant)
+		return
 	if _room_kind == "eco_guardian":
 		await get_tree().create_timer(ROOM_ENTRY_DELAY).timeout
 		if generation != _spawn_generation or _game_over:
@@ -474,6 +505,72 @@ func _spawn_room_after_entry(generation: int) -> void:
 		queue_redraw()
 		return
 	super._spawn_room_after_entry(generation)
+
+func _current_anomaly_variant() -> String:
+	if _dungeon == null:
+		return "asedio"
+	return SecretRunCatalog.anomaly_variant(_dungeon.seed_value,_floor_index,_current_cell)
+
+func _secret_vault_variant() -> String:
+	return SecretRunCatalog.vault_variant(_dungeon.seed_value,_floor_index,_current_cell)
+
+func _open_hidden_loot_room() -> void:
+	if _room_kind != "supersecreta" or _run_progress == null or not _run_progress.has_unlock("criptas_ocultas"):
+		super._open_hidden_loot_room()
+		return
+	_mark_current_room_cleared(false)
+	var key := _rare_event_key()
+	if String(_secret_vault_states.get(key,"")) == "claimed":
+		status_label.text = "CRIPTA SELLADA"
+		reward_label.text = "El secreto de esta sala ya fue reclamado"
+		_transition_locked = false
+		return
+	var variant := _secret_vault_variant()
+	status_label.text = SecretRunCatalog.vault_title(variant)
+	reward_label.text = "DOS SELLOS · SOLO UNA ELECCIÓN"
+	_spawn_secret_vault_choice("abrir_seguro","ABRIR CON CUIDADO","COSTE: 1 LLAVE + 1 BOMBA","BENDICIÓN PROTECTORA",Vector2(0.37,0.52))
+	_spawn_secret_vault_choice("abrir_prohibido","ROMPER EL SELLO","COSTE: 2 SALAS MALDITAS","RELIQUIA DEL ABISMO",Vector2(0.63,0.52))
+	_transition_locked = false
+
+func _spawn_secret_vault_choice(id: String,title: String,cost: String,reward: String,ratio: Vector2) -> void:
+	var pedestal := EventPedestal.new()
+	pedestal.configure_choice(id,title,cost,reward)
+	pedestal.position = room_rect.position+room_rect.size*ratio
+	pedestal.scale = Vector2.ONE*0.78
+	pedestal.chosen.connect(_on_secret_vault_choice)
+	add_child(pedestal)
+
+func _on_secret_vault_choice(choice_id: String) -> void:
+	if _room_kind != "supersecreta" or _run_progress == null:
+		return
+	var key := _rare_event_key()
+	if String(_secret_vault_states.get(key,"")) == "claimed":
+		return
+	var risky := choice_id == "abrir_prohibido"
+	if not risky and choice_id != "abrir_seguro":
+		return
+	if not risky and (_keys < 1 or _bombs < 1):
+		status_label.text = "EL SELLO SIGUE CERRADO"
+		reward_label.text = "Necesitas una llave y una bomba, o puedes romper el sello"
+		_reset_event_offerings_after_failed_payment()
+		return
+	var variant := _secret_vault_variant()
+	var reward := SecretRunCatalog.vault_reward(variant,risky)
+	if risky:
+		_curse_rooms_remaining = maxi(_curse_rooms_remaining,2)
+		_route_blood += 1
+	else:
+		_keys -= 1
+		_bombs -= 1
+		_route_witness += 1
+	_secret_vault_states[key] = "claimed"
+	_consume_event_offerings()
+	_apply_reward(reward)
+	_update_pickup_hud()
+	_run_progress.record_secret_vault()
+	status_label.text = "SECRETO DE LA CRIPTA REVELADO"
+	reward_label.text = ("%s · 2 salas malditas" if risky else "%s · sello abierto") % _reward_name(reward).replace("\n"," — ")
+	_audio_sfx("pickup",1.16)
 
 func _open_guardian_echo_room() -> void:
 	var key := _rare_event_key()
@@ -928,6 +1025,8 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 		resolved_count += 1
 	if _floor_mutator == "enjambre":
 		resolved_count += 1
+	if _room_kind == "anomalia":
+		resolved_count += SecretRunCatalog.anomaly_bonus_enemies(_current_anomaly_variant())
 	super._spawn_enemy_pack(resolved_count,depth)
 
 func _create_floor_enemy(kind_id: String):
@@ -943,6 +1042,8 @@ func _create_floor_enemy(kind_id: String):
 			enemy.max_health = enemy.health
 		elif _floor_mutator == "polvorin":
 			enemy.speed *= 1.12
+		if _room_kind == "anomalia" and _current_anomaly_variant() == "acecho":
+			enemy.speed *= 1.13
 	return enemy
 
 func _travel_to(direction: Vector2i) -> void:
@@ -1054,6 +1155,26 @@ func _on_enemy_defeated(enemy) -> void:
 	if not was_cleared and _room_cleared and _room_kind == "jefe":
 		_clear_boss_mechanics()
 		_on_guardian_defeated()
+	if not was_cleared and _room_cleared and _room_kind == "anomalia":
+		var key := _rare_event_key()
+		if not bool(_anomaly_completion_states.get(key,false)):
+			_anomaly_completion_states[key] = true
+			if _run_progress != null:
+				_run_progress.record_anomaly_clear()
+			var variant := _current_anomaly_variant()
+			match variant:
+				"asedio":
+					_spawn_pickup_at("coin5",Vector2(0.43,0.56))
+					_spawn_pickup_at("bomb",Vector2(0.57,0.56))
+				"acecho":
+					_spawn_pickup_at("key",Vector2(0.43,0.56))
+					_spawn_pickup_at("soul",Vector2(0.57,0.56))
+				_:
+					_spawn_pickup_at("heart",Vector2(0.43,0.56))
+					_spawn_pickup_at("bomb",Vector2(0.57,0.56))
+			status_label.text = "ANOMALÍA SUPERADA"
+			reward_label.text = "El descenso recuerda que sobreviviste"
+			_audio_sfx("room_clear",1.10)
 	if not was_cleared and _room_cleared and _room_kind == "eco_guardian":
 		var key := _rare_event_key()
 		if String(_guardian_echo_states.get(key,"")) == "trial":
