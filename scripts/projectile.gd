@@ -15,6 +15,8 @@ var split_spread := 0.0
 var split_homing := false
 var _split_triggered := false
 var _age := 0.0
+var _draw_accumulator := 0.0
+const PROJECTILE_DRAW_SECONDS := 1.0/30.0
 var _hit_ids: Dictionary = {}
 var _cached_homing_target: Node2D
 var _target_refresh_remaining := 0.0
@@ -40,7 +42,12 @@ func _physics_process(delta: float) -> void:
 		_steer_toward_enemy(delta)
 	position += direction.normalized() * speed * delta
 	lifetime -= delta
-	queue_redraw()
+	# El movimiento y las colisiones siguen en cada tick de física.
+	# Solo la animación de brillo se redibuja a 30 Hz.
+	_draw_accumulator += delta
+	if _draw_accumulator >= PROJECTILE_DRAW_SECONDS:
+		_draw_accumulator = fmod(_draw_accumulator,PROJECTILE_DRAW_SECONDS)
+		queue_redraw()
 	if lifetime <= 0.0:
 		queue_free()
 
