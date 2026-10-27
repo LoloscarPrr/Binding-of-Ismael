@@ -5,6 +5,7 @@ const RunInventory = preload("res://src/domain/run/run_inventory.gd")
 const EconomyService = preload("res://src/application/economy/economy_service.gd")
 const RewardService = preload("res://src/application/rewards/reward_service.gd")
 const BuildState = preload("res://src/domain/items/build_state.gd")
+const BuildBalance = preload("res://src/domain/items/build_balance.gd")
 const ControlLayoutRepository = preload("res://src/infrastructure/persistence/control_layout_repository.gd")
 const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 const MobileCombatSideHud = preload("res://src/presentation/hud/mobile_combat_side_hud.gd")
@@ -240,14 +241,12 @@ func _apply_completion_ui() -> void:
 		hud_top_map_card.visible = false
 
 func _make_reward_choices() -> Array[String]:
-	var available: Array[String] = []
-	for reward in ItemCatalog.reward_ids():
-		if reward != _last_reward:
-			available.append(reward)
-	available.shuffle()
-	if available.size() < 2:
-		available = ItemCatalog.reward_ids()
-	return [available[0],available[1]]
+	var snapshot := _build_state.snapshot()
+	var owned: Dictionary = snapshot.get("owned_items",{})
+	var room_seed := _floor_index*379+_room_index*53+_current_cell.x*92821+_current_cell.y*68917
+	return BuildBalance.choose_two(
+		ItemCatalog.reward_ids(),owned,ItemCatalog.synergy_definitions(),ItemCatalog,_last_reward,room_seed
+	)
 
 func _reward_name(reward: String) -> String:
 	return ItemCatalog.reward_full_name(reward)
