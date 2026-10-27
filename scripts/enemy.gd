@@ -38,6 +38,7 @@ var _attack_windup := 0.0
 var _attack_windup_total := 0.0
 var _attack_sequence := 0
 var squad_role := "press"
+var echo_squad_member := false
 var squad_flank_sign := 1.0
 var _attack_locked_direction := Vector2.RIGHT
 var _navigation_clock := 0.0
@@ -256,6 +257,15 @@ func clamp_to_bounds() -> void:
 func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	if health <= 0:
 		return
+	# El custodio del Eco protege a los compañeros cercanos mientras viva.
+	# Máximo -1 daño; los proyectiles débiles SIEMPRE hacen algo.
+	if echo_squad_member and is_inside_tree():
+		for warden in get_tree().get_nodes_in_group("echo_wardens"):
+			if warden == self or not is_instance_valid(warden) or warden.is_queued_for_deletion():
+				continue
+			if global_position.distance_squared_to(warden.global_position) <= 175.0*175.0:
+				amount = maxi(1,amount-1)
+				break
 	health -= amount
 	_hit_flash = 0.15
 	_hit_recoil = 0.12
