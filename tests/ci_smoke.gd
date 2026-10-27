@@ -16,6 +16,8 @@ const FloorController = preload("res://src/presentation/game/mobile_floor_expans
 const ObstacleNavigator = preload("res://scripts/enemy_obstacle_navigator.gd")
 const EnemyActor = preload("res://scripts/enemy.gd")
 const SolidRoomObstacle = preload("res://scripts/room_obstacle.gd")
+const GuardianEchoCatalog = preload("res://src/domain/run/guardian_echo_catalog.gd")
+const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -36,6 +38,7 @@ func _run_tests() -> void:
 	_test_boss_seals()
 	_test_boss_mechanics()
 	_test_boss_phases()
+	_test_guardian_echoes()
 	_test_shop_layout_and_guardian_spawns()
 	_test_enemy_obstacle_navigation()
 	await _test_enemy_pathfinding_in_physics()
@@ -157,6 +160,38 @@ func _test_boss_phases() -> void:
 	hud.set_phase(2)
 	_assert(hud.boss_phase == 2,"La barra no muestra el cambio de fase")
 	hud.free()
+
+func _test_guardian_echoes() -> void:
+	var profile = RunProgress.new()
+	var appeared := 0
+	for seed in range(100):
+		if GuardianEchoCatalog.should_appear(seed,2):
+			appeared += 1
+	_assert(appeared >= 40 and appeared <= 80,"Los Ecos no tienen frecuencia equilibrada")
+	for floor_number in range(1,6):
+		var title := GuardianEchoCatalog.title(floor_number)
+		var reward := GuardianEchoCatalog.reward(floor_number)
+		var support := GuardianEchoCatalog.support_roster(floor_number)
+		_assert(not title.is_empty(),"Eco sin nombre en piso %d" % floor_number)
+		_assert(ItemCatalog.reward_ids().has(reward),"Eco con reliquia no válida en piso %d" % floor_number)
+		_assert(support.size() == 2,"Eco sin variedad de apoyo en piso %d" % floor_number)
+		_assert(GuardianEchoCatalog.tribute_cost(floor_number) >= 6,"Tributo demasiado barato")
+		_assert(GuardianEchoCatalog.trial_enemy_count(floor_number) <= 6,"Combate de Eco saturado")
+		var warden = GuardianEchoElite.new()
+		warden.configure_echo("warden",floor_number)
+		_assert(warden.echo_squad_member,"El custodio no pertenece al grupo")
+		_assert(warden.echo_role == GuardianEchoElite.EchoRole.WARDEN,"Custodio mal clasificado")
+		_assert(warden.max_health < 60,"Custodio tiene salud de jefe")
+		warden.free()
+		var hunter = GuardianEchoElite.new()
+		hunter.configure_echo("hunter",floor_number)
+		_assert(hunter.echo_squad_member,"El heraldo no pertenece al grupo")
+		_assert(hunter.echo_role == GuardianEchoElite.EchoRole.HUNTER,"Heraldo mal clasificado")
+		_assert(hunter.max_health < 60,"Heraldo tiene salud de jefe")
+		hunter.free()
+		profile.guardian_echo_victories[str(floor_number)] = 1
+	_assert(profile.guardian_echo_floors_completed() == 5,"No se contabilizan los cinco Ecos")
+	_assert(profile.has_unlock("testigo_cinco_ecos"),"No se desbloquea la llave del Testigo")
 
 func _test_shop_layout_and_guardian_spawns() -> void:
 	var slots: Array[Vector2] = ShopSystem.compact_slot_ratios()
