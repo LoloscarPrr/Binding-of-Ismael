@@ -6,6 +6,7 @@ signal died
 
 const PlayerState = preload("res://src/domain/player/player_state.gd")
 const MotionTrail = preload("res://scripts/motion_trail.gd")
+const BuildBalance = preload("res://src/domain/items/build_balance.gd")
 const BODY_RADIUS := 28.0
 
 @export var move_speed := 280.0
@@ -121,12 +122,7 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _effective_fire_interval() -> float:
-	var emission_load := maxi(1,volley_count)*maxi(1,burst_count)
-	if emission_load >= 6:
-		return maxf(fire_rate,0.10)
-	if emission_load >= 4:
-		return maxf(fire_rate,0.085)
-	return fire_rate
+	return BuildBalance.effective_fire_interval(fire_rate,volley_count,burst_count,projectile_split_count)
 
 func set_movement_bounds(bounds: Rect2) -> void:
 	movement_bounds = bounds
@@ -146,7 +142,12 @@ func shoot(direction: Vector2) -> void:
 		_fire_burst_followups(direction.normalized(),burst_count-1)
 
 func _fire_volley(direction: Vector2) -> void:
-	var count := maxi(1,volley_count)
+	# Cuenta una sola vez por volea: limitar hijos y disparos principales
+	# evita sobrecargar Android con 30–40 objetos sin quitar sinergias.
+	var active_count := get_tree().get_nodes_in_group("player_projectiles").size()
+	var count := BuildBalance.available_primary_shots(active_count,maxi(1,volley_count))
+	if count <= 0:
+		return
 	if count == 1:
 		_spawn_projectile(direction)
 		return
