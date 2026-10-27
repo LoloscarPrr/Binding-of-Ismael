@@ -916,11 +916,11 @@ func _library_choices() -> Array[String]:
 	if _run_progress != null and _run_progress.has_unlock("colmillo_ritual"):
 		pool.append("colmillo_ritual")
 	var seed := absi(_floor_index*131+_current_cell.x*92821+_current_cell.y*68917)
-	var first := pool[seed%pool.size()]
-	var second := pool[(seed*3+5)%pool.size()]
-	if second == first:
-		second = pool[(seed+1)%pool.size()]
-	return [first,second]
+	var snapshot := _build_state.snapshot()
+	var owned: Dictionary = snapshot.get("owned_items",{})
+	return BuildBalance.choose_two(
+		pool,owned,ItemCatalog.synergy_definitions(),ItemCatalog,_last_reward,seed
+	)
 
 func _spawn_enemy_pack(count: int, depth: int) -> void:
 	var resolved_count := count
