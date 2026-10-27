@@ -93,6 +93,15 @@ func _test_build_balance() -> void:
 			if int(owned.get(reward_id,0)) == 0:
 				fresh_picks += 1
 	_assert(fresh_picks > 120,"Las builds largas reciben demasiados objetos duplicados")
+	var owned_total := BuildBalance.total_items({"dano":12,"lente":10,"vida":8,"cadencia":10})
+	_assert(owned_total == 40,"La carga de 40 objetos se calcula mal")
+	var sample: Array[String] = ["chaser","flyer","brute","shielded","dasher"]
+	var adapted := BuildBalance.adapt_late_encounter(sample,3,40,"combate",23)
+	_assert(adapted.size() == sample.size(),"El balance agrega enemigos en partidas largas")
+	_assert(adapted.has("spitter"),"Las builds de 40 objetos no reciben presión táctica")
+	_assert(BuildBalance.adapt_late_encounter(sample,3,9,"combate",23) == sample,"Las partidas normales se alteraron")
+	_assert(BuildBalance.adapt_late_encounter(sample,2,40,"combate",23) == sample,"Se endureció el piso 2 innecesariamente")
+	_assert(BuildBalance.adapt_late_encounter(sample,5,40,"jefe",23) == sample,"No debe cambiarse el jefe")
 	# La progresión de los guardianes mantiene su vida base sin inflarla.
 	for floor_number in range(1,6):
 		var guardian = AdvancedEnemy.new()
