@@ -21,6 +21,8 @@ const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
 const BuildBalance = preload("res://src/domain/items/build_balance.gd")
 const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 const SecretRunCatalog = preload("res://src/domain/run/secret_run_catalog.gd")
+const MobileSideHud = preload("res://src/presentation/hud/mobile_combat_side_hud.gd")
+const PlayerProjectile = preload("res://scripts/projectile.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -37,6 +39,8 @@ func _assert(condition: bool, message: String) -> void:
 func _run_tests() -> void:
 	_test_item_definitions()
 	_test_visual_art_phase12()
+	_test_transparent_hud_and_blue_hearts()
+	_test_projectile_readability()
 	_test_build_balance()
 	_test_floor_rosters()
 	_test_metaprogression()
@@ -88,6 +92,41 @@ func _test_visual_art_phase12() -> void:
 		_assert(boss_art != null and boss_art.get_width() == 192,"Falta el arte del jefe %d" % floor_number)
 	_assert(VisualSprites.boss_texture(1) != VisualSprites.boss_texture(5),"Los guardianes deben ser visualmente diferentes")
 	_assert(VisualSprites.boss_draw_rect().size.x >= 130,"Los guardianes deben leerse mejor que enemigos básicos")
+
+func _test_transparent_hud_and_blue_hearts() -> void:
+	var p = Player.new()
+	p.max_health = 6
+	p.health = 6
+	p.floor_shield_enabled = true
+	p.floor_shield_charges = 1
+	var changes_seen: Array[int] = []
+	p.temporary_hearts_changed.connect(func(charges: int): changes_seen.append(charges))
+	p.take_damage(1)
+	_assert(p.health == 6,"La protección temporal redujo vida roja")
+	_assert(p.floor_shield_charges == 0,"El corazón azul no se consumió")
+	_assert(changes_seen.size() == 1 and changes_seen[0] == 0,"No se notificó la pérdida del corazón azul")
+	p.set("_invulnerability",0.0)
+	p.take_damage(1)
+	_assert(p.health == 5,"Sin escudo se debe recibir daño normal")
+	p.refill_floor_shield()
+	_assert(p.floor_shield_charges == 1,"No se regeneró el corazón temporal en el piso")
+	_assert(changes_seen.size() == 2 and changes_seen[1] == 1,"No se notificó la recarga del corazón azul")
+	var ui = MobileSideHud.new()
+	var room := Rect2(Vector2(225.0,72.0),Vector2(1070.0,418.0))
+	ui.set_layout(room,Vector2(1520.0,680.0))
+	_assert(ui.left_panel.end.x <= room.position.x,"El HUD de vida invade el combate")
+	_assert(ui.right_panel.position.x >= room.end.x,"Las estadísticas invaden el combate")
+	_assert(ui._door_lower_edge()-ui._door_upper_edge() >= 96.0,"La franja de las puertas laterales es muy estrecha")
+	_assert(ui._door_upper_edge() < room.get_center().y and ui._door_lower_edge() > room.get_center().y,"El HUD tapa la puerta central")
+	ui.free()
+	p.free()
+
+func _test_projectile_readability() -> void:
+	_assert(is_equal_approx(PlayerProjectile.combat_clarity_factor(0),1.0),"Se oscureció el disparo inicial")
+	_assert(is_equal_approx(PlayerProjectile.combat_clarity_factor(52),1.0),"Build normal pierde visibilidad")
+	_assert(PlayerProjectile.combat_clarity_factor(140) >= 0.35,"Demasiado apagadas las lágrimas al final")
+	_assert(PlayerProjectile.combat_clarity_factor(140) < 0.50,"Las estelas de builds extremas siguen saturando")
+	_assert(PlayerProjectile.combat_clarity_factor(160) >= 0.35,"El factor de claridad llegó a cero")
 
 func _test_build_balance() -> void:
 	var normal := BuildBalance.effective_fire_interval(0.18,1,1,0)
