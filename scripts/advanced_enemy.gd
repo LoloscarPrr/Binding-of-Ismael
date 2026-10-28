@@ -3,6 +3,7 @@ class_name IsmaelAdvancedEnemy
 
 const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
 const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
+const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 
 signal boss_phase_changed(phase_number: int, phase_title: String)
 
@@ -390,13 +391,13 @@ func _draw() -> void:
 	var flash := _hit_flash>0.0
 	match advanced_kind:
 		AdvancedKind.BRUTE:
-			_draw_brute(flash)
+			_draw_illustrated_enemy("brute",flash)
 		AdvancedKind.SPITTER:
-			_draw_spitter(flash)
+			_draw_illustrated_enemy("spitter",flash)
 		AdvancedKind.STALKER:
-			_draw_stalker(flash)
+			_draw_illustrated_enemy("stalker",flash)
 		AdvancedKind.FLOOR_BOSS:
-			_draw_floor_boss(flash)
+			_draw_illustrated_floor_boss(flash)
 	_draw_attack_telegraph()
 	_draw_reaction_sparks()
 	if advanced_kind == AdvancedKind.FLOOR_BOSS and max_health >= 60:
@@ -404,6 +405,16 @@ func _draw() -> void:
 	if elite_variant:
 		draw_arc(Vector2.ZERO,37.0+sin(_age*5.0)*2.0,0.0,TAU,30,Color(0.95,0.68,0.18,0.78),3.5)
 		draw_circle(Vector2(0,-30),4.5,Color(1.0,0.82,0.28,0.82))
+
+func _draw_illustrated_floor_boss(flash: bool) -> void:
+	var breathe := 1.0+sin(_age*2.6)*0.025
+	draw_ellipse(Vector2(0,48),Vector2(51,12),Color(0.02,0.01,0.02,0.38))
+	draw_set_transform(Vector2(0,sin(_age*1.9)*1.5),0.0,Vector2(1.0,breathe))
+	var tint := Color(1.0,0.88,0.85,0.97) if flash else Color.WHITE
+	draw_texture_rect(VisualSprites.boss_texture(floor_variant),VisualSprites.boss_draw_rect(),false,tint)
+	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+	var pulse := 0.5+sin(_age*(3.0 if _boss_phase==1 else 6.5))*0.5
+	draw_arc(Vector2.ZERO,64.0+2.0*pulse,0.0,TAU,36,Color(0.82,0.34,0.23,0.34+pulse*0.15),3.1)
 
 func _draw_boss_phase_runes() -> void:
 	if _boss_phase < 2:
