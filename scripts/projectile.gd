@@ -22,6 +22,20 @@ var _cached_homing_target: Node2D
 var _target_refresh_remaining := 0.0
 const HOMING_REFRESH_SECONDS := 0.13
 const MAX_ACTIVE_PLAYER_PROJECTILES := 160
+static var _last_crowd_sample_frame: int = -100
+static var _cached_crowd_count: int = 0
+
+static func combat_clarity_factor(active_count: int) -> float:
+	# Las builds densas conservan TODOS los impactos y proyectiles;
+	# solo atenúan las estelas para revelar enemigos y telegráficos.
+	return 1.0-0.63*clampf((float(active_count)-52.0)/88.0,0.0,1.0)
+
+func _projectile_clarity() -> float:
+	var tick: int = Engine.get_physics_frames()
+	if tick-_last_crowd_sample_frame >= 8:
+		_last_crowd_sample_frame = tick
+		_cached_crowd_count = get_tree().get_nodes_in_group("player_projectiles").size()
+	return combat_clarity_factor(_cached_crowd_count)
 
 func _ready() -> void:
 	add_to_group("player_projectiles")
@@ -53,27 +67,28 @@ func _physics_process(delta: float) -> void:
 
 func _draw() -> void:
 	var pulse := 1.0 + sin(_age * 18.0) * 0.06
+	var clarity := _projectile_clarity()
 	var tear_angle := direction.angle()
 	draw_set_transform(Vector2.ZERO,tear_angle,Vector2.ONE*size_scale)
 	if void_synergy:
-		draw_circle(Vector2(-12,0),7.5*pulse,Color(0.42,0.08,0.62,0.20))
-		draw_circle(Vector2.ZERO,10.0*pulse,Color(0.04,0.01,0.08,0.90))
-		draw_arc(Vector2.ZERO,11.5*pulse,0.0,TAU,24,Color(0.72,0.30,0.94,0.82),2.5)
+		draw_circle(Vector2(-12,0),7.5*pulse,Color(0.42,0.08,0.62,0.20*clarity))
+		draw_circle(Vector2.ZERO,9.0*pulse,Color(0.04,0.01,0.08,0.55+0.25*clarity))
+		draw_arc(Vector2.ZERO,10.0*pulse,0.0,TAU,24,Color(0.72,0.30,0.94,0.48+0.30*clarity),2.1)
 		draw_circle(Vector2(3,-3),2.3,Color(0.96,0.72,1.0,0.92))
 	elif visual_style == "needle":
 		draw_line(Vector2(-15,0),Vector2(13,0),Color(0.10,0.12,0.14,0.92),5.0)
 		draw_line(Vector2(-11,0),Vector2(11,0),Color(0.74,0.78,0.82,0.96),2.2)
 		draw_circle(Vector2(11,0),3.0,Color(0.88,0.92,0.96,0.95))
 	elif visual_style == "moth":
-		draw_circle(Vector2(-8,0),6.2*pulse,Color(0.34,0.16,0.48,0.22))
+		draw_circle(Vector2(-8,0),6.2*pulse,Color(0.34,0.16,0.48,0.22*clarity))
 		draw_colored_polygon(PackedVector2Array([Vector2(10,0),Vector2(1,-9),Vector2(-8,0),Vector2(1,9)]),Color(0.42,0.24,0.66))
 		draw_circle(Vector2(3,-2),2.4,Color(0.90,0.76,1.0,0.92))
 	elif visual_style == "glass":
 		draw_colored_polygon(PackedVector2Array([Vector2(13,0),Vector2(2,-8),Vector2(-9,0),Vector2(2,8)]),Color(0.50,0.84,0.98,0.84))
 		draw_line(Vector2(-5,-1),Vector2(9,-1),Color(0.92,0.98,1.0,0.82),2.0)
 	else:
-		draw_circle(Vector2(-10.0,0.0),5.5*pulse,Color(0.22,0.52,0.78,0.18))
-		draw_circle(Vector2(-5.0,0.0),7.0*pulse,Color(0.25,0.60,0.88,0.26))
+		draw_circle(Vector2(-10.0,0.0),5.5*pulse,Color(0.22,0.52,0.78,0.18*clarity))
+		draw_circle(Vector2(-5.0,0.0),7.0*pulse,Color(0.25,0.60,0.88,0.26*clarity))
 		var outline := PackedVector2Array([Vector2(12,0),Vector2(3,-9),Vector2(-10,0),Vector2(3,9)])
 		draw_colored_polygon(outline,Color(0.025,0.09,0.15,0.72))
 		var body := PackedVector2Array([Vector2(10,0),Vector2(3,-7),Vector2(-7,0),Vector2(3,7)])
