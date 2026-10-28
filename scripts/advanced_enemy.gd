@@ -3,7 +3,6 @@ class_name IsmaelAdvancedEnemy
 
 const BossMechanicZone = preload("res://scripts/boss_mechanic_zone.gd")
 const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
-const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 
 signal boss_phase_changed(phase_number: int, phase_title: String)
 
