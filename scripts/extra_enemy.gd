@@ -101,16 +101,25 @@ func _draw() -> void:
 	var flash := _hit_flash>0.0
 	match extra_kind:
 		ExtraKind.FLYER:
-			_draw_flyer(flash)
+			_draw_illustrated_extra("flyer",flash)
 		ExtraKind.TURRET:
-			_draw_turret(flash)
+			_draw_illustrated_extra("turret",flash)
 		ExtraKind.LEAPER:
-			_draw_leaper(flash)
+			_draw_illustrated_extra("leaper",flash)
 	_draw_attack_telegraph()
 	_draw_reaction_sparks()
 	if elite_variant:
 		draw_arc(Vector2.ZERO,31.0+sin(_age*6.0)*2.0,0.0,TAU,28,Color(0.94,0.70,0.20,0.80),3.0)
 		draw_circle(Vector2(0,-25),4.0,Color(1.0,0.84,0.30,0.86))
+
+func _draw_illustrated_extra(id: String, flash: bool) -> void:
+	var drift := sin(_age*(9.0 if id == "flyer" else 4.0))*(3.5 if id == "flyer" else 1.5)
+	var tilt := sin(_age*6.0)*0.08 if id == "flyer" else (sin(_age*8.0)*0.035 if id == "leaper" else 0.0)
+	draw_ellipse(Vector2(0,21),Vector2(23,7),Color(0,0,0,0.27))
+	draw_set_transform(Vector2(0,drift),tilt,Vector2.ONE)
+	var tint := Color(1.0,0.89,0.86,1.0) if flash else Color.WHITE
+	draw_texture_rect(VisualSprites.enemy_texture(id),VisualSprites.enemy_draw_rect(id),false,tint)
+	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 func _draw_flyer(flash: bool) -> void:
 	var body := Color(0.95,0.86,0.78) if flash else Color(0.19,0.16,0.15)
