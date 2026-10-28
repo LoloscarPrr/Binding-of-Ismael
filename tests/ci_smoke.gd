@@ -19,6 +19,7 @@ const SolidRoomObstacle = preload("res://scripts/room_obstacle.gd")
 const GuardianEchoCatalog = preload("res://src/domain/run/guardian_echo_catalog.gd")
 const GuardianEchoElite = preload("res://scripts/guardian_echo_elite.gd")
 const BuildBalance = preload("res://src/domain/items/build_balance.gd")
+const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 const SecretRunCatalog = preload("res://src/domain/run/secret_run_catalog.gd")
 
 var _errors: Array[String] = []
@@ -35,6 +36,7 @@ func _assert(condition: bool, message: String) -> void:
 
 func _run_tests() -> void:
 	_test_item_definitions()
+	_test_visual_art_phase12()
 	_test_build_balance()
 	_test_floor_rosters()
 	_test_metaprogression()
@@ -67,6 +69,25 @@ func _test_item_definitions() -> void:
 		_assert(ids.has(id),"Falta reliquia meta: " + id)
 	var synergy: Dictionary = ItemCatalog.synergy_definition("eco_sangrante")
 	_assert(not synergy.is_empty(),"Se perdió sinergia Eco Sangrante")
+
+func _test_visual_art_phase12() -> void:
+	# El arte debe importarse como Texture2D en Godot Android; los
+	# archivos SVG de origen permanecen editables en el repositorio.
+	var idle: Texture2D = VisualSprites.player_texture(false,0.0)
+	var walking_a: Texture2D = VisualSprites.player_texture(true,0.0)
+	var walking_b: Texture2D = VisualSprites.player_texture(true,0.20)
+	_assert(idle != null and idle.get_width() >= 64,"Ismael no importa como textura")
+	_assert(walking_a != null and walking_b != null,"Faltan cuadros de marcha de Ismael")
+	_assert(walking_a != walking_b,"Los cuadros de animación no cambian")
+	_assert(VisualSprites.player_draw_rect().size.x >= 70,"Ismael se dibuja muy pequeño")
+	for kind_id in ["chaser","dasher","orbiter","brute","spitter","stalker"]:
+		var enemy_art: Texture2D = VisualSprites.enemy_texture(kind_id)
+		_assert(enemy_art != null and enemy_art.get_height() >= 64,"Falta sprite del enemigo %s" % kind_id)
+	for floor_number in range(1,6):
+		var boss_art: Texture2D = VisualSprites.boss_texture(floor_number)
+		_assert(boss_art != null and boss_art.get_width() == 192,"Falta el arte del jefe %d" % floor_number)
+	_assert(VisualSprites.boss_texture(1) != VisualSprites.boss_texture(5),"Los guardianes deben ser visualmente diferentes")
+	_assert(VisualSprites.boss_draw_rect().size.x >= 130,"Los guardianes deben leerse mejor que enemigos básicos")
 
 func _test_build_balance() -> void:
 	var normal := BuildBalance.effective_fire_interval(0.18,1,1,0)
