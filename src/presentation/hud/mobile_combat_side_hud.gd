@@ -33,60 +33,75 @@ func _draw() -> void:
 	_draw_resources(left_panel)
 	_draw_stats(right_panel)
 
+# En las puertas laterales se conserva una franja completamente vacía.
+# Sin fondos opacos ni marcos cruzando el umbral del cuarto.
+func _door_clearance() -> float:
+	return clampf(combat_rect.size.y*0.15,48.0,68.0)
+
+func _door_upper_edge() -> float:
+	return combat_rect.get_center().y-_door_clearance()
+
+func _door_lower_edge() -> float:
+	return combat_rect.get_center().y+_door_clearance()
+
 func _draw_panel(rect: Rect2, accent: Color) -> void:
-	draw_rect(rect,Color(0.014,0.013,0.012,0.68))
-	draw_rect(rect,accent,false,1.5)
+	var ink := Color(accent.r,accent.g,accent.b,0.38)
+	var upper := minf(_door_upper_edge()-10.0,rect.end.y)
+	var lower := maxf(_door_lower_edge()+10.0,rect.position.y)
+	# El fondo es 100% transparente: solo dos marcas discretas en
+	# los bordes superiores e inferiores del HUD, fuera de las puertas.
+	draw_line(rect.position+Vector2(0,1),Vector2(rect.end.x,rect.position.y+1),ink,1.0)
+	draw_line(Vector2(rect.position.x,upper),Vector2(rect.position.x,rect.position.y),ink,1.0)
+	draw_line(Vector2(rect.end.x,rect.position.y),Vector2(rect.end.x,upper),ink,1.0)
+	draw_line(Vector2(rect.position.x,lower),Vector2(rect.position.x,rect.end.y),ink,1.0)
+	draw_line(Vector2(rect.end.x,lower),Vector2(rect.end.x,rect.end.y),ink,1.0)
+	draw_line(Vector2(rect.position.x,rect.end.y),rect.end,ink,1.0)
 
 func _draw_resources(rect: Rect2) -> void:
 	var width := rect.size.x
 	var font_size := int(clampf(width*0.115,12.0,16.0))
 	var value_size := int(clampf(width*0.155,15.0,21.0))
-	var header_y := rect.position.y+24.0
-	_draw_text("VIDA %d/%d" % [player.health,player.max_health],Vector2(rect.position.x+9.0,header_y),font_size,Color(0.90,0.76,0.66))
+	_draw_text("VIDA %d/%d" % [player.health,player.max_health],Vector2(rect.position.x+9.0,rect.position.y+24.0),font_size,Color(0.94,0.80,0.73))
 
-	var shield_reserved := 48.0 if player.floor_shield_enabled else 14.0
-	var row_gap := clampf(rect.size.y*0.145,56.0,64.0)
-	var last_row_y := rect.end.y-shield_reserved-18.0
-	var first_row_y := last_row_y-row_gap*2.0
-	var hearts_top := rect.position.y+47.0
-	var hearts_bottom := first_row_y-26.0
+	var hearts_top := rect.position.y+54.0
+	var hearts_bottom := minf(_door_upper_edge()-24.0,rect.position.y+174.0)
 	_draw_hearts_fitted(rect,hearts_top,hearts_bottom)
 
-	var inventory := {}
+	var inventory: Dictionary = {}
 	if is_instance_valid(game) and game.has_method("get_run_inventory_snapshot"):
 		inventory = game.call("get_run_inventory_snapshot")
 	var coins := int(inventory.get("coins",0))
 	var bombs := int(inventory.get("bombs",0))
 	var keys := int(inventory.get("keys",0))
-	_draw_resource_row("coin",coins,rect,first_row_y,value_size)
-	_draw_resource_row("bomb",bombs,rect,first_row_y+row_gap,value_size)
-	_draw_resource_row("key",keys,rect,last_row_y,value_size)
-
-	if player.floor_shield_enabled:
-		var shield_y := rect.end.y-25.0
-		_draw_text("ESC",Vector2(rect.position.x+8.0,shield_y+5.0),maxi(10,font_size-2),Color(0.66,0.75,0.79))
-		_draw_shield_icon(Vector2(rect.end.x-23.0,shield_y),player.floor_shield_charges>0)
+	var first_y := _door_lower_edge()+24.0
+	var step := clampf((rect.end.y-first_y-20.0)/2.0,28.0,43.0)
+	_draw_resource_row("coin",coins,rect,first_y,value_size)
+	_draw_resource_row("bomb",bombs,rect,first_y+step,value_size)
+	_draw_resource_row("key",keys,rect,first_y+step*2.0,value_size)
 
 func _draw_hearts_fitted(rect: Rect2, top_y: float, bottom_y: float) -> void:
 	var columns := 2 if rect.size.x < 108.0 else 3
-	var gap_x := minf(35.0,(rect.size.x-22.0)/float(columns))
+	var gap_x := minf(34.0,(rect.size.x-22.0)/float(columns))
 	var start_x := rect.get_center().x-gap_x*float(columns-1)*0.5
-	var available_h := maxf(24.0,bottom_y-top_y)
-	var min_gap_y := 21.0
-	var max_rows := maxi(1,int(floor(available_h/min_gap_y))+1)
+	var available_h := maxf(18.0,bottom_y-top_y)
+	var max_rows := maxi(1,int(floor(available_h/23.0))+1)
+	var shield_slots := mini(2,maxi(0,player.floor_shield_charges))
 	var capacity := maxi(columns,columns*max_rows)
-	var visible_count := mini(player.max_health,capacity)
-	var rows := maxi(1,int(ceil(float(visible_count)/float(columns))))
-	var gap_y := minf(27.0,available_h/float(maxi(1,rows-1))) if rows>1 else 0.0
-	var scale_from_y := gap_y/28.0 if rows>1 else 0.78
-	var heart_scale := clampf(minf(gap_x/38.0,scale_from_y),0.48,0.78)
-	for i in range(visible_count):
+	var visible_red := mini(player.max_health,maxi(0,capacity-shield_slots))
+	var count := visible_red+shield_slots
+	var rows := maxi(1,int(ceil(float(count)/float(columns))))
+	var gap_y := minf(26.0,available_h/float(maxi(1,rows-1))) if rows>1 else 0.0
+	var heart_scale := clampf(minf(gap_x/38.0,gap_y/28.0 if rows>1 else 0.78),0.45,0.77)
+	for i in range(count):
 		var col := i%columns
 		var row := i/columns
 		var p := Vector2(start_x+col*gap_x,top_y+float(row)*gap_y)
-		_draw_heart_scaled(p,i<player.health,heart_scale)
-	if player.max_health>visible_count:
-		_draw_text("+%d" % (player.max_health-visible_count),Vector2(rect.position.x+9.0,bottom_y+16.0),11,Color(0.80,0.66,0.60))
+		if i < visible_red:
+			_draw_heart_scaled(p,i<player.health,heart_scale)
+		else:
+			_draw_temporary_heart(p,heart_scale)
+	if player.max_health>visible_red:
+		_draw_text("+%d" % (player.max_health-visible_red),Vector2(rect.position.x+9.0,bottom_y+15.0),10,Color(0.87,0.68,0.63))
 
 func _draw_heart_scaled(p: Vector2, filled: bool, scale: float) -> void:
 	var c := Color(0.78,0.06,0.08) if filled else Color(0.18,0.09,0.09)
@@ -102,6 +117,20 @@ func _draw_heart_scaled(p: Vector2, filled: bool, scale: float) -> void:
 	]),c)
 	draw_arc(p+Vector2(0,scale),16.0*scale,0.0,TAU,20,edge,maxf(1.0,1.4*scale))
 
+# La protección es salud temporal AZUL, no una armadura dibujada
+# alrededor del jugador. Su consumo no reduce los corazones rojos.
+func _draw_temporary_heart(p: Vector2, scale: float) -> void:
+	var fill := Color(0.18,0.62,0.96,0.98)
+	var lobe := 7.5*scale
+	draw_circle(p+Vector2(-6.5*scale,-2.5*scale),lobe,fill)
+	draw_circle(p+Vector2(6.5*scale,-2.5*scale),lobe,fill)
+	draw_colored_polygon(PackedVector2Array([
+		p+Vector2(-13.0*scale,0.0),p+Vector2(13.0*scale,0.0),
+		p+Vector2(0.0,15.0*scale)
+	]),fill)
+	draw_arc(p+Vector2(0,scale),16.0*scale,0.0,TAU,20,Color(0.75,0.95,1.0,0.94),1.6)
+	draw_circle(p+Vector2(-4.5*scale,-4.0*scale),2.7*scale,Color(0.95,0.99,1.0,0.92))
+
 func _draw_resource_row(kind: String, value: int, rect: Rect2, y: float, font_size: int) -> void:
 	var icon_pos := Vector2(rect.position.x+23.0,y)
 	match kind:
@@ -114,7 +143,7 @@ func _draw_stats(rect: Rect2) -> void:
 	var width := rect.size.x
 	var font_size := int(clampf(width*0.112,12.0,16.0))
 	var value_size := int(clampf(width*0.145,15.0,20.0))
-	_draw_text("STATS",Vector2(rect.position.x+9.0,rect.position.y+24.0),font_size,Color(0.70,0.80,0.80))
+	_draw_text("STATS",Vector2(rect.position.x+9.0,rect.position.y+24.0),font_size,Color(0.79,0.91,0.90))
 
 	var damage_display := float(player.projectile_damage)*3.50
 	var tears_display := 1.0/maxf(player.fire_rate,0.01)
@@ -122,31 +151,26 @@ func _draw_stats(rect: Rect2) -> void:
 	var move_display := player.move_speed/280.0
 	var range_display := 6.50*(player.projectile_speed/760.0)
 	var rows := [
-		["damage",damage_display],
-		["tears",tears_display],
-		["shot",shot_display],
-		["move",move_display],
-		["range",range_display]
+		["damage",damage_display],["tears",tears_display],
+		["shot",shot_display],["move",move_display],["range",range_display]
 	]
-
+	# Dos parámetros arriba, tres abajo; el área central de la
+	# puerta lateral permanece libre de textos e iconos.
+	var upper_step := clampf((_door_upper_edge()-rect.position.y-89.0)*0.68,31.0,41.0)
+	for i in range(2):
+		var entry = rows[i]
+		_draw_stat_row(String(entry[0]),float(entry[1]),rect,rect.position.y+69.0+float(i)*upper_step,value_size)
+	var first_lower := _door_lower_edge()+22.0
+	var lower_step := clampf((rect.end.y-first_lower-24.0)/2.0,29.0,42.0)
+	for i in range(2,rows.size()):
+		var entry = rows[i]
+		_draw_stat_row(String(entry[0]),float(entry[1]),rect,first_lower+float(i-2)*lower_step,value_size)
 	var passive_entries := _passive_entries()
-	var passive_reserved := 14.0
 	if not passive_entries.is_empty():
-		passive_reserved = 31.0+float(passive_entries.size())*18.0
-	var first_y := rect.position.y+65.0
-	var last_y := rect.end.y-passive_reserved-22.0
-	var row_gap := clampf((last_y-first_y)/4.0,54.0,66.0)
-	for i in range(rows.size()):
-		var row = rows[i]
-		_draw_stat_row(String(row[0]),float(row[1]),rect,first_y+row_gap*float(i),value_size)
-
-	if not passive_entries.is_empty():
-		var passive_y := rect.end.y-passive_reserved+13.0
-		_draw_text("BUILD",Vector2(rect.position.x+9.0,passive_y),maxi(10,font_size-2),Color(0.72,0.76,0.70))
-		passive_y += 18.0
-		for entry in passive_entries:
-			_draw_text(String(entry[0]),Vector2(rect.position.x+10.0,passive_y),maxi(10,font_size-3),entry[1])
-			passive_y += 18.0
+		var line := String(passive_entries[0][0])
+		if line.length() > 23:
+			line = line.substr(0,21)+"…"
+		_draw_text(line,Vector2(rect.position.x+9.0,rect.position.y+42.0),maxi(10,font_size-3),Color(0.90,0.77,0.47))
 
 func _passive_entries() -> Array:
 	var entries: Array = []
