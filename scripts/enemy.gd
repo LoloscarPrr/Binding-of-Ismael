@@ -5,6 +5,7 @@ const CombatBurst = preload("res://scripts/combat_burst.gd")
 const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
 const MotionTrail = preload("res://scripts/motion_trail.gd")
 const ObstacleNavigator = preload("res://scripts/enemy_obstacle_navigator.gd")
+const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 
 signal defeated(enemy)
 signal health_changed(current: int, maximum: int)
@@ -408,15 +409,24 @@ func _draw() -> void:
 	var flash := _hit_flash > 0.0
 	match kind:
 		EnemyKind.CHASER:
-			_draw_chaser(flash)
+			_draw_illustrated_enemy("chaser",flash)
 		EnemyKind.DASHER:
-			_draw_dasher(flash)
+			_draw_illustrated_enemy("dasher",flash)
 		EnemyKind.ORBITER:
-			_draw_orbiter(flash)
+			_draw_illustrated_enemy("orbiter",flash)
 		EnemyKind.BOSS:
 			_draw_boss(flash)
 	_draw_attack_telegraph()
 	_draw_reaction_sparks()
+
+func _draw_illustrated_enemy(kind_id: String, flash: bool) -> void:
+	var motion := clampf(velocity.length()/maxf(speed,1.0),0.0,1.3)
+	var bob := sin(_age*(4.1+motion*2.2))*1.8
+	draw_ellipse(Vector2(0,23),Vector2(25,7),Color(0.02,0.014,0.02,0.33))
+	draw_set_transform(Vector2(0,bob),0.0,Vector2.ONE)
+	var tint := Color(1.0,0.88,0.83,0.98) if flash else Color.WHITE
+	draw_texture_rect(VisualSprites.enemy_texture(kind_id),VisualSprites.enemy_draw_rect(kind_id),false,tint)
+	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 # Sombras, pulso y golpes comparten la misma capa en TODOS los arquetipos.
 func _draw_presence_aura() -> void:
