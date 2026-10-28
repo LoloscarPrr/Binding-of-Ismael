@@ -84,7 +84,7 @@ func _test_visual_art_phase12() -> void:
 	_assert(walking_a != null and walking_b != null,"Faltan cuadros de marcha de Ismael")
 	_assert(walking_a != walking_b,"Los cuadros de animación no cambian")
 	_assert(VisualSprites.player_draw_rect().size.x >= 70,"Ismael se dibuja muy pequeño")
-	for kind_id in ["chaser","dasher","orbiter","brute","spitter","stalker"]:
+	for kind_id in ["chaser","dasher","orbiter","brute","spitter","stalker","flyer","turret","leaper"]:
 		var enemy_art: Texture2D = VisualSprites.enemy_texture(kind_id)
 		_assert(enemy_art != null and enemy_art.get_height() >= 64,"Falta sprite del enemigo %s" % kind_id)
 	for floor_number in range(1,6):
