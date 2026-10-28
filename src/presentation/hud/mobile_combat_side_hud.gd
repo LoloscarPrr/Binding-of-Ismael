@@ -2,6 +2,27 @@ extends "res://scripts/combat_side_hud.gd"
 
 # Presentation-only HUD for the Mobile Combat Frame.
 # Reads run/player state and never mutates gameplay.
+var _refresh_clock := 0.0
+
+func configure(game_ref: Node, player_ref: IsmaelPlayer) -> void:
+	super.configure(game_ref,player_ref)
+	if not player_ref.health_changed.is_connected(_on_vitals_changed):
+		player_ref.health_changed.connect(_on_vitals_changed)
+	if not player_ref.temporary_hearts_changed.is_connected(_on_temporary_hearts_changed):
+		player_ref.temporary_hearts_changed.connect(_on_temporary_hearts_changed)
+
+func _on_vitals_changed(_current: int,_maximum: int) -> void:
+	queue_redraw()
+
+func _on_temporary_hearts_changed(_charges: int) -> void:
+	queue_redraw()
+
+func _process(delta: float) -> void:
+	_age += delta
+	_refresh_clock -= delta
+	if _refresh_clock <= 0.0:
+		_refresh_clock = 0.075
+		queue_redraw()
 
 func set_layout(rect: Rect2, screen_size: Vector2) -> void:
 	combat_rect = rect
@@ -156,7 +177,7 @@ func _draw_stats(rect: Rect2) -> void:
 	]
 	# Dos parámetros arriba, tres abajo; el área central de la
 	# puerta lateral permanece libre de textos e iconos.
-	var upper_step := clampf((_door_upper_edge()-rect.position.y-89.0)*0.68,31.0,41.0)
+	var upper_step := clampf(_door_upper_edge()-rect.position.y-104.0,27.0,39.0)
 	for i in range(2):
 		var entry = rows[i]
 		_draw_stat_row(String(entry[0]),float(entry[1]),rect,rect.position.y+69.0+float(i)*upper_step,value_size)
