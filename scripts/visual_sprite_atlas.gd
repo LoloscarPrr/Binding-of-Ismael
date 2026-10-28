@@ -1,26 +1,22 @@
 extends RefCounted
 class_name IsmaelVisualSpriteAtlas
 
-# SVG originales conservados como fuentes editables.
-# Godot 4.3 exporta los SVG como archivos raw y los rasteriza UNA VEZ
-# mediante Image.load_svg_from_buffer; luego ImageTexture queda cacheada.
-# Evita preloads de SVG dependientes del importador en Android headless.
+# SVG originales conservados como fuentes editables en GitHub.
+# Godot 4.3 los importa a .ctex y ResourceLoader abre la textura exportada.
+# Se almacena una referencia por personaje para evitar recargas en Android.
 static var _textures: Dictionary = {}
 
 static func _texture(file_stem: String) -> Texture2D:
 	if _textures.has(file_stem):
 		return _textures[file_stem] as Texture2D
 	var file_path := "res://assets/art/phase12/%s.svg" % file_stem
-	var bytes := FileAccess.get_file_as_bytes(file_path)
-	if bytes.is_empty():
-		push_error("Arte Fase 12 no incluido en APK: " + file_path)
+	if not ResourceLoader.exists(file_path):
+		push_error("Falta textura importada de Fase 12: " + file_path)
 		return null
-	var raster := Image.new()
-	var error_code := raster.load_svg_from_buffer(bytes,1.0)
-	if error_code != OK:
-		push_error("No se pudo rasterizar " + file_path + ": " + str(error_code))
+	var bitmap := ResourceLoader.load(file_path) as Texture2D
+	if bitmap == null:
+		push_error("La ilustración no se cargó como Texture2D: " + file_path)
 		return null
-	var bitmap := ImageTexture.create_from_image(raster)
 	_textures[file_stem] = bitmap
 	return bitmap
 
