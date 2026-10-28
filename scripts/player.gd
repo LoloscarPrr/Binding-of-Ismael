@@ -2,6 +2,7 @@ extends CharacterBody2D
 class_name IsmaelPlayer
 
 signal health_changed(current: int, maximum: int)
+signal temporary_hearts_changed(charges: int)
 signal died
 
 const PlayerState = preload("res://src/domain/player/player_state.gd")
@@ -217,6 +218,7 @@ func take_damage(amount: int) -> void:
 	if _state.consume_floor_shield():
 		_sync_runtime_from_domain()
 		_invulnerability = minf(invulnerability_time,0.40)
+		temporary_hearts_changed.emit(floor_shield_charges)
 		queue_redraw()
 		return
 	if not _state.take_damage(amount):
@@ -260,6 +262,7 @@ func refill_floor_shield() -> void:
 	sync_domain_state_from_runtime()
 	if _state.refill_floor_shield():
 		_sync_runtime_from_domain()
+		temporary_hearts_changed.emit(floor_shield_charges)
 		queue_redraw()
 
 func reset_health() -> void:
@@ -298,9 +301,8 @@ func _draw() -> void:
 	var tint := Color(1.0,0.88,0.87,0.95) if _invulnerability > 0.0 and int(_invulnerability*12.0)%2==0 else Color.WHITE
 	draw_texture_rect(art,VisualSprites.player_draw_rect(),false,tint)
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
-	if floor_shield_charges>0:
-		draw_arc(Vector2.ZERO,34.0,-PI*0.92,PI*0.92,34,Color(0.78,0.84,0.88,0.72),3.5)
-		draw_circle(Vector2(25,-20),4.2,Color(0.88,0.78,0.48,0.90))
+	# El antiguo anillo de escudo se sustituye por corazones azules
+	# en el HUD lateral. El personaje nunca tapa disparos con el aura.
 	if pose_strength > 0.0:
 		var muzzle := _last_aim.normalized()
 		var glow_position := Vector2(0,-12) + muzzle*31.0
