@@ -1,46 +1,44 @@
 extends RefCounted
 class_name IsmaelVisualSpriteAtlas
 
-# Fase 12.1: arte vectorial propio, importado por Godot como textura.
-# Reemplaza el render corporal; la física, VFX, fases y telegráficos
-# continúan en sus nodos originales.
-const ISMAEL_IDLE = preload("res://assets/art/phase12/ismael_idle.svg")
-const ISMAEL_STEP_A = preload("res://assets/art/phase12/ismael_stride_a.svg")
-const ISMAEL_STEP_B = preload("res://assets/art/phase12/ismael_stride_b.svg")
-const ENEMY_CHASER = preload("res://assets/art/phase12/enemy_chaser.svg")
-const ENEMY_DASHER = preload("res://assets/art/phase12/enemy_dasher.svg")
-const ENEMY_ORBITER = preload("res://assets/art/phase12/enemy_orbiter.svg")
-const ENEMY_BRUTE = preload("res://assets/art/phase12/enemy_brute.svg")
-const ENEMY_SPITTER = preload("res://assets/art/phase12/enemy_spitter.svg")
-const ENEMY_STALKER = preload("res://assets/art/phase12/enemy_stalker.svg")
-const BOSS_CARCELERO = preload("res://assets/art/phase12/boss_carcelero.svg")
-const BOSS_MANDIBULA = preload("res://assets/art/phase12/boss_mandibula.svg")
-const BOSS_VIGIA = preload("res://assets/art/phase12/boss_vigia.svg")
-const BOSS_SEPULTURERO = preload("res://assets/art/phase12/boss_sepulturero.svg")
-const BOSS_HUECO = preload("res://assets/art/phase12/boss_hueco.svg")
+# SVG originales conservados como fuentes editables.
+# Godot 4.3 exporta los SVG como archivos raw y los rasteriza UNA VEZ
+# mediante Image.load_svg_from_buffer; luego ImageTexture queda cacheada.
+# Evita preloads de SVG dependientes del importador en Android headless.
+static var _textures: Dictionary = {}
+
+static func _texture(file_stem: String) -> Texture2D:
+	if _textures.has(file_stem):
+		return _textures[file_stem] as Texture2D
+	var file_path := "res://assets/art/phase12/%s.svg" % file_stem
+	var bytes := FileAccess.get_file_as_bytes(file_path)
+	if bytes.is_empty():
+		push_error("Arte Fase 12 no incluido en APK: " + file_path)
+		return null
+	var raster := Image.new()
+	var error_code := raster.load_svg_from_buffer(bytes,1.0)
+	if error_code != OK:
+		push_error("No se pudo rasterizar " + file_path + ": " + str(error_code))
+		return null
+	var bitmap := ImageTexture.create_from_image(raster)
+	_textures[file_stem] = bitmap
+	return bitmap
 
 static func player_texture(moving: bool, age_seconds: float) -> Texture2D:
 	if not moving:
-		return ISMAEL_IDLE
-	return ISMAEL_STEP_A if posmod(int(age_seconds*8.0),2)==0 else ISMAEL_STEP_B
+		return _texture("ismael_idle")
+	return _texture("ismael_stride_a" if posmod(int(age_seconds*8.0),2)==0 else "ismael_stride_b")
 
 static func enemy_texture(kind_id: String) -> Texture2D:
-	match kind_id:
-		"chaser": return ENEMY_CHASER
-		"dasher": return ENEMY_DASHER
-		"orbiter": return ENEMY_ORBITER
-		"brute": return ENEMY_BRUTE
-		"spitter": return ENEMY_SPITTER
-		"stalker": return ENEMY_STALKER
-	return ENEMY_CHASER
+	var id := kind_id if kind_id in ["chaser","dasher","orbiter","brute","spitter","stalker"] else "chaser"
+	return _texture("enemy_"+id)
 
 static func boss_texture(floor_index: int) -> Texture2D:
-	match clampi(floor_index,1,5):
-		1: return BOSS_CARCELERO
-		2: return BOSS_MANDIBULA
-		3: return BOSS_VIGIA
-		4: return BOSS_SEPULTURERO
-		_: return BOSS_HUECO
+	var titles: Array[String] = ["carcelero","mandibula","vigia","sepulturero","hueco"]
+	return _texture("boss_"+titles[clampi(floor_index,1,5)-1])
+
+static func cached_texture_count() -> int:
+	return _textures.size()
 
 static func player_draw_rect() -> Rect2:
 	return Rect2(-43.0,-49.0,86.0,86.0)
