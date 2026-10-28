@@ -6,6 +6,7 @@ signal died
 
 const PlayerState = preload("res://src/domain/player/player_state.gd")
 const MotionTrail = preload("res://scripts/motion_trail.gd")
+const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 const BuildBalance = preload("res://src/domain/items/build_balance.gd")
 const BODY_RADIUS := 28.0
 
@@ -291,53 +292,11 @@ func _draw() -> void:
 	)
 	visual_offset += -_last_aim*(3.0*damage_strength)
 	draw_set_transform(visual_offset,lean+_last_aim.x*0.035*pose_strength,pose_scale)
-	var skin := Color(0.82,0.69,0.61)
-	var skin_shadow := Color(0.60,0.44,0.38)
-	var outline := Color(0.09,0.065,0.058)
-	var shirt := Color(0.46,0.38,0.35)
-	if _invulnerability>0.0 and int(_invulnerability*12.0)%2==0:
-		skin = Color(1.0,0.86,0.86)
-	# Piernas, brazos y torso responden a la zancada y al disparo.
-	var left_step := stride*5.5
-	var right_step := -stride*5.5
-	draw_ellipse(Vector2(0,25),Vector2(26,8),Color(0.02,0.018,0.016,0.33))
-	draw_line(Vector2(-8,7),Vector2(-9+left_step,21),outline,12.0)
-	draw_line(Vector2(8,7),Vector2(9+right_step,21),outline,12.0)
-	draw_ellipse(Vector2(-9+left_step,22),Vector2(7.0,9.2),skin_shadow)
-	draw_ellipse(Vector2(9+right_step,22),Vector2(7.0,9.2),skin_shadow)
-	draw_ellipse(Vector2(0,6),Vector2(18,18),outline)
-	draw_ellipse(Vector2(0,5),Vector2(15.5,15.5),shirt)
-	var left_hand := Vector2(-25.0-stride*2.2,-1.0+stride*7.0)
-	var right_hand := Vector2(25.0+stride*2.2,-1.0-stride*7.0)
-	if pose_strength > 0.0:
-		left_hand += _last_aim*pose_strength*7.0
-		right_hand += _last_aim*pose_strength*11.0
-	draw_line(Vector2(-15,-9),left_hand,outline,11.0)
-	draw_line(Vector2(15,-9),right_hand,outline,11.0)
-	draw_line(Vector2(-15,-9),left_hand,skin_shadow,7.0)
-	draw_line(Vector2(15,-9),right_hand,skin_shadow,7.0)
-	draw_circle(left_hand,6.8,outline)
-	draw_circle(right_hand,6.8,outline)
-	draw_circle(left_hand,5.1,skin)
-	draw_circle(right_hand,5.1,skin)
-	draw_ellipse(Vector2(0,-14),Vector2(24,22),outline)
-	draw_ellipse(Vector2(0,-15),Vector2(21,19.5),skin)
-	draw_arc(Vector2(0,-30),14.0,0.36,PI-0.36,18,Color(0.96,0.83,0.72,0.28),2.0)
-	draw_arc(Vector2(0,-13),18.0,0.18,PI-0.18,24,Color(0.47,0.32,0.29,0.22),3.0)
-	var look := _last_aim.limit_length(1.0)*2.8
-	var left_eye := Vector2(-8,-18)+look
-	var right_eye := Vector2(8,-18)+look
-	var blinking := sin(_anim_time*0.91)+sin(_anim_time*0.37+0.8)>1.965
-	var eye_height := 1.0 if blinking else 5.4
-	draw_ellipse(left_eye,Vector2(4.6,eye_height),Color(0.025,0.025,0.026))
-	draw_ellipse(right_eye,Vector2(4.6,eye_height),Color(0.025,0.025,0.026))
-	if not blinking:
-		draw_circle(left_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
-		draw_circle(right_eye+Vector2(-1.2,-1.8),1.5,Color(0.74,0.83,0.88))
-	draw_ellipse(Vector2(-8,-9)+look*0.25,Vector2(2.0,5.5),Color(0.34,0.65,0.84,0.68))
-	draw_ellipse(Vector2(8,-9)+look*0.25,Vector2(2.0,5.5),Color(0.34,0.65,0.84,0.68))
-	var mouth_size := Vector2(5.5,3.2+pose_strength*2.4)
-	draw_ellipse(Vector2(0,-3),mouth_size,Color(0.20,0.07,0.075))
+	# Arte original importado como textura, no formas provisionales.
+	# Las tres poses siguen la zancada y se transforman con el retroceso.
+	var art := VisualSprites.player_texture(moving_strength>0.20,_anim_time)
+	var tint := Color(1.0,0.88,0.87,0.95) if _invulnerability > 0.0 and int(_invulnerability*12.0)%2==0 else Color.WHITE
+	draw_texture_rect(art,VisualSprites.player_draw_rect(),false,tint)
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 	if floor_shield_charges>0:
 		draw_arc(Vector2.ZERO,34.0,-PI*0.92,PI*0.92,34,Color(0.78,0.84,0.88,0.72),3.5)
