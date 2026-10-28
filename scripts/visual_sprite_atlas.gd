@@ -26,7 +26,7 @@ static func player_texture(moving: bool, age_seconds: float) -> Texture2D:
 	return _texture("ismael_stride_a" if posmod(int(age_seconds*8.0),2)==0 else "ismael_stride_b")
 
 static func enemy_texture(kind_id: String) -> Texture2D:
-	var id := kind_id if kind_id in ["chaser","dasher","orbiter","brute","spitter","stalker"] else "chaser"
+	var id := kind_id if kind_id in ["chaser","dasher","orbiter","brute","spitter","stalker","flyer","turret","leaper"] else "chaser"
 	return _texture("enemy_"+id)
 
 static func boss_texture(floor_index: int) -> Texture2D:
