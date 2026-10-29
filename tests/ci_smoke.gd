@@ -23,6 +23,9 @@ const VisualSprites = preload("res://scripts/visual_sprite_atlas.gd")
 const SecretRunCatalog = preload("res://src/domain/run/secret_run_catalog.gd")
 const MobileSideHud = preload("res://src/presentation/hud/mobile_combat_side_hud.gd")
 const PlayerProjectile = preload("res://scripts/projectile.gd")
+const DungeonMap = preload("res://scripts/dungeon_map.gd")
+const RoomMinimap = preload("res://scripts/isaac_style_minimap.gd")
+const MobileController = preload("res://src/presentation/game/mobile_main_controller.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -41,6 +44,7 @@ func _run_tests() -> void:
 	_test_visual_art_phase12()
 	_test_transparent_hud_and_blue_hearts()
 	_test_projectile_readability()
+	_test_graphical_minimap()
 	_test_build_balance()
 	_test_floor_rosters()
 	_test_metaprogression()
@@ -127,6 +131,56 @@ func _test_projectile_readability() -> void:
 	_assert(PlayerProjectile.combat_clarity_factor(140) >= 0.35,"Demasiado apagadas las lágrimas al final")
 	_assert(PlayerProjectile.combat_clarity_factor(140) < 0.50,"Las estelas de builds extremas siguen saturando")
 	_assert(PlayerProjectile.combat_clarity_factor(160) >= 0.35,"El factor de claridad llegó a cero")
+
+func _test_graphical_minimap() -> void:
+	# Descubrimiento de salas: habitaciones secretas siguen ocultas
+	# aunque existan realmente en la estructura procedural.
+	var map = DungeonMap.new()
+	map.generate(3)
+	var first: Array[Vector2i] = RoomMinimap.visible_cells(map)
+	_assert(first.size() >= 1,"El minimapa no muestra el punto de partida")
+	_assert(first.has(Vector2i.ZERO),"La sala actual no aparece en el minimapa")
+	for cell in first:
+		_assert(map.is_discovered(cell),"El mapa revela habitaciones no descubiertas")
+		_assert(not map.is_hidden(cell),"Se filtró una sala secreta al empezar")
+	var hidden: Array[Vector2i] = []
+	for cell in map.rooms.keys():
+		if map.is_hidden(cell):
+			hidden.append(cell)
+			_assert(not first.has(cell),"El mapa hizo visible un secreto antes de tiempo")
+	_assert(hidden.size() >= 2,"La prueba no generó las dos habitaciones secretas")
+	map.reveal(hidden[0])
+	var after_reveal: Array[Vector2i] = RoomMinimap.visible_cells(map)
+	_assert(after_reveal.has(hidden[0]),"Una sala secreta descubierta sigue invisible")
+	_assert(not after_reveal.has(hidden[1]),"Revelar una secreta desvela la otra")
+	map.reveal_public_rooms()
+	var full: Array[Vector2i] = RoomMinimap.visible_cells(map)
+	_assert(full.size() >= map.public_room_count()+1,"Un mapa revelador no muestra el piso")
+	_assert(not full.has(hidden[1]),"El mapa revelador desveló la supersecreta")
+	var links := 0
+	for cell in full:
+		for step in [Vector2i.RIGHT,Vector2i.DOWN]:
+			if RoomMinimap.connection_exists(map,cell,cell+step):
+				links += 1
+				_assert(full.has(cell+step),"Hay un pasillo hacia una habitación oculta")
+	_assert(links > 5,"La geometría del mapa no conecta las salas")
+	_assert(RoomMinimap.room_icon("jefe") == "boss","Falta marcador de jefe")
+	_assert(RoomMinimap.room_icon("tienda") == "shop","Falta marcador de tienda")
+	_assert(RoomMinimap.room_icon("recompensa") == "treasure","Falta marcador de tesoro")
+	_assert(RoomMinimap.room_icon("secreta") == "secret","Falta marcador de secretos")
+	_assert(RoomMinimap.room_icon("eco_guardian") == "challenge","Falta marcador de Eco")
+	var widget = RoomMinimap.new()
+	widget.size = Vector2(230,110)
+	widget.show_map(map,Vector2i.ZERO)
+	_assert(not widget.expanded,"El minimapa inicia abierto y tapa la pantalla")
+	widget.set_expanded(true)
+	_assert(widget.expanded,"El toque no expande el mapa")
+	widget.set_expanded(false)
+	_assert(not widget.expanded,"El toque no cierra el mapa")
+	widget.free()
+	var ui = MobileController.new()
+	_assert(ui != null,"El HUD móvil no puede cargar el nuevo minimapa")
+	ui.free()
 
 func _test_build_balance() -> void:
 	var normal := BuildBalance.effective_fire_interval(0.18,1,1,0)
