@@ -19,15 +19,21 @@ var dungeon: IsmaelDungeonMap
 var current_cell := Vector2i.ZERO
 var expanded := false
 var _flash_age := 0.0
+var _draw_elapsed := 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Imprescindible en vista compacta: jamás dibujar salas fuera
+	# del minimapa, sobre textos, puertas o botones superiores.
+	clip_contents = true
 	set_process(true)
 
 func _process(delta: float) -> void:
 	_flash_age += delta
-	# Only the selected-room outline animates; the geometry is tiny.
-	if expanded:
+	_draw_elapsed += delta
+	# Mapa estático en compacto; pulso expandido a 15 Hz.
+	if expanded and _draw_elapsed >= 1.0/15.0:
+		_draw_elapsed = 0.0
 		queue_redraw()
 
 func show_map(map_ref: IsmaelDungeonMap, player_cell: Vector2i) -> void:
