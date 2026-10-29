@@ -9,6 +9,7 @@ const BuildBalance = preload("res://src/domain/items/build_balance.gd")
 const ControlLayoutRepository = preload("res://src/infrastructure/persistence/control_layout_repository.gd")
 const ItemAssetView = preload("res://src/presentation/items/item_asset_view.gd")
 const MobileCombatSideHud = preload("res://src/presentation/hud/mobile_combat_side_hud.gd")
+const MinimapDisplay = preload("res://scripts/isaac_style_minimap.gd")
 
 var _clean_inventory = RunInventory.new()
 var _economy_service = EconomyService.new(_clean_inventory)
@@ -16,10 +17,16 @@ var _reward_service = RewardService.new()
 var _build_state = BuildState.new()
 var _control_layout_repository = ControlLayoutRepository.new()
 var hud_top_map_card: Panel
+var isaac_minimap: IsmaelIsaacStyleMinimap
 
 func _create_touch_ui() -> void:
 	super._create_touch_ui()
 	var layer := hud_backdrop.get_parent()
+	if not is_instance_valid(isaac_minimap):
+		isaac_minimap = MinimapDisplay.new()
+		isaac_minimap.name = "IsaacRoomMinimap"
+		isaac_minimap.z_index = 3
+		layer.add_child(isaac_minimap)
 	if not is_instance_valid(hud_top_map_card):
 		hud_top_map_card = Panel.new()
 		hud_top_map_card.name = "HudTopMapCard"
@@ -41,9 +48,11 @@ func _polish_hud() -> void:
 	if is_instance_valid(hud_right_card):
 		hud_right_card.visible = false
 	if is_instance_valid(hud_top_map_card):
-		hud_top_map_card.visible = not _run_complete
-		hud_top_map_card.add_theme_stylebox_override("panel",_top_map_style())
-		hud_top_map_card.modulate.a = 0.96 if _minimap_expanded else 0.46
+		hud_top_map_card.visible = false
+	if is_instance_valid(isaac_minimap):
+		isaac_minimap.visible = not _run_complete
+	if is_instance_valid(minimap_label):
+		minimap_label.visible = false
 	if is_instance_valid(minimap_label):
 		minimap_label.modulate.a = 1.0 if _minimap_expanded else 0.54
 	if is_instance_valid(hud_center_card):
@@ -175,33 +184,32 @@ func _layout_touch_ui() -> void:
 	var button_w := 152.0
 	var button_h := 36.0
 	var button_x := screen_size.x-button_w-14.0
-	var compact_map_w := clampf(room_rect.size.x*0.38,300.0,420.0)
-	var compact_map_h := clampf(screen_size.y*0.075,52.0,58.0)
+	var compact_map_w := clampf(screen_size.x*0.165,202.0,250.0)
+	var compact_map_h := clampf(screen_size.y*0.16,94.0,116.0)
 	var compact_map_x := room_rect.end.x-compact_map_w
 
 	var map_w := compact_map_w
 	var map_h := compact_map_h
 	var map_x := compact_map_x
 	if _minimap_expanded:
-		map_w = clampf(screen_size.x*0.46,500.0,720.0)
-		map_w = minf(map_w,maxf(300.0,room_rect.size.x*0.78))
-		map_h = clampf(screen_size.y*0.30,210.0,285.0)
+		map_w = clampf(screen_size.x*0.31,365.0,460.0)
+		map_h = clampf(screen_size.y*0.36,218.0,265.0)
 		map_x = room_rect.end.x-map_w
 	map_x = minf(map_x,button_x-map_w-12.0)
 	map_x = maxf(12.0,map_x)
 
+	# El panel ASCII antiguo deja de existir visualmente.
+	# El mapa propio no recibe toques: se mantienen los controles existentes.
 	hud_top_map_card.position = Vector2(map_x,top_y)
 	hud_top_map_card.size = Vector2(map_w,map_h)
-	hud_top_map_card.visible = not _run_complete
-	hud_top_map_card.modulate.a = 0.96 if _minimap_expanded else 0.46
-
-	minimap_label.position = hud_top_map_card.position+Vector2(8.0,5.0)
-	minimap_label.size = hud_top_map_card.size-Vector2(16.0,10.0)
-	minimap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	minimap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	minimap_label.add_theme_font_size_override("font_size",17 if _minimap_expanded else 10)
-	minimap_label.modulate.a = 1.0 if _minimap_expanded else 0.54
-	minimap_label.z_index = 3
+	hud_top_map_card.visible = false
+	minimap_label.visible = false
+	if is_instance_valid(isaac_minimap):
+		isaac_minimap.position = Vector2(map_x,top_y)
+		isaac_minimap.size = Vector2(map_w,map_h)
+		isaac_minimap.set_expanded(_minimap_expanded)
+		isaac_minimap.visible = not _run_complete
+		isaac_minimap.queue_redraw()
 
 	if is_instance_valid(minimap_touch_zone):
 		minimap_touch_zone.position = hud_top_map_card.position
@@ -239,6 +247,17 @@ func _apply_completion_ui() -> void:
 	super._apply_completion_ui()
 	if is_instance_valid(hud_top_map_card):
 		hud_top_map_card.visible = false
+	if is_instance_valid(isaac_minimap):
+		isaac_minimap.visible = false
+
+func _update_minimap() -> void:
+	# Sin ASCII: se actualiza el dibujo al visitar, revelar, recoger mapa
+	# o pasar de piso. No se muestran habitaciones aún ocultas.
+	if is_instance_valid(minimap_label):
+		minimap_label.text = ""
+		minimap_label.visible = false
+	if is_instance_valid(isaac_minimap) and _dungeon != null:
+		isaac_minimap.show_map(_dungeon,_current_cell)
 
 func _make_reward_choices() -> Array[String]:
 	var snapshot := _build_state.snapshot()
