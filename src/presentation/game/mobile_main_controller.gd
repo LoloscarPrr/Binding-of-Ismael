@@ -178,70 +178,65 @@ func _layout_touch_ui() -> void:
 	room_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	floor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	# Top strip: contextual text on the left/center, horizontal minimap on the
-	# upper-right edge of the combat frame, and MOVER CONTROLES in the outer gutter.
-	var top_y := 6.0
-	var button_w := 152.0
-	var button_h := 36.0
-	var button_x := screen_size.x-button_w-14.0
-	var compact_map_w := clampf(screen_size.x*0.165,202.0,250.0)
-	var compact_map_h := clampf(screen_size.y*0.16,94.0,116.0)
-	var compact_map_x := room_rect.end.x-compact_map_w
-
-	var map_w := compact_map_w
-	var map_h := compact_map_h
-	var map_x := compact_map_x
-	if _minimap_expanded:
-		map_w = clampf(screen_size.x*0.31,365.0,460.0)
-		map_h = clampf(screen_size.y*0.36,218.0,265.0)
-		map_x = room_rect.end.x-map_w
-	map_x = minf(map_x,button_x-map_w-12.0)
-	map_x = maxf(12.0,map_x)
-
-	# El panel ASCII antiguo deja de existir visualmente.
-	# El mapa propio no recibe toques: se mantienen los controles existentes.
-	hud_top_map_card.position = Vector2(map_x,top_y)
-	hud_top_map_card.size = Vector2(map_w,map_h)
-	hud_top_map_card.visible = false
-	minimap_label.visible = false
-	if is_instance_valid(isaac_minimap):
-		isaac_minimap.position = Vector2(map_x,top_y)
-		isaac_minimap.size = Vector2(map_w,map_h)
-		isaac_minimap.set_expanded(_minimap_expanded)
-		isaac_minimap.visible = not _run_complete
-		isaac_minimap.queue_redraw()
-
-	if is_instance_valid(minimap_touch_zone):
-		minimap_touch_zone.position = hud_top_map_card.position
-		minimap_touch_zone.size = hud_top_map_card.size
-		minimap_touch_zone.tooltip_text = "Cerrar mapa" if _minimap_expanded else "Expandir mapa"
-		minimap_touch_zone.z_index = 6
-
-	if is_instance_valid(control_edit_button):
-		control_edit_button.size = Vector2(button_w,button_h)
-		control_edit_button.position = Vector2(button_x,top_y+10.0)
-		control_edit_button.z_index = 7
-
-	# Reserved message lane above the room. It is physically outside room_rect,
-	# therefore SALA LIMPIA, SANTUARIO OCULTO and subtitles cannot cover the door.
-	var context_x := room_rect.position.x+10.0
-	var context_right := map_x-14.0
-	var context_w := maxf(250.0,context_right-context_x)
-	if context_x+context_w > map_x-8.0:
-		context_w = maxf(220.0,map_x-context_x-12.0)
-	status_label.position = Vector2(context_x,top_y+2.0)
-	status_label.size = Vector2(context_w,27.0)
-	status_label.add_theme_font_size_override("font_size",18 if not _minimap_expanded else 16)
-	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reward_label.position = Vector2(context_x,top_y+29.0)
-	reward_label.size = Vector2(context_w,21.0)
-	reward_label.add_theme_font_size_override("font_size",12)
-	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Solo la geometría visual del mapa: no toca joysticks activos.
+	_layout_map_panel_only()
 
 	if is_instance_valid(boss_hud):
 		var boss_width := clampf(room_rect.size.x*0.58,430.0,620.0)
 		boss_hud.size = Vector2(boss_width,46.0)
 		boss_hud.position = Vector2(screen_size.x*0.5-boss_width*0.5,room_rect.end.y+7.0)
+
+
+# También se llama al tocar el mapa CON OTRO DEDO mientras Ismael camina.
+# Nunca se debe ejecutar aquí _layout_touch_ui(), que recalcula los sticks.
+func _layout_map_panel_only() -> void:
+	if not is_instance_valid(isaac_minimap) or not is_instance_valid(hud_top_map_card):
+		return
+	var screen_size := get_viewport_rect().size
+	if screen_size.x <= 1.0 or screen_size.y <= 1.0:
+		return
+	var top_y := 6.0
+	var button_w := 152.0
+	var button_h := 36.0
+	var button_x := screen_size.x-button_w-14.0
+	var map_w := clampf(screen_size.x*0.165,202.0,250.0)
+	var map_h := clampf(screen_size.y*0.16,94.0,116.0)
+	if _minimap_expanded:
+		map_w = clampf(screen_size.x*0.31,365.0,460.0)
+		map_h = clampf(screen_size.y*0.36,218.0,265.0)
+	var map_x := room_rect.end.x-map_w
+	map_x = minf(map_x,button_x-map_w-12.0)
+	map_x = maxf(12.0,map_x)
+	var map_rect := Rect2(Vector2(map_x,top_y),Vector2(map_w,map_h))
+	hud_top_map_card.position = map_rect.position
+	hud_top_map_card.size = map_rect.size
+	hud_top_map_card.visible = false
+	minimap_label.visible = false
+	isaac_minimap.position = map_rect.position
+	isaac_minimap.size = map_rect.size
+	isaac_minimap.set_expanded(_minimap_expanded)
+	isaac_minimap.visible = not _run_complete
+	isaac_minimap.queue_redraw()
+	if is_instance_valid(minimap_touch_zone):
+		minimap_touch_zone.position = map_rect.position
+		minimap_touch_zone.size = map_rect.size
+		minimap_touch_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		minimap_touch_zone.tooltip_text = "Cerrar mapa" if _minimap_expanded else "Expandir mapa"
+	if is_instance_valid(control_edit_button):
+		control_edit_button.size = Vector2(button_w,button_h)
+		control_edit_button.position = Vector2(button_x,top_y+10.0)
+		control_edit_button.z_index = 7
+	# Los mensajes nunca se colocan encima del minimapa.
+	var context_x := room_rect.position.x+10.0
+	var context_w := maxf(220.0,map_x-context_x-12.0)
+	status_label.position = Vector2(context_x,top_y+2.0)
+	status_label.size = Vector2(context_w,27.0)
+	status_label.add_theme_font_size_override("font_size",16 if _minimap_expanded else 18)
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reward_label.position = Vector2(context_x,top_y+29.0)
+	reward_label.size = Vector2(context_w,21.0)
+	reward_label.add_theme_font_size_override("font_size",12)
+	reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 func _apply_completion_ui() -> void:
 	super._apply_completion_ui()
