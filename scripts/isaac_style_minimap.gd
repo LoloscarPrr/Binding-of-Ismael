@@ -92,9 +92,11 @@ func _draw() -> void:
 		draw_rect(frame_rect,Color(0.023,0.022,0.024,0.13))
 		_draw_corner_lines(frame_rect)
 
-	var padding := Vector2(17,14) if expanded else Vector2(8,7)
+	var padding := Vector2(16,14) if expanded else Vector2(8,7)
 	var usable := size-padding*2.0
-	var pitch := Vector2(40,36) if expanded else Vector2(28,24)
+	if expanded:
+		usable.y -= 29.0 # Reserva la leyenda inferior.
+	var pitch := Vector2(52,44) if expanded else Vector2(36,31)
 	var center := size*0.5
 	var min_cell := visible[0]
 	var max_cell := visible[0]
@@ -105,14 +107,14 @@ func _draw() -> void:
 		var span_x := maxi(1,max_cell.x-min_cell.x+1)
 		var span_y := maxi(1,max_cell.y-min_cell.y+1)
 		pitch = Vector2(
-			minf(41.0,usable.x/float(span_x)),
-			minf(37.0,usable.y/float(span_y))
+			minf(52.0,usable.x/float(span_x)),
+			minf(44.0,usable.y/float(span_y))
 		)
 		center -= Vector2(float(min_cell.x+max_cell.x)*pitch.x,float(min_cell.y+max_cell.y)*pitch.y)*0.5
 	else:
 		# El compactado funciona como cámara centrada en Ismael.
 		center -= Vector2(float(current_cell.x)*pitch.x,float(current_cell.y)*pitch.y)
-	var cell_size := Vector2(pitch.x*0.73,pitch.y*0.72)
+	var cell_size := Vector2(pitch.x*0.80,pitch.y*0.82)
 	var drawable := Rect2(padding,usable)
 	var visible_set: Dictionary = {}
 	for cell in visible:
@@ -151,8 +153,7 @@ func _draw() -> void:
 		else:
 			_draw_marker(room_icon(dungeon.kind(cell)),at,cell_size)
 	if expanded:
-		var font := ThemeDB.fallback_font
-		draw_string(font,Vector2(13,size.y-9),"PISO %d  ·  MAPA DESCUBIERTO" % dungeon.floor_index,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color(0.87,0.82,0.72,0.91))
+		_draw_legend()
 
 func _point(cell: Vector2i,pitch: Vector2,center: Vector2) -> Vector2:
 	return center+Vector2(float(cell.x)*pitch.x,float(cell.y)*pitch.y)
@@ -166,47 +167,94 @@ func _draw_corner_lines(rect: Rect2) -> void:
 		draw_line(anchor,anchor+Vector2(dx*edge,0),ink,1.0)
 		draw_line(anchor,anchor+Vector2(0,dy*edge),ink,1.0)
 
+# Cada símbolo es una figura legible, no un glifo diminuto dependiente
+# de la fuente del teléfono. Contraste alto incluso en modo compacto.
 func _draw_marker(marker: String,center: Vector2,room_size: Vector2) -> void:
-	var radius := minf(room_size.x,room_size.y)*0.23
+	var r := minf(room_size.x,room_size.y)*0.34
+	var line := maxf(1.4,r*0.24)
 	match marker:
 		"player":
+			draw_circle(center,r*0.92,Color(0.18,0.23,0.20,0.91))
 			draw_colored_polygon(PackedVector2Array([
-				center+Vector2(0,-radius),center+Vector2(radius*0.85,radius),
-				center+Vector2(0,radius*0.45),center+Vector2(-radius*0.85,radius)
+				center+Vector2(0,-r*1.12),
+				center+Vector2(r*0.82,r*0.97),
+				center+Vector2(0,r*0.37),
+				center+Vector2(-r*0.82,r*0.97)
 			]),SELECTED)
 		"boss","elite":
-			draw_circle(center+Vector2(0,-radius*0.24),radius*0.73,RED)
-			draw_circle(center+Vector2(-radius*0.23,-radius*0.29),radius*0.14,Color.BLACK)
-			draw_circle(center+Vector2(radius*0.23,-radius*0.29),radius*0.14,Color.BLACK)
-			draw_rect(Rect2(center+Vector2(-radius*0.44,radius*0.20),Vector2(radius*0.88,radius*0.38)),RED)
+			draw_circle(center,r*1.06,Color(0.28,0.09,0.10,0.96))
+			draw_circle(center+Vector2(0,-r*0.12),r*0.74,RED)
+			draw_rect(Rect2(center+Vector2(-r*0.47,r*0.19),Vector2(r*0.94,r*0.57)),RED)
+			for eye_x in [-0.31,0.31]:
+				draw_circle(center+Vector2(r*eye_x,-r*0.18),r*0.17,Color(0.97,0.94,0.86))
+			for tooth_x in [-0.23,0.0,0.23]:
+				draw_line(center+Vector2(r*tooth_x,r*0.37),center+Vector2(r*tooth_x,r*0.65),Color(0.98,0.91,0.83),1.25)
 		"treasure":
-			var star := PackedVector2Array()
-			for i in range(8):
-				var angle := -PI*0.5+float(i)*TAU/8.0
-				var length := radius*1.3 if i%2==0 else radius*0.53
-				star.append(center+Vector2.RIGHT.rotated(angle)*length)
-			draw_colored_polygon(star,GOLD)
+			# Cofre dorado: tapa arqueada, base y cerradura.
+			draw_rect(Rect2(center+Vector2(-r,-r*0.39),Vector2(r*2,r*1.28)),GOLD)
+			draw_rect(Rect2(center+Vector2(-r,-r*0.39),Vector2(r*2,r*1.28)),Color(0.17,0.12,0.05),false,1.25)
+			draw_line(center+Vector2(-r,-r*0.36),center+Vector2(r,-r*0.36),Color(0.99,0.89,0.54),line)
+			draw_rect(Rect2(center+Vector2(-r*0.19,r*0.12),Vector2(r*0.38,r*0.47)),Color(0.20,0.14,0.08))
 		"shop":
-			draw_circle(center,radius*0.95,GOLD)
-			draw_circle(center,radius*0.57,Color(0.42,0.27,0.12),false,1.3)
+			# Moneda con símbolo de compra. La base oscura da lectura.
+			draw_circle(center,r*1.05,Color(0.20,0.15,0.06))
+			draw_circle(center,r*0.88,GOLD)
+			draw_circle(center,r*0.63,Color(0.71,0.45,0.10),false,1.6)
+			_draw_symbol("$",center,Color(0.16,0.11,0.07),r)
 		"secret":
-			_draw_symbol("?",center,VIOLET,radius)
+			draw_circle(center,r*1.04,Color(0.22,0.11,0.33))
+			_draw_symbol("?",center,Color(0.96,0.85,1.0),r)
 		"library":
-			_draw_symbol("▣",center,BLUE,radius)
+			# Libro abierto con lomo y dos páginas.
+			draw_rect(Rect2(center+Vector2(-r,-r*0.78),Vector2(r*2,r*1.65)),Color(0.11,0.32,0.51))
+			draw_line(center+Vector2(0,-r*0.8),center+Vector2(0,r*0.9),Color(0.94,0.95,0.91),line)
+			draw_line(center+Vector2(-r*0.76,-r*0.39),center+Vector2(-r*0.22,-r*0.39),Color(0.93,0.91,0.83),1.5)
+			draw_line(center+Vector2(r*0.22,-r*0.39),center+Vector2(r*0.76,-r*0.39),Color(0.93,0.91,0.83),1.5)
 		"sacrifice":
-			var pts := PackedVector2Array([center+Vector2(0,-radius*1.15),center+Vector2(radius*0.75,radius*0.65),center+Vector2(0,radius),center+Vector2(-radius*0.75,radius*0.65)])
-			draw_colored_polygon(pts,RED)
+			# Gota de sangre: diferente del ícono de combate.
+			var drop := PackedVector2Array([
+				center+Vector2(0,-r*1.20),center+Vector2(r*0.89,r*0.27),
+				center+Vector2(r*0.66,r*0.9),center+Vector2(-r*0.66,r*0.9),
+				center+Vector2(-r*0.89,r*0.27)
+			])
+			draw_colored_polygon(drop,RED)
+			draw_circle(center+Vector2(-r*0.27,r*0.18),r*0.17,Color(1.0,0.74,0.69))
 		"challenge":
-			_draw_symbol("!",center,RED,radius)
+			draw_rect(Rect2(center-Vector2.ONE*r*0.95,Vector2.ONE*r*1.9),Color(0.57,0.23,0.13))
+			_draw_symbol("!",center,Color(1.0,0.91,0.70),r)
 		"pact":
-			_draw_symbol("✝",center,VIOLET,radius)
+			# Marca ritual en forma de X.
+			draw_circle(center,r,Color(0.29,0.15,0.37))
+			draw_line(center+Vector2(-r*0.58,-r*0.58),center+Vector2(r*0.58,r*0.58),VIOLET,line)
+			draw_line(center+Vector2(r*0.58,-r*0.58),center+Vector2(-r*0.58,r*0.58),VIOLET,line)
 		"event":
-			_draw_symbol("*",center,BLUE,radius)
+			draw_colored_polygon(PackedVector2Array([
+				center+Vector2(0,-r),center+Vector2(r,0),
+				center+Vector2(0,r),center+Vector2(-r,0)
+			]),BLUE)
+			draw_circle(center,r*0.27,Color(0.93,1.0,1.0))
 		"start":
-			draw_circle(center,radius*0.68,Color(0.70,0.76,0.68),false,1.5)
+			draw_circle(center,r*0.79,Color(0.61,0.88,0.62),false,line)
+			draw_circle(center,r*0.27,Color(0.65,0.95,0.69))
 
 func _draw_symbol(symbol: String,center: Vector2,color: Color,radius: float) -> void:
 	var font := ThemeDB.fallback_font
-	var font_size := maxi(10,int(radius*2.8))
+	var font_size := maxi(12,int(radius*2.6))
 	var width := font.get_string_size(symbol,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
-	draw_string(font,center+Vector2(-width*0.5,font_size*0.35),symbol,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
+	draw_string(font,center+Vector2(-width*0.5,float(font_size)*0.34),symbol,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
+
+func _draw_legend() -> void:
+	var baseline := size.y-16.0
+	var font := ThemeDB.fallback_font
+	var columns := [
+		{"label":"JEFE","color":RED},
+		{"label":"TIENDA","color":GOLD},
+		{"label":"TESORO","color":Color(1.0,0.87,0.47)},
+		{"label":"SECRETO","color":VIOLET}
+	]
+	var cell_w := (size.x-22.0)/4.0
+	for i in range(columns.size()):
+		var x := 12.0+float(i)*cell_w
+		var ink: Color = columns[i]["color"]
+		draw_circle(Vector2(x,baseline-2.0),3.6,ink)
+		draw_string(font,Vector2(x+8.0,baseline+1.2),String(columns[i]["label"]),HORIZONTAL_ALIGNMENT_LEFT,-1,10,Color(0.95,0.93,0.85,0.94))
