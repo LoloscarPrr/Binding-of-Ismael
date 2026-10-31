@@ -15,6 +15,7 @@ var presentation_overlay: IsmaelPresentationOverlay
 var _left_touch_zone := Rect2()
 var _right_touch_zone := Rect2()
 var _minimap_expanded := false
+var _minimap_touch_id := -1
 var _editing_controls := false
 var _saved_left_center := Vector2(-1.0,-1.0)
 var _saved_right_center := Vector2(-1.0,-1.0)
@@ -90,8 +91,10 @@ func _create_touch_ui() -> void:
 	minimap_touch_zone.flat = true
 	minimap_touch_zone.focus_mode = Control.FOCUS_NONE
 	minimap_touch_zone.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# El botón GUI capturaba el segundo dedo. Los toques del mapa se
+	# procesan en _input por ID, separados de los dos joysticks.
+	minimap_touch_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	minimap_touch_zone.z_index = 4
-	minimap_touch_zone.pressed.connect(_toggle_minimap)
 	layer.add_child(minimap_touch_zone)
 	control_edit_button = Button.new()
 	control_edit_button.text = "MOVER CONTROLES"
@@ -335,20 +338,58 @@ func _layout_touch_ui() -> void:
 		boss_hud.z_index = 20
 
 func _input(event: InputEvent) -> void:
-	if _minimap_expanded and is_instance_valid(minimap_touch_zone):
-		var pointer := Vector2(-10000.0,-10000.0)
-		var pressed := false
-		if event is InputEventScreenTouch:
-			pointer = event.position
-			pressed = event.pressed
-		elif event is InputEventMouseButton:
-			pointer = event.position
-			pressed = event.pressed and event.button_index == MOUSE_BUTTON_LEFT
-		if pressed:
-			var map_rect := Rect2(minimap_touch_zone.position,minimap_touch_zone.size)
-			if not map_rect.has_point(pointer):
-				_set_minimap_expanded(false)
+	if _route_minimap_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	# Los otros dedos continúan hacia VirtualStick.handle_touch.
+	# Ni abrir ni cerrar el mapa resetea sus identificadores activos.
 	super._input(event)
+
+func _route_minimap_input(event: InputEvent) -> bool:
+	if _game_over or _run_complete or _editing_controls:
+		return false
+	if not is_instance_valid(minimap_touch_zone):
+		return false
+	var map_rect := Rect2(minimap_touch_zone.position,minimap_touch_zone.size)
+	if event is InputEventScreenTouch:
+		if event.index == _minimap_touch_id:
+			if not event.pressed:
+				_minimap_touch_id = -1
+			return true
+		if not event.pressed:
+			return false
+		if _touch_belongs_to_stick(event.index,event.position):
+			return false
+		if map_rect.has_point(event.position):
+			_minimap_touch_id = event.index
+			_toggle_minimap()
+			return true
+		if _minimap_expanded:
+			# Cerrar fuera del mapa debe respetar los dedos que estén
+			# desplazando a Ismael o apuntando con el joystick.
+			_set_minimap_expanded(false)
+		return false
+	if event is InputEventScreenDrag and event.index == _minimap_touch_id:
+		return true
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if _touch_belongs_to_stick(-2,event.position):
+			return false
+		if map_rect.has_point(event.position):
+			_toggle_minimap()
+			return true
+		if _minimap_expanded:
+			_set_minimap_expanded(false)
+	return false
+
+func _touch_belongs_to_stick(touch_index: int,screen_position: Vector2) -> bool:
+	for stick in [left_stick,right_stick]:
+		if not is_instance_valid(stick):
+			continue
+		if touch_index >= 0 and int(stick.get("_touch_id")) == touch_index:
+			return true
+		if stick.get_global_rect().has_point(screen_position):
+			return true
+	return false
 
 func _toggle_minimap() -> void:
 	_set_minimap_expanded(not _minimap_expanded)
@@ -357,8 +398,17 @@ func _set_minimap_expanded(value: bool) -> void:
 	if _minimap_expanded == value:
 		return
 	_minimap_expanded = value
-	_layout_touch_ui()
-	_polish_hud()
+	# No reconfigurar el tamaño, la posición o el centro del joystick
+	# mientras un dedo lo mantiene apretado. Solo cambia el mapa.
+	_layout_minimap_only()
+	if is_instance_valid(isaac_minimap):
+		isaac_minimap.set_expanded(value)
+
+func _layout_minimap_only() -> void:
+	# MobileMainController aporta las posiciones del mapa sin
+	# obligar a pasar por el layout completo de VirtualStick.
+	if has_method("_layout_map_panel_only"):
+		call("_layout_map_panel_only")
 
 func _physics_process(delta: float) -> void:
 	if _editing_controls:
@@ -374,6 +424,7 @@ func _finish_floor() -> void:
 		_apply_completion_ui()
 
 func _apply_completion_ui() -> void:
+	_minimap_touch_id = -1
 	_minimap_expanded = false
 	_editing_controls = false
 	if is_instance_valid(left_stick):
