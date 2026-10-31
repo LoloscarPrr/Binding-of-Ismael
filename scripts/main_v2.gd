@@ -401,8 +401,6 @@ func _set_minimap_expanded(value: bool) -> void:
 	# No reconfigurar el tamaño, la posición o el centro del joystick
 	# mientras un dedo lo mantiene apretado. Solo cambia el mapa.
 	_layout_minimap_only()
-	if is_instance_valid(isaac_minimap):
-		isaac_minimap.set_expanded(value)
 
 func _layout_minimap_only() -> void:
 	# MobileMainController aporta las posiciones del mapa sin
