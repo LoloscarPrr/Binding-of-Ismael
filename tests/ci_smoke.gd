@@ -45,6 +45,7 @@ func _run_tests() -> void:
 	_test_transparent_hud_and_blue_hearts()
 	_test_projectile_readability()
 	_test_graphical_minimap()
+	_test_minimap_multitouch_with_held_stick()
 	_test_build_balance()
 	_test_floor_rosters()
 	_test_metaprogression()
@@ -180,6 +181,82 @@ func _test_graphical_minimap() -> void:
 	widget.free()
 	var ui = MobileController.new()
 	_assert(ui != null,"El HUD móvil no puede cargar el nuevo minimapa")
+	ui.free()
+
+func _test_minimap_multitouch_with_held_stick() -> void:
+	# Dedo 0 mueve Ismael, dedo 1 abre/cierra el mapa,
+	# dedo 2 dispara. El mapa no debe capturar ni resetear sticks.
+	var ui = MobileController.new()
+	var left = VirtualStick.new()
+	left.position = Vector2(20,420)
+	left.size = Vector2(210,210)
+	var right = VirtualStick.new()
+	right.position = Vector2(1300,420)
+	right.size = Vector2(210,210)
+	ui.left_stick = left
+	ui.right_stick = right
+	ui.minimap_touch_zone = Button.new()
+	ui.minimap_touch_zone.position = Vector2(850,8)
+	ui.minimap_touch_zone.size = Vector2(220,110)
+	ui.minimap_touch_zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var walking = InputEventScreenTouch.new()
+	walking.index = 0
+	walking.position = Vector2(135,525)
+	walking.pressed = true
+	_assert(left.handle_touch(walking),"El stick de movimiento no capturó el primer dedo")
+	_assert(int(left.get("_touch_id")) == 0,"Se perdió la identidad del primer dedo")
+	var walk_drag = InputEventScreenDrag.new()
+	walk_drag.index = 0
+	walk_drag.position = Vector2(174,502)
+	left.handle_touch(walk_drag)
+	var original: Vector2 = left.get("_target_value")
+	_assert(original.length() > 0.25,"La simulación no está moviendo a Ismael")
+
+	var map_press = InputEventScreenTouch.new()
+	map_press.index = 1
+	map_press.position = Vector2(965,55)
+	map_press.pressed = true
+	_assert(ui._route_minimap_input(map_press),"El segundo dedo no abre el mapa")
+	_assert(bool(ui.get("_minimap_expanded")),"El mapa sigue cerrado")
+	_assert(int(left.get("_touch_id")) == 0,"Abrir mapa soltó movimiento")
+	_assert(Vector2(left.get("_target_value")).is_equal_approx(original),"Abrir mapa modificó el joystick")
+	var map_drag = InputEventScreenDrag.new()
+	map_drag.index = 1
+	map_drag.position = Vector2(1000,80)
+	_assert(ui._route_minimap_input(map_drag),"El arrastre del mapa pasó a un joystick")
+
+	var fire_press = InputEventScreenTouch.new()
+	fire_press.index = 2
+	fire_press.position = Vector2(1405,525)
+	fire_press.pressed = true
+	_assert(not ui._route_minimap_input(fire_press),"El mapa interceptó el joystick de disparo")
+	_assert(right.handle_touch(fire_press),"El segundo joystick no capturó el tercer dedo")
+	_assert(bool(ui.get("_minimap_expanded")),"Disparar cerró el mapa")
+	var walk_again = InputEventScreenDrag.new()
+	walk_again.index = 0
+	walk_again.position = Vector2(169,481)
+	_assert(not ui._route_minimap_input(walk_again),"El mapa consumió un arrastre de movimiento")
+	_assert(left.handle_touch(walk_again),"El joystick dejó de responder con mapa abierto")
+
+	var map_release = InputEventScreenTouch.new()
+	map_release.index = 1
+	map_release.position = map_press.position
+	map_release.pressed = false
+	_assert(ui._route_minimap_input(map_release),"El mapa no liberó su dedo")
+	_assert(int(ui.get("_minimap_touch_id")) == -1,"Quedó bloqueado el dedo del mapa")
+	var close_map = InputEventScreenTouch.new()
+	close_map.index = 3
+	close_map.position = map_press.position
+	close_map.pressed = true
+	_assert(ui._route_minimap_input(close_map),"No se puede cerrar con otro dedo")
+	_assert(not bool(ui.get("_minimap_expanded")),"El mapa no se contrajo")
+	_assert(int(left.get("_touch_id")) == 0,"Cerrar el mapa soltó movimiento")
+	_assert(int(right.get("_touch_id")) == 2,"Cerrar el mapa soltó disparo")
+
+	left.free()
+	right.free()
+	ui.minimap_touch_zone.free()
 	ui.free()
 
 func _test_build_balance() -> void:
