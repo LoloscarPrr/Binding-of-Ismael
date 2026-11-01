@@ -41,12 +41,12 @@ static func melody_frequency(floor_number: int,boss: bool,step_index: int) -> fl
 	var degree: int = pattern[posmod(step_index,STEPS)]
 	if degree < 0:
 		return 0.0
-	var root := [45,48,43,41,38][clampi(floor_number,1,5)-1]
-	var offsets := [0,2,5,7][posmod(step_index/16,4)]
+	var root: int = int([45,48,43,41,38][clampi(floor_number,1,5)-1])
+	var offsets: int = int([0,2,5,7][posmod(step_index/16,4)])
 	return _hz(root+12+SCALE_MINOR[degree]+offsets)
 
 static func _bass_frequency(floor_number: int,step_index: int,boss: bool) -> float:
-	var root := [45,48,43,41,38][clampi(floor_number,1,5)-1]
+	var root: int = int([45,48,43,41,38][clampi(floor_number,1,5)-1])
 	var chords := [0,5,3,7]
 	var octave := -12 if not boss else 0
 	return _hz(root+octave+chords[posmod(step_index/16,4)])
@@ -65,8 +65,8 @@ static func compose(floor_number: int,boss: bool=false) -> AudioStreamWAV:
 		lead_notes.append(melody_frequency(floor_number,boss,step_index))
 		bass_notes.append(_bass_frequency(floor_number,step_index,boss))
 		var minor_chord: Array[int] = [0,3,7,10]
-		var root_note := [57,60,55,53,50][clampi(floor_number,1,5)-1]
-		var progression := [0,5,3,7][posmod(step_index/16,4)]
+		var root_note: int = int([57,60,55,53,50][clampi(floor_number,1,5)-1])
+		var progression: int = int([0,5,3,7][posmod(step_index/16,4)])
 		arp_notes.append(_hz(root_note+progression+minor_chord[posmod(step_index,4)]))
 	var lead_phase := 0.0
 	var bass_phase := 0.0
