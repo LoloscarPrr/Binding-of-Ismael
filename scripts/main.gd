@@ -115,7 +115,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_room_kind = _dungeon.kind(_current_cell)
 	_room_cleared = _dungeon.is_cleared(_current_cell)
 	if is_instance_valid(_audio_director):
-		_audio_director.set_floor(_floor_index)
+		_audio_director.set_floor(_floor_index,_room_kind)
 	_challenge_wave = 0
 	_reset_door_charge()
 	if _dungeon.is_hidden(_current_cell):
