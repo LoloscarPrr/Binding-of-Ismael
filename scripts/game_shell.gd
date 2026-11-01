@@ -256,7 +256,7 @@ func _on_audio_changed(_value: float) -> void:
 	_refresh_audio_labels()
 
 func _refresh_audio_labels() -> void:
-	_ambient_label.text = "AMBIENTE  %d%%" % int(_ambient_slider.value)
+	_ambient_label.text = "MÚSICA 8-BIT  %d%%" % int(_ambient_slider.value)
 	_effects_label.text = "EFECTOS  %d%%" % int(_effects_slider.value)
 
 func _start_or_resume() -> void:
