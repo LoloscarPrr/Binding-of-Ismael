@@ -26,6 +26,8 @@ const PlayerProjectile = preload("res://scripts/projectile.gd")
 const DungeonMap = preload("res://scripts/dungeon_map.gd")
 const RoomMinimap = preload("res://scripts/isaac_style_minimap.gd")
 const MobileController = preload("res://src/presentation/game/mobile_main_controller.gd")
+const ChiptuneComposer = preload("res://scripts/chiptune_composer.gd")
+const AudioDirector = preload("res://scripts/audio_director.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -41,6 +43,7 @@ func _assert(condition: bool, message: String) -> void:
 
 func _run_tests() -> void:
 	_test_item_definitions()
+	_test_original_chiptune_audio()
 	_test_visual_art_phase12()
 	_test_transparent_hud_and_blue_hearts()
 	_test_projectile_readability()
@@ -78,6 +81,30 @@ func _test_item_definitions() -> void:
 		_assert(ids.has(id),"Falta reliquia meta: " + id)
 	var synergy: Dictionary = ItemCatalog.synergy_definition("eco_sangrante")
 	_assert(not synergy.is_empty(),"Se perdió sinergia Eco Sangrante")
+
+func _test_original_chiptune_audio() -> void:
+	# Nunca depender de música comercial: melodías escritas para Ismael.
+	_assert(ChiptuneComposer.is_original_music(),"El juego debe utilizar composiciones propias")
+	var names: Dictionary = {}
+	for floor_number in range(1,6):
+		var title: String = ChiptuneComposer.tune_name(floor_number,false)
+		_assert(not title.is_empty(),"Falta título de tema del piso %d" % floor_number)
+		_assert(not names.has(title),"Se duplicaron nombres de temas de distintos pisos")
+		names[title] = true
+		_assert(ChiptuneComposer.melody_frequency(floor_number,false,0) > 100.0,"La melodía del piso no tiene notas")
+	var floor_song: AudioStreamWAV = ChiptuneComposer.compose(1,false)
+	_assert(floor_song != null,"No se genera música retro")
+	_assert(floor_song.mix_rate == 22050,"Música con frecuencia incorrecta")
+	_assert(floor_song.loop_mode == AudioStreamWAV.LOOP_FORWARD,"La música debe reproducirse en bucle")
+	_assert(floor_song.data.size() > 100000,"La pista es demasiado corta para un tema musical")
+	var director = AudioDirector.new()
+	var shoot: AudioStreamWAV = director._make_sfx_stream("shoot",1.0)
+	var hit: AudioStreamWAV = director._make_sfx_stream("enemy_hit",1.0)
+	var door: AudioStreamWAV = director._make_sfx_stream("door",1.0)
+	_assert(shoot.data.size() > 0 and hit.data.size() > 0,"Faltan sonidos de combate")
+	_assert(shoot.data != hit.data,"Disparo y golpe deben sonar distintos")
+	_assert(door.data.size() > shoot.data.size(),"La apertura de puerta necesita un sonido más largo")
+	director.free()
 
 func _test_visual_art_phase12() -> void:
 	# El arte debe importarse como Texture2D en Godot Android; los
