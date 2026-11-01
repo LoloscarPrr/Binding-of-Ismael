@@ -277,10 +277,10 @@ func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 			_impact_velocity += away.normalized()*impulse
 	health_changed.emit(maxi(health, 0), max_health)
 	_spawn_hit_feedback(amount)
-	_play_audio_sfx("hit",1.0+float(maxi(0,amount-1))*0.2)
+	_play_audio_sfx("enemy_hit",1.0+float(maxi(0,amount-1))*0.2)
 	queue_redraw()
 	if health <= 0:
-		_play_audio_sfx("boss_death" if kind == EnemyKind.BOSS else "hit",1.4 if kind == EnemyKind.BOSS else 1.1)
+		_play_audio_sfx("boss_death" if kind == EnemyKind.BOSS else "enemy_hit",1.4 if kind == EnemyKind.BOSS else 1.1)
 		_spawn_death_feedback()
 		defeated.emit(self)
 		queue_free()
