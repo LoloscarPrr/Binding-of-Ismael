@@ -105,6 +105,7 @@ func _on_chest_open_requested(chest: Node,room_key: String,chest_id: int) -> voi
 		_sync_legacy_from_inventory()
 		_update_pickup_hud()
 	_room_loot_state.mark_chest_opened(room_key)
+	_audio_sfx("chest_locked" if chest_kind == "locked" else "chest",1.05)
 	if chest.has_method("set_opened"):
 		chest.call("set_opened",true)
 	status_label.text = "COFRE ABIERTO"
