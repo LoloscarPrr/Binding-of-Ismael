@@ -99,6 +99,35 @@ static func next_corner(origin: Vector2,goal: Vector2,blocks: Array[Rect2],arena
 		cursor = prev[cursor]
 	return goal
 
+# Cuando la ruta mínima falla por márgenes solapados, tomar una
+# esquina DE SALIDA libre en vez de volver a caminar contra la roca.
+static func escape_corner(origin: Vector2,goal: Vector2,blocks: Array[Rect2],arena: Rect2) -> Vector2:
+	var best := origin
+	var best_score := INF
+	for rect in blocks:
+		var outer := rect.grow(WAYPOINT_MARGIN+7.0)
+		var corners: Array[Vector2] = [
+			outer.position,Vector2(outer.end.x,outer.position.y),
+			outer.end,Vector2(outer.position.x,outer.end.y)
+		]
+		for candidate in corners:
+			if not arena.has_point(candidate):
+				continue
+			if not _can_step(origin,candidate,blocks):
+				continue
+			var can_stand := true
+			for blocker in blocks:
+				if blocker.has_point(candidate):
+					can_stand = false
+					break
+			if not can_stand:
+				continue
+			var score := origin.distance_to(candidate)+0.45*candidate.distance_to(goal)
+			if score < best_score:
+				best_score = score
+				best = candidate
+	return best
+
 static func _can_step(a: Vector2,b: Vector2,blocks: Array[Rect2]) -> bool:
 	for rect in blocks:
 		if _segment_hits_rect(a,b,rect):
