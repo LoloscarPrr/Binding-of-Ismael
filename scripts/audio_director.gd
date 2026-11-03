@@ -3,6 +3,7 @@ class_name IsmaelAudioDirector
 
 const MIX_RATE := 22050
 const ChiptuneComposer = preload("res://scripts/chiptune_composer.gd")
+const SewerAmbience = preload("res://scripts/sewer_ambience_composer.gd")
 const AUDIO_SETTINGS_PATH := "user://audio_settings.cfg"
 
 var _ambience := AudioStreamPlayer.new()
@@ -50,7 +51,7 @@ func set_floor(floor_index: int, room_kind: String = "inicio") -> void:
 	_boss_music = boss_now
 	var cache_key := "%d:%s" % [resolved,"jefe" if boss_now else "piso"]
 	if not _music_cache.has(cache_key):
-		_music_cache[cache_key] = ChiptuneComposer.compose(resolved,boss_now)
+		_music_cache[cache_key] = ChiptuneComposer.compose(resolved,true) if boss_now else SewerAmbience.compose(resolved)
 	_ambience.stop()
 	_ambience.stream = _music_cache[cache_key]
 	_ambience.play()
@@ -173,7 +174,7 @@ func _make_sfx_stream(kind: String, intensity: float) -> AudioStreamWAV:
 
 # Legacy entry point remains for compatibility with prior saves/tests.
 func _make_ambience_stream(floor_index: int) -> AudioStreamWAV:
-	return ChiptuneComposer.compose(floor_index,false)
+	return SewerAmbience.compose(floor_index)
 
 func _build_stream(
 	duration: float,
