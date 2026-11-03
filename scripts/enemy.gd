@@ -138,7 +138,10 @@ func _physics_process(delta: float) -> void:
 		var distance := offset.length()
 		if distance > 0.0 and distance < SEPARATION_DISTANCE:
 			separation += offset.normalized() * (1.0 - distance / SEPARATION_DISTANCE)
-	var steering := desired + separation * 1.2
+	# Al rodear una roca, la separación con otros enemigos no debe
+	# devolvernos directamente contra la misma cobertura.
+	var separation_weight := 0.18 if _navigation_has_detour and _navigation_blocked_time > 0.26 else (0.52 if _navigation_has_detour else 1.20)
+	var steering := desired + separation*separation_weight
 	var speed_multiplier := 1.0
 	if kind == EnemyKind.DASHER:
 		if _dash_timer > 1.30:
@@ -154,6 +157,8 @@ func _physics_process(delta: float) -> void:
 	if speed_multiplier > 0.4 and locomotion.length() > 50.0 and target.global_position.distance_to(global_position) > 100.0:
 		if global_position.distance_to(old_location) < 1.2:
 			_navigation_blocked_time += delta
+			if _navigation_blocked_time > 0.34:
+				_navigation_clock = 0.0
 		else:
 			_navigation_blocked_time = maxf(0.0,_navigation_blocked_time-delta*2.0)
 	else:
@@ -208,7 +213,9 @@ func _update_navigation_waypoint() -> void:
 		return
 	var bounds := movement_bounds.grow(-radius-14.0)
 	var corner := ObstacleNavigator.next_corner(origin,goal,blocks,bounds)
-	if corner != goal:
+	if corner == goal:
+		corner = ObstacleNavigator.escape_corner(origin,goal,blocks,bounds)
+	if corner != goal and corner.distance_squared_to(origin) > 36.0:
 		_navigation_waypoint = corner
 		_navigation_has_detour = true
 
