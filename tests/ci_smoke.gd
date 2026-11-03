@@ -31,6 +31,7 @@ const AudioDirector = preload("res://scripts/audio_director.gd")
 const SewerAmbience = preload("res://scripts/sewer_ambience_composer.gd")
 const CoverPlanner = preload("res://src/domain/run/room_cover_planner.gd")
 const RockRoomController = preload("res://src/presentation/game/mobile_destructible_room_controller.gd")
+const BossArenaComposition = preload("res://src/domain/run/boss_arena_composition.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -48,6 +49,7 @@ func _run_tests() -> void:
 	_test_item_definitions()
 	_test_original_chiptune_audio()
 	_test_sewer_music_and_cover_planning()
+	_test_mystery_music_and_boss_arena()
 	_test_visual_art_phase12()
 	_test_transparent_hud_and_blue_hearts()
 	_test_projectile_readability()
@@ -114,7 +116,7 @@ func _test_sewer_music_and_cover_planning() -> void:
 	var music := SewerAmbience.compose(1)
 	_assert(not SewerAmbience.ambience_name(1).is_empty(),"Falta nombre de ambiente subterráneo")
 	_assert(music.mix_rate == 22050,"El ambiente subterráneo cambió frecuencia")
-	_assert(music.loop_mode == AudioStreamWAV.LOOP_FORWARD,"Los goteos no se repiten")
+	_assert(music.loop_mode == AudioStreamWAV.LOOP_FORWARD,"El tema de exploración no se repite")
 	_assert(music.data.size() > 200000,"El ambiente es demasiado corto")
 	var bass_song := ChiptuneComposer.compose(1,true)
 	_assert(bass_song.loop_mode == AudioStreamWAV.LOOP_FORWARD,"Se perdió la música de jefes")
@@ -160,6 +162,28 @@ func _test_sewer_music_and_cover_planning() -> void:
 	var room = RockRoomController.new()
 	_assert(room != null,"La sala no integra el planificador de rocas")
 	room.free()
+
+func _test_mystery_music_and_boss_arena() -> void:
+	# La exploración tiene motivo musical original, sin los goteos
+	# percusivos de la versión anterior. La pista de jefe se preserva.
+	for floor_number in range(1,6):
+		var title: String = SewerAmbience.ambience_name(floor_number)
+		_assert(not title.is_empty(),"Piso sin tema de misterio")
+		var first_note: float = SewerAmbience.mystery_note_frequency(floor_number,0)
+		var next_note: float = SewerAmbience.mystery_note_frequency(floor_number,1)
+		_assert(first_note > 80.0 and next_note != first_note,"No hay una melodía de misterio diferenciada")
+		_assert(BossArenaComposition.center_is_clear(floor_number),"La arena del jefe tapa su centro")
+		var stage := Rect2(0,0,1100,550)
+		var rects: Array[Rect2] = BossArenaComposition.cover_rects(floor_number,stage)
+		_assert(rects.size() <= 2,"Demasiadas columnas en sala de jefe")
+		_assert(CoverPlanner.routes_remain_open(stage,rects),"Arena de jefe bloquea una puerta")
+		for obstacle in rects:
+			_assert(not obstacle.has_point(stage.get_center()),"Cobertura sobre el sello central")
+			_assert(not obstacle.has_point(stage.position+stage.size*Vector2(0.5,0.28)),"Columna sobre lugar de aparición de jefe")
+	_assert(BossArenaComposition.cover_slots(5).is_empty(),"El Hueco necesita combate despejado")
+	var sound: AudioStreamWAV = SewerAmbience.compose(2)
+	_assert(sound.data.size() > 200000,"Pista de misterio demasiado corta")
+	_assert(sound.loop_mode == AudioStreamWAV.LOOP_FORWARD,"La pista de misterio no se repite")
 
 func _test_visual_art_phase12() -> void:
 	# El arte debe importarse como Texture2D en Godot Android; los
