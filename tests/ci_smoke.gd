@@ -28,6 +28,9 @@ const RoomMinimap = preload("res://scripts/isaac_style_minimap.gd")
 const MobileController = preload("res://src/presentation/game/mobile_main_controller.gd")
 const ChiptuneComposer = preload("res://scripts/chiptune_composer.gd")
 const AudioDirector = preload("res://scripts/audio_director.gd")
+const SewerAmbience = preload("res://scripts/sewer_ambience_composer.gd")
+const CoverPlanner = preload("res://src/domain/run/room_cover_planner.gd")
+const RockRoomController = preload("res://src/presentation/game/mobile_destructible_room_controller.gd")
 
 var _errors: Array[String] = []
 var _checks := 0
@@ -44,6 +47,7 @@ func _assert(condition: bool, message: String) -> void:
 func _run_tests() -> void:
 	_test_item_definitions()
 	_test_original_chiptune_audio()
+	_test_sewer_music_and_cover_planning()
 	_test_visual_art_phase12()
 	_test_transparent_hud_and_blue_hearts()
 	_test_projectile_readability()
@@ -105,6 +109,57 @@ func _test_original_chiptune_audio() -> void:
 	_assert(shoot.data != hit.data,"Disparo y golpe deben sonar distintos")
 	_assert(door.data.size() > shoot.data.size(),"La apertura de puerta necesita un sonido más largo")
 	director.free()
+
+func _test_sewer_music_and_cover_planning() -> void:
+	var music := SewerAmbience.compose(1)
+	_assert(not SewerAmbience.ambience_name(1).is_empty(),"Falta nombre de ambiente subterráneo")
+	_assert(music.mix_rate == 22050,"El ambiente subterráneo cambió frecuencia")
+	_assert(music.loop_mode == AudioStreamWAV.LOOP_FORWARD,"Los goteos no se repiten")
+	_assert(music.data.size() > 200000,"El ambiente es demasiado corto")
+	var bass_song := ChiptuneComposer.compose(1,true)
+	_assert(bass_song.loop_mode == AudioStreamWAV.LOOP_FORWARD,"Se perdió la música de jefes")
+	_assert(bass_song.data.size() > 0,"La música del jefe quedó vacía")
+	var director = AudioDirector.new()
+	_assert(director._make_ambience_stream(2).data.size() > 200000,"El director sigue usando música de exploración antigua")
+	director.free()
+	var arena := Rect2(180,55,1160,450)
+	var blocks: Array[Rect2] = [
+		Rect2(465,200,88,100),Rect2(960,200,88,100)
+	]
+	var player_pos := arena.get_center()
+	var enemies: Array[Vector2] = [Vector2(410,300),Vector2(1100,350)]
+	var placed: Array[Vector2] = []
+	var candidate := Vector2(390,179)
+	_assert(not CoverPlanner.is_safe_rock(candidate,34.0,arena,blocks,placed,player_pos,enemies),"Roca demasiado cerca de una columna")
+	var rock_positions := [
+		Vector2(0.18,0.25),Vector2(0.82,0.25),
+		Vector2(0.18,0.75),Vector2(0.82,0.75),
+		Vector2(0.35,0.19),Vector2(0.65,0.19),
+		Vector2(0.35,0.81),Vector2(0.65,0.81)
+	]
+	var accepted := 0
+	for ratio in rock_positions:
+		var pos: Vector2 = arena.position+arena.size*ratio
+		if not CoverPlanner.is_safe_rock(pos,34.0,arena,blocks,placed,player_pos,enemies):
+			continue
+		var combined: Array[Rect2] = blocks.duplicate()
+		for old in placed:
+			combined.append(Rect2(old-Vector2.ONE*34,Vector2.ONE*68))
+		combined.append(Rect2(pos-Vector2.ONE*34,Vector2.ONE*68))
+		if CoverPlanner.routes_remain_open(arena,combined):
+			accepted += 1
+			placed.append(pos)
+			_assert(CoverPlanner.routes_remain_open(arena,combined),"Rocas bloquean puertas")
+	_assert(accepted >= 1,"El nuevo diseño nunca coloca rocas")
+	var crowded: Array[Vector2] = [Vector2(450,280)]
+	_assert(not CoverPlanner.is_safe_rock(Vector2(515,280),34.0,arena,[],crowded,player_pos,[]),"Rocas pegadas sin pasillo real")
+	var navigator = ObstacleNavigator
+	var trapped: Array[Rect2] = [Rect2(440,175,125,125)]
+	var escape: Vector2 = navigator.escape_corner(Vector2(435,240),Vector2(720,240),trapped,arena)
+	_assert(escape != Vector2(435,240),"El enemigo atrapado no intenta salir por una esquina")
+	var room = RockRoomController.new()
+	_assert(room != null,"La sala no integra el planificador de rocas")
+	room.free()
 
 func _test_visual_art_phase12() -> void:
 	# El arte debe importarse como Texture2D en Godot Android; los
