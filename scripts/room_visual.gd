@@ -267,6 +267,36 @@ func _draw_boss_seal_arena() -> void:
 	var tint: Color = tones[clampi(floor_index-1,0,4)]
 	var pulse := 0.5+sin(_age*1.4)*0.5
 	var ink := Color(tint.r,tint.g,tint.b,0.18+pulse*0.05)
+	# La sala del guardián tiene identidad espacial propia: perímetro
+	# ceremonial, arena central libre y altares laterales alineados.
+	var stage := Rect2(
+		room_rect.position+room_rect.size*Vector2(0.215,0.16),
+		room_rect.size*Vector2(0.57,0.70)
+	)
+	draw_rect(stage,Color(0.015,0.010,0.019,0.18))
+	draw_rect(stage,Color(tint.r,tint.g,tint.b,0.20),false,3.0)
+	var inner_stage := stage.grow(-18.0)
+	draw_rect(inner_stage,Color(tint.r,tint.g,tint.b,0.12),false,1.7)
+	for side in [-1.0,1.0]:
+		var side_x := center.x+float(side)*room_rect.size.x*0.34
+		var upper := room_rect.position.y+room_rect.size.y*0.24
+		var lower := room_rect.position.y+room_rect.size.y*0.75
+		for y_value in [upper,lower]:
+			var marker := Vector2(side_x,y_value)
+			draw_circle(marker,17.0,Color(0.015,0.011,0.019,0.28))
+			draw_arc(marker,17.0,0.0,TAU,24,Color(tint.r,tint.g,tint.b,0.28+pulse*0.08),2.5)
+			draw_colored_polygon(PackedVector2Array([
+				marker+Vector2(0,-12),marker+Vector2(8,0),
+				marker+Vector2(0,12),marker+Vector2(-8,0)
+			]),Color(tint.r,tint.g,tint.b,0.18))
+	var boss_stage := room_rect.position+room_rect.size*Vector2(0.50,0.29)
+	draw_arc(boss_stage,55.0,0.0,TAU,38,Color(tint.r,tint.g,tint.b,0.16+pulse*0.07),2.3)
+	for direction in [Vector2(-1,0),Vector2(1,0)]:
+		draw_line(
+			boss_stage+direction*60.0,
+			boss_stage+direction*82.0,
+			Color(tint.r,tint.g,tint.b,0.30),3.0
+		)
 	draw_arc(center,100.0,0.0,TAU,52,ink,2.4)
 	draw_arc(center,117.0,0.0,TAU,52,Color(tint.r,tint.g,tint.b,0.12),1.5)
 	for i in range(8):
