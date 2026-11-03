@@ -916,6 +916,7 @@ func _travel_to(direction: Vector2i) -> void:
 	if not _dungeon.has_room(destination):
 		return
 	_transition_locked = true
+	_audio_sfx("room_transition",0.96)
 	_current_cell = destination
 	_begin_room(direction)
 
