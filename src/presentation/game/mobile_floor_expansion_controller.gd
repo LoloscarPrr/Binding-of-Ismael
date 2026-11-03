@@ -1,6 +1,7 @@
 extends "res://src/presentation/game/mobile_destructible_room_controller.gd"
 
 const FloorCatalog = preload("res://src/domain/run/floor_catalog.gd")
+const BossArenaComposition = preload("res://src/domain/run/boss_arena_composition.gd")
 const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
 const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
@@ -28,6 +29,13 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 			reward_label.text = FloorCatalog.floor_identity(_floor_index)
 
 func _build_room_layout() -> void:
+	if _room_kind == "jefe":
+		_room_layout_profile = "boss_arena"
+		# Dos coberturas pequeñas en esquinas exteriores, nunca entre
+		# Ismael y el guardián. El quinto jefe combate en espacio abierto.
+		for ratio in BossArenaComposition.cover_slots(_floor_index):
+			_add_obstacle(ratio,BossArenaComposition.cover_sizes(_floor_index),clampi(_floor_index-1,0,4))
+		return
 	if _room_kind == "eco_guardian":
 		# Dos coberturas laterales de altura moderada: el centro es
 		# transitable y los enemigos pueden rodearlas con el navegador.
@@ -57,10 +65,12 @@ func _build_room_layout() -> void:
 		"barricada":
 			_add_obstacle(Vector2(0.50,0.56),Vector2(0.22,0.07),variant)
 		"columnas":
-			_add_obstacle(Vector2(0.32,0.44),Vector2(0.07,0.16),variant)
-			_add_obstacle(Vector2(0.68,0.44),Vector2(0.07,0.16),variant)
-			_add_obstacle(Vector2(0.32,0.70),Vector2(0.07,0.12),variant)
-			_add_obstacle(Vector2(0.68,0.70),Vector2(0.07,0.12),variant)
+			# Dos carriles verticales anchos y cuatro columnas separadas.
+			# El rock planner no añade piedras extras en este perfil.
+			_add_obstacle(Vector2(0.29,0.39),Vector2(0.055,0.115),variant)
+			_add_obstacle(Vector2(0.71,0.39),Vector2(0.055,0.115),variant)
+			_add_obstacle(Vector2(0.29,0.72),Vector2(0.055,0.105),variant)
+			_add_obstacle(Vector2(0.71,0.72),Vector2(0.055,0.105),variant)
 		"cruzada":
 			_add_obstacle(Vector2(0.38,0.52),Vector2(0.08,0.11),variant)
 			_add_obstacle(Vector2(0.62,0.52),Vector2(0.08,0.11),variant)
