@@ -23,6 +23,10 @@ func _on_placed_bomb_exploded(world_position: Vector2, blast_radius: float) -> v
 func _spawn_room_rocks() -> void:
 	if _room_kind not in ["combate","emboscada","desafio","minijefe"]:
 		return
+	# En salas con cuatro columnas ya hay cobertura suficiente.
+	# Evita las piedras entre columnas que atrapaban a los enemigos.
+	if _room_layout_profile == "columnas":
+		return
 	var room_key := _obstacle_room_key()
 	var seed := _obstacle_seed()
 	# Solo orillas del combate: nada de piedras en el centro,
