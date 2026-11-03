@@ -10,6 +10,14 @@ const DURATION := 12.0
 const MYSTERY_DEGREES: Array[int] = [0,3,7,6,3,1,8,7, 0,3,10,7]
 const NOTE_LENGTH := 1.0
 
+static func ambience_name(floor_number: int) -> String:
+	match clampi(floor_number,1,5):
+		1: return "El eco del umbral"
+		2: return "Sombras en la fosa"
+		3: return "Pasos tras el muro"
+		4: return "Voces del sepulcro"
+		_: return "Silencio del abismo"
+
 static func mystery_note_frequency(floor_number: int, note_index: int) -> float:
 	var base_midi: int = int([53,50,48,46,43][clampi(floor_number,1,5)-1])
 	var degree: int = MYSTERY_DEGREES[posmod(note_index,MYSTERY_DEGREES.size())]
