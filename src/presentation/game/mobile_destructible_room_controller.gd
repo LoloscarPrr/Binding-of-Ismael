@@ -2,6 +2,7 @@ extends "res://src/presentation/game/mobile_room_state_controller.gd"
 
 const DestructibleRock = preload("res://scripts/destructible_rock.gd")
 const RoomObstacleState = preload("res://src/domain/run/room_obstacle_state.gd")
+const CoverPlanner = preload("res://src/domain/run/room_cover_planner.gd")
 
 var _room_obstacle_state = RoomObstacleState.new()
 
@@ -24,71 +25,56 @@ func _spawn_room_rocks() -> void:
 		return
 	var room_key := _obstacle_room_key()
 	var seed := _obstacle_seed()
+	# Solo orillas del combate: nada de piedras en el centro,
+	# cruces de puertas ni grupos cerrados detrás de columnas.
 	var candidates: Array[Vector2] = [
-		Vector2(0.25,0.28),Vector2(0.75,0.28),
-		Vector2(0.25,0.72),Vector2(0.75,0.72),
-		Vector2(0.36,0.44),Vector2(0.64,0.44),
-		Vector2(0.38,0.66),Vector2(0.62,0.66)
+		Vector2(0.18,0.25),Vector2(0.82,0.25),
+		Vector2(0.18,0.75),Vector2(0.82,0.75),
+		Vector2(0.35,0.19),Vector2(0.65,0.19),
+		Vector2(0.35,0.81),Vector2(0.65,0.81)
 	]
-	# Curated patterns replace the old free scan. They leave recognizable lanes
-	# through the room and make rocks feel deliberately placed instead of noisy.
 	var patterns: Array[Array] = [
-		[0,1],
-		[2,3],
-		[0,3,4],
-		[1,2,5],
-		[0,2,5,7],
-		[1,3,4,6],
-		[4,5,6]
+		[0,3],[1,2],[0,2,5],[1,3,4],
+		[0,3,6],[1,2,7],[4,7],[5,6]
 	]
 	var pattern: Array = patterns[posmod(seed+_floor_index,patterns.size())]
+	var placed: Array[Vector2] = []
+	var static_blocks: Array[Rect2] = []
+	for obstacle in get_tree().get_nodes_in_group("room_obstacles"):
+		if not is_instance_valid(obstacle) or obstacle.is_queued_for_deletion():
+			continue
+		static_blocks.append(Rect2(
+			obstacle.global_position-obstacle.obstacle_size*0.5,
+			obstacle.obstacle_size
+		))
+	var opponents: Array[Vector2] = []
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+			opponents.append(enemy.global_position)
+	var player_at := player.global_position if is_instance_valid(player) else room_rect.get_center()
 	for candidate_variant in pattern:
-		var candidate_index := int(candidate_variant)
-		var rock_id := candidate_index
+		var rock_id := int(candidate_variant)
 		if _room_obstacle_state.is_destroyed(room_key,rock_id):
 			continue
-		var world_position := room_rect.position+room_rect.size*candidates[candidate_index]
-		if not _rock_position_is_safe(world_position):
+		var world_position := room_rect.position+room_rect.size*candidates[rock_id]
+		var sizes: Array[float] = [0.88,1.0,1.08]
+		var rock_scale: float = sizes[posmod(seed+rock_id*7,sizes.size())]
+		var radius := DestructibleRock.COLLISION_RADIUS*rock_scale
+		if not CoverPlanner.is_safe_rock(world_position,radius,room_rect,static_blocks,placed,player_at,opponents):
+			continue
+		var blockers: Array[Rect2] = static_blocks.duplicate()
+		for rock_spot in placed:
+			blockers.append(Rect2(rock_spot-Vector2.ONE*35.0,Vector2.ONE*70.0))
+		blockers.append(Rect2(world_position-Vector2.ONE*radius,Vector2.ONE*radius*2.0))
+		if not CoverPlanner.routes_remain_open(room_rect,blockers):
 			continue
 		var loot_roll := _rock_loot_roll(rock_id)
-		var contains_loot := loot_roll<14
-		var size_options: Array[float] = [0.88,1.0,1.12]
-		var size_scale := size_options[posmod(seed+rock_id*7,size_options.size())]
 		var rock := DestructibleRock.new()
-		rock.configure(rock_id,seed+rock_id,contains_loot,size_scale)
+		rock.configure(rock_id,seed+rock_id,loot_roll<14,rock_scale)
 		rock.position = world_position
 		rock.destroyed.connect(_on_room_rock_destroyed.bind(room_key))
 		add_child(rock)
-
-func _rock_position_is_safe(world_position: Vector2) -> bool:
-	if is_instance_valid(player) and world_position.distance_to(player.global_position)<118.0:
-		return false
-	var center := room_rect.get_center()
-	# Keep the four door approach lanes free so neither Ismael nor enemies are
-	# funneled into a single-pixel gap when a room generates rocks.
-	if absf(world_position.x-center.x)<112.0:
-		if world_position.y<room_rect.position.y+104.0 or world_position.y>room_rect.end.y-104.0:
-			return false
-	if absf(world_position.y-center.y)<92.0:
-		if world_position.x<room_rect.position.x+118.0 or world_position.x>room_rect.end.x-118.0:
-			return false
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
-			if world_position.distance_to(enemy.global_position)<104.0:
-				return false
-	for chest in get_tree().get_nodes_in_group("room_chests"):
-		if is_instance_valid(chest) and not chest.is_queued_for_deletion():
-			if world_position.distance_to(chest.global_position)<94.0:
-				return false
-	for obstacle in get_tree().get_nodes_in_group("room_obstacles"):
-		if is_instance_valid(obstacle) and not obstacle.is_queued_for_deletion():
-			if world_position.distance_to(obstacle.global_position)<96.0:
-				return false
-	for existing_rock in get_tree().get_nodes_in_group("room_rocks"):
-		if is_instance_valid(existing_rock) and not existing_rock.is_queued_for_deletion():
-			if world_position.distance_to(existing_rock.global_position)<94.0:
-				return false
-	return true
+		placed.append(world_position)
 
 func _on_room_rock_destroyed(rock_id: int, world_position: Vector2, room_key: String) -> void:
 	_room_obstacle_state.mark_destroyed(room_key,rock_id)
