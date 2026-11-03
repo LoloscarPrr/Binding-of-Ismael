@@ -25,7 +25,7 @@ func _spawn_room_rocks() -> void:
 		return
 	# En salas con cuatro columnas ya hay cobertura suficiente.
 	# Evita las piedras entre columnas que atrapaban a los enemigos.
-	if _room_layout_profile == "columnas":
+	if String(get("_room_layout_profile")) == "columnas":
 		return
 	var room_key := _obstacle_room_key()
 	var seed := _obstacle_seed()
