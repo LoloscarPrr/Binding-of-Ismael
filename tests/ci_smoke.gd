@@ -27,6 +27,8 @@ const DungeonMap = preload("res://scripts/dungeon_map.gd")
 const RoomMinimap = preload("res://scripts/isaac_style_minimap.gd")
 const MobileController = preload("res://src/presentation/game/mobile_main_controller.gd")
 const ChiptuneComposer = preload("res://scripts/chiptune_composer.gd")
+const BossMusic = preload("res://scripts/boss_music_composer.gd")
+const CleanSfx = preload("res://scripts/clean_sfx_composer.gd")
 const AudioDirector = preload("res://scripts/audio_director.gd")
 const SewerAmbience = preload("res://scripts/sewer_ambience_composer.gd")
 const CoverPlanner = preload("res://src/domain/run/room_cover_planner.gd")
@@ -48,6 +50,7 @@ func _assert(condition: bool, message: String) -> void:
 func _run_tests() -> void:
 	_test_item_definitions()
 	_test_original_chiptune_audio()
+	_test_clean_audio_and_boss_soundtrack()
 	_test_sewer_music_and_cover_planning()
 	_test_mystery_music_and_boss_arena()
 	_test_visual_art_phase12()
@@ -110,6 +113,38 @@ func _test_original_chiptune_audio() -> void:
 	_assert(shoot.data.size() > 0 and hit.data.size() > 0,"Faltan sonidos de combate")
 	_assert(shoot.data != hit.data,"Disparo y golpe deben sonar distintos")
 	_assert(door.data.size() > shoot.data.size(),"La apertura de puerta necesita un sonido más largo")
+	director.free()
+
+func _test_clean_audio_and_boss_soundtrack() -> void:
+	var tracks: Dictionary = {}
+	for floor_number in range(1,6):
+		var title := BossMusic.name_for_floor(floor_number)
+		_assert(not title.is_empty(),"Falta nombre para música de jefe")
+		_assert(not tracks.has(title),"Dos guardianes tienen el mismo tema")
+		tracks[title] = true
+		_assert(BossMusic.note_frequency(floor_number,0)>80.0,"Jefe sin melodía propia")
+		_assert(BossMusic.note_frequency(floor_number,0)!=BossMusic.note_frequency(posmod(floor_number,5)+1,0),"Los guardianes tienen el mismo motivo musical")
+	var boss_track: AudioStreamWAV = BossMusic.compose(3)
+	_assert(boss_track != null and boss_track.mix_rate == 22050,"La nueva banda sonora no se genera")
+	_assert(boss_track.loop_mode == AudioStreamWAV.LOOP_FORWARD,"Los temas de jefes no se repiten")
+	_assert(boss_track.data.size()>160000,"Música de jefe demasiado corta")
+	var director = AudioDirector.new()
+	_assert(director.MAX_SFX_VOICES <= 12,"Demasiadas voces simultáneas")
+	var names := ["shoot","enemy_shot","hit","enemy_hit","door","room_transition","bomb","chest","chest_locked","pickup","boss_phase","boss_death"]
+	var spectra: Dictionary = {}
+	for kind in names:
+		var sound: AudioStreamWAV = director._make_sfx_stream(kind,1.0)
+		_assert(sound.data.size()>700,"Sonido %s vacío" % kind)
+		_assert(sound.loop_mode == AudioStreamWAV.LOOP_DISABLED,"El efecto %s se repite" % kind)
+		_assert(not spectra.has(str(sound.data.slice(0,32))),"Dos sonidos comparten forma de onda")
+		spectra[str(sound.data.slice(0,32))] = true
+		_assert(CleanSfx.duration(kind)>0.05,"Efecto %s cortado" % kind)
+	_assert(CleanSfx.duration("bomb")>CleanSfx.duration("shoot")*4.0,"Explosión sin cola grave")
+	_assert(CleanSfx.duration("room_transition")>CleanSfx.duration("door"),"Cambio de sala sin profundidad")
+	_assert(CleanSfx.voice_priority("chest")>CleanSfx.voice_priority("shoot"),"Los disparos tapan los cofres")
+	_assert(CleanSfx.voice_priority("bomb")>CleanSfx.voice_priority("shoot"),"Los disparos tapan las explosiones")
+	_assert(director._cooldown_for("shoot") >= 45,"Disparos sin límite de solapamiento")
+	_assert(director._volume_for("shoot") < director._volume_for("bomb"),"Las lágrimas suenan más fuerte que la bomba")
 	director.free()
 
 func _test_sewer_music_and_cover_planning() -> void:
