@@ -3,6 +3,8 @@ class_name IsmaelAudioDirector
 
 const MIX_RATE := 22050
 const ChiptuneComposer = preload("res://scripts/chiptune_composer.gd")
+const BossMusic = preload("res://scripts/boss_music_composer.gd")
+const CleanSfx = preload("res://scripts/clean_sfx_composer.gd")
 const SewerAmbience = preload("res://scripts/sewer_ambience_composer.gd")
 const AUDIO_SETTINGS_PATH := "user://audio_settings.cfg"
 
@@ -14,6 +16,8 @@ var _boss_music := false
 var _music_cache: Dictionary = {}
 var _last_sfx_ms: Dictionary = {}
 var _stream_cache: Dictionary = {}
+var _active_sfx: Array[AudioStreamPlayer] = []
+const MAX_SFX_VOICES := 10
 
 func _ready() -> void:
 	add_to_group("audio_director")
@@ -51,7 +55,7 @@ func set_floor(floor_index: int, room_kind: String = "inicio") -> void:
 	_boss_music = boss_now
 	var cache_key := "%d:%s" % [resolved,"jefe" if boss_now else "piso"]
 	if not _music_cache.has(cache_key):
-		_music_cache[cache_key] = ChiptuneComposer.compose(resolved,true) if boss_now else SewerAmbience.compose(resolved)
+		_music_cache[cache_key] = BossMusic.compose(resolved) if boss_now else SewerAmbience.compose(resolved)
 	_ambience.stop()
 	_ambience.stream = _music_cache[cache_key]
 	_ambience.play()
@@ -72,105 +76,66 @@ func play_sfx(kind: String, intensity: float = 1.0) -> void:
 	else:
 		stream = _make_sfx_stream(kind,intensity)
 		_stream_cache[cache_key] = stream
+	# Priorizar señales críticas frente a docenas de disparos
+	# simultáneos: mezcla estable en móviles Android modestos.
+	var priority: int = CleanSfx.voice_priority(kind)
+	if _active_sfx.size() >= MAX_SFX_VOICES:
+		var weakest: AudioStreamPlayer = null
+		for voice in _active_sfx:
+			if not is_instance_valid(voice):
+				continue
+			if weakest == null or int(voice.get_meta("sfx_priority",0)) < int(weakest.get_meta("sfx_priority",0)):
+				weakest = voice
+		if weakest == null or priority <= int(weakest.get_meta("sfx_priority",0)):
+			return
+		_active_sfx.erase(weakest)
+		weakest.stop()
+		weakest.queue_free()
 	var player := AudioStreamPlayer.new()
+	player.set_meta("sfx_priority",priority)
 	player.stream = stream
 	player.volume_db = _volume_for(kind) + linear_to_db(maxf(0.001,sfx_level))
 	add_child(player)
-	player.finished.connect(player.queue_free)
+	_active_sfx.append(player)
+	player.finished.connect(func() -> void:
+		_active_sfx.erase(player)
+		player.queue_free()
+	)
 	player.play()
 
 func _cooldown_for(kind: String) -> int:
 	match kind:
-		"shoot": return 80
-		"hit": return 90
-		"enemy_hit": return 75
-		"hit": return 55
-		"enemy_shot": return 80
-		"pickup": return 65
-		_: return 0
+		"shoot": return 70
+		"enemy_shot": return 95
+		"enemy_hit": return 100
+		"hit": return 135
+		"pickup": return 95
+		"room_transition": return 180
+		"door": return 140
+		"chest","chest_locked": return 250
+		"bomb": return 190
+		"boss_phase","boss_death": return 250
+		_: return 70
 
 func _volume_for(kind: String) -> float:
 	match kind:
 		"shoot": return -15.0
-		"enemy_hit": return -16.0
+		"enemy_shot": return -16.5
+		"enemy_hit": return -15.0
 		"hit": return -12.0
-		"enemy_shot": return -16.0
-		"pickup": return -9.0
-		"door": return -10.0
-		"bomb": return -5.0
-		"boss_phase": return -4.0
-		"boss_death": return -3.0
-		"room_clear": return -9.0
-		"floor": return -5.0
-		_: return -12.0
+		"pickup": return -11.0
+		"chest","chest_locked": return -9.0
+		"door": return -10.5
+		"room_transition": return -10.0
+		"bomb": return -7.5
+		"boss_phase": return -7.0
+		"boss_death": return -6.0
+		"room_clear": return -10.0
+		"floor": return -7.5
+		_: return -13.0
 
 func _make_sfx_stream(kind: String, intensity: float) -> AudioStreamWAV:
-	var duration := 0.16
-	var start_hz := 220.0
-	var end_hz := 120.0
-	var noise := 0.08
-	var pulse_hz := 0.0
-	match kind:
-		"shoot":
-			duration = 0.085
-			start_hz = 310.0
-			end_hz = 180.0
-			noise = 0.10
-		"hit":
-			duration = 0.13
-			start_hz = 185.0
-			end_hz = 66.0
-			noise = 0.24
-		"enemy_hit":
-			duration = 0.075
-			start_hz = 440.0
-			end_hz = 150.0
-			noise = 0.12
-		"enemy_shot":
-			duration = 0.13
-			start_hz = 132.0
-			end_hz = 248.0
-			noise = 0.12
-		"pickup":
-			duration = 0.18
-			start_hz = 420.0
-			end_hz = 690.0
-			noise = 0.03
-		"door":
-			duration = 0.24
-			start_hz = 118.0
-			end_hz = 52.0
-			noise = 0.38
-		"bomb":
-			duration = 0.42
-			start_hz = 88.0
-			end_hz = 34.0
-			noise = 0.62
-		"boss_phase":
-			duration = 0.58
-			start_hz = 74.0
-			end_hz = 196.0
-			noise = 0.28
-			pulse_hz = 8.0
-		"boss_death":
-			duration = 0.70
-			start_hz = 96.0
-			end_hz = 28.0
-			noise = 0.56
-			pulse_hz = 5.0
-		"room_clear":
-			duration = 0.34
-			start_hz = 220.0
-			end_hz = 390.0
-			noise = 0.08
-		"floor":
-			duration = 0.72
-			start_hz = 64.0
-			end_hz = 260.0
-			noise = 0.18
-			pulse_hz = 4.0
-	var amp := clampf(0.34+intensity*0.08,0.32,0.62)
-	return _build_stream(duration,start_hz,end_hz,noise,pulse_hz,amp,false)
+	return CleanSfx.create(kind,intensity)
 
 # Legacy entry point remains for compatibility with prior saves/tests.
 func _make_ambience_stream(floor_index: int) -> AudioStreamWAV:
