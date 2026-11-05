@@ -60,6 +60,12 @@ func set_floor(floor_index: int, room_kind: String = "inicio") -> void:
 	_ambience.stream = _music_cache[cache_key]
 	_ambience.play()
 
+# Deja la musica de combate al terminar un jefe o minijefe.
+# Conserva los SFX de victoria y la atmosfera normal del piso.
+func finish_boss_fight() -> void:
+	if _boss_music:
+		set_floor(_floor_index,"combate")
+
 func play_sfx(kind: String, intensity: float = 1.0) -> void:
 	if sfx_level <= 0.0:
 		return

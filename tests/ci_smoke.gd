@@ -130,6 +130,17 @@ func _test_clean_audio_and_boss_soundtrack() -> void:
 	_assert(boss_track.data.size()>160000,"Música de jefe demasiado corta")
 	var director = AudioDirector.new()
 	_assert(director.MAX_SFX_VOICES <= 12,"Demasiadas voces simultáneas")
+	# Regression: el audio de jefes termina cuando ambos tipos de guardián caen.
+	root.add_child(director)
+	for boss_kind in ["minijefe","jefe"]:
+		director.set_floor(2,boss_kind)
+		_assert(director._boss_music,"El combate no activa la pista de jefe: "+boss_kind)
+		director.finish_boss_fight()
+		_assert(not director._boss_music,"Sigue sonando el jefe tras derrotar a "+boss_kind)
+		_assert(director._ambience.stream == director._music_cache["2:piso"],"No retorna la ambientación del piso")
+		# Repetir la señal de victoria no debe reactivar la música del jefe.
+		director.finish_boss_fight()
+		_assert(not director._boss_music,"La victoria reactivó la música de combate")
 	var names := ["shoot","enemy_shot","hit","enemy_hit","door","room_transition","bomb","chest","chest_locked","pickup","boss_phase","boss_death"]
 	var spectra: Dictionary = {}
 	for kind in names:

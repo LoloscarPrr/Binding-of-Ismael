@@ -115,7 +115,7 @@ func _begin_room(entry_direction: Vector2i = Vector2i.ZERO) -> void:
 	_room_kind = _dungeon.kind(_current_cell)
 	_room_cleared = _dungeon.is_cleared(_current_cell)
 	if is_instance_valid(_audio_director):
-		_audio_director.set_floor(_floor_index,_room_kind)
+		_audio_director.set_floor(_floor_index,"combate" if _room_cleared and _room_kind in ["jefe","minijefe"] else _room_kind)
 	_challenge_wave = 0
 	_reset_door_charge()
 	if _dungeon.is_hidden(_current_cell):
@@ -260,6 +260,10 @@ func _mark_current_room_cleared(count_clear: bool = true) -> void:
 	_dungeon.set_cleared(_current_cell,true)
 	_transition_locked = false
 	_set_door_open(true)
+	# Evita que el riff de combate siga en la sala despues de vencer
+	# al jefe o al guardian menor.
+	if _room_kind in ["jefe","minijefe"] and is_instance_valid(_audio_director):
+		_audio_director.finish_boss_fight()
 	if count_clear and not was_cleared:
 		_rooms_cleared_total += 1
 		if is_instance_valid(player) and player.has_method("notify_room_cleared"):
