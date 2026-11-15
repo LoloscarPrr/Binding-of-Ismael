@@ -297,19 +297,8 @@ func _refresh_floor_exit_label(opened: bool) -> void:
 		floor_exit_label.text = "▼ SALIDA FINAL ▼" if opened else "SALIDA FINAL"
 
 func _floor_transition() -> void:
-	var leaving_floor := _floor_index
 	_audio_sfx("floor",1.2)
-	await get_tree().create_timer(FLOOR_TRANSITION_DELAY).timeout
-	if _game_over:
-		return
-	_floor_index = mini(leaving_floor+1,FloorCatalog.TOTAL_FLOORS)
-	_dungeon.generate(_floor_index)
-	if _map_reveal_active:
-		_dungeon.reveal_public_rooms()
-	if is_instance_valid(player) and player.floor_shield_enabled:
-		player.refill_floor_shield()
-	_current_cell = Vector2i.ZERO
-	_begin_room(Vector2i.ZERO)
+	await _perform_floor_transition(mini(_floor_index+1,FloorCatalog.TOTAL_FLOORS))
 
 func _finish_floor() -> void:
 	if _transition_locked:

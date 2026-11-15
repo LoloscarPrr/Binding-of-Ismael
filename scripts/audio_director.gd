@@ -14,6 +14,12 @@ var sfx_level := 0.85
 var _floor_index := 1
 var _boss_music := false
 var _music_cache: Dictionary = {}
+# La sintesis del rock de cuerdas pulsadas es muy costosa en Android:
+# nunca renderizar una pista de audio en el hilo de jugabilidad.
+var _music_queue: Array[Dictionary] = []
+var _music_worker: Thread = null
+var _music_busy_key := ""
+var _requested_music_key := ""
 var _last_sfx_ms: Dictionary = {}
 var _stream_cache: Dictionary = {}
 var _active_sfx: Array[AudioStreamPlayer] = []
@@ -46,19 +52,99 @@ func _apply_ambience_volume() -> void:
 	# El nuevo arreglo tiene rango dinámico propio y volumen audible.
 	_ambience.volume_db = -80.0 if ambience_level <= 0.0 else -7.0 + linear_to_db(ambience_level)
 
+func _track_key(floor_number: int, boss: bool) -> String:
+	return "%d:%s" % [clampi(floor_number,1,5),"jefe" if boss else "piso"]
+
 func set_floor(floor_index: int, room_kind: String = "inicio") -> void:
 	var resolved := clampi(floor_index,1,5)
 	var boss_now := room_kind in ["jefe","minijefe"]
-	if resolved == _floor_index and boss_now == _boss_music and _ambience.playing:
+	var requested := _track_key(resolved,boss_now)
+	if requested == _requested_music_key and _ambience.playing:
 		return
 	_floor_index = resolved
 	_boss_music = boss_now
-	var cache_key := "%d:%s" % [resolved,"jefe" if boss_now else "piso"]
-	if not _music_cache.has(cache_key):
-		_music_cache[cache_key] = BossMusic.compose(resolved) if boss_now else SewerAmbience.compose(resolved)
+	_requested_music_key = requested
+	# No reproducir audio del jefe anterior mientras se prepara el nuevo.
+	if _music_cache.has(requested):
+		_play_cached_track(requested)
+	else:
+		_ambience.stop()
+		_queue_music(resolved,boss_now,true)
+
+func music_ready_for(floor_index: int, room_kind: String = "inicio") -> bool:
+	return _music_cache.has(_track_key(floor_index,room_kind in ["jefe","minijefe"]))
+
+func warm_floor(floor_index: int) -> void:
+	# Precargar exploracion y jefe del piso en segundo plano, una vez.
+	if floor_index < 1 or floor_index > 5:
+		return
+	_queue_music(floor_index,false,false)
+	_queue_music(floor_index,true,false)
+
+func _queue_music(floor_number: int, boss: bool, priority: bool) -> void:
+	var key := _track_key(floor_number,boss)
+	if _music_cache.has(key) or _music_busy_key == key:
+		return
+	for i in range(_music_queue.size()):
+		if String(_music_queue[i]["key"]) == key:
+			if priority and i > 0:
+				var queued: Dictionary = _music_queue[i]
+				_music_queue.remove_at(i)
+				_music_queue.push_front(queued)
+			return
+	var entry: Dictionary = {"key":key,"floor":floor_number,"boss":boss}
+	if priority:
+		_music_queue.push_front(entry)
+	else:
+		_music_queue.append(entry)
+	_start_next_music()
+
+func _start_next_music() -> void:
+	if not _music_busy_key.is_empty() or _music_queue.is_empty():
+		return
+	var entry: Dictionary = _music_queue.pop_front()
+	_music_busy_key = String(entry["key"])
+	_music_worker = Thread.new()
+	var error := _music_worker.start(
+		Callable(self,"_render_music_worker").bind(int(entry["floor"]),bool(entry["boss"]),_music_busy_key)
+	)
+	if error != OK:
+		# Ultimo recurso ante un dispositivo sin hilos: la pantalla
+		# de carga permanece hasta terminar, nunca se cuelga el juego.
+		printerr("Music thread unavailable: ",error)
+		_music_worker = null
+		var stream: AudioStreamWAV = BossMusic.compose(int(entry["floor"])) if bool(entry["boss"]) else SewerAmbience.compose(int(entry["floor"]))
+		call_deferred("_complete_music_worker",_music_busy_key,stream)
+
+func _render_music_worker(floor_number: int, boss: bool, key: String) -> void:
+	# Ninguna llamada al SceneTree ni a nodos desde este hilo.
+	var stream: AudioStreamWAV = BossMusic.compose(floor_number) if boss else SewerAmbience.compose(floor_number)
+	call_deferred("_complete_music_worker",key,stream)
+
+func _complete_music_worker(key: String, stream: AudioStreamWAV) -> void:
+	if _music_worker != null:
+		_music_worker.wait_to_finish()
+		_music_worker = null
+	_music_cache[key] = stream
+	_music_busy_key = ""
+	if key == _requested_music_key:
+		_play_cached_track(key)
+	_start_next_music()
+
+func _play_cached_track(key: String) -> void:
+	if not _music_cache.has(key):
+		return
+	var track: AudioStreamWAV = _music_cache[key]
+	if _ambience.playing and _ambience.stream == track:
+		return
 	_ambience.stop()
-	_ambience.stream = _music_cache[cache_key]
+	_ambience.stream = track
 	_ambience.play()
+
+func _exit_tree() -> void:
+	if _music_worker != null and _music_worker.is_started():
+		_music_worker.wait_to_finish()
+		_music_worker = null
 
 # Deja la musica de combate al terminar un jefe o minijefe.
 # Conserva los SFX de victoria y la atmosfera normal del piso.

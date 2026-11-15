@@ -10,6 +10,7 @@ const DOOR_COMMIT_HALF_WIDTH := 72.0
 const DoorChargeIndicator = preload("res://scripts/door_charge_indicator.gd")
 const CombatFeedbackVfx = preload("res://scripts/combat_feedback_vfx.gd")
 const AudioDirector = preload("res://scripts/audio_director.gd")
+const LoadingOverlay = preload("res://scripts/transition_loading_overlay.gd")
 const MIN_ENEMY_SEPARATION_RATIO := 0.16
 const COMBAT_SIDE_RATIO := 0.085
 const COMBAT_TOP_RATIO := 0.155
@@ -72,6 +73,8 @@ var _door_charge_direction := Vector2i.ZERO
 var _door_charge_time := 0.0
 var _door_charge_indicator: IsmaelDoorChargeIndicator
 var _audio_director: IsmaelAudioDirector
+var _loading_overlay: IsmaelTransitionLoadingOverlay
+var _loading_transition := false
 
 func _ready() -> void:
 	_configure_mobile_display()
@@ -81,6 +84,7 @@ func _ready() -> void:
 	_dungeon.generate(_floor_index)
 	_audio_director = AudioDirector.new()
 	add_child(_audio_director)
+	_audio_director.warm_floor(_floor_index)
 	_current_cell = Vector2i.ZERO
 	player = IsmaelPlayer.new()
 	player.position = _room_entry_position(Vector2i.ZERO)
@@ -96,6 +100,8 @@ func _ready() -> void:
 	_on_player_health_changed(player.health,player.max_health)
 	_update_pickup_hud()
 	_layout_touch_ui()
+	_loading_overlay = LoadingOverlay.new()
+	add_child(_loading_overlay)
 	_begin_room(Vector2i.ZERO)
 	queue_redraw()
 
@@ -264,6 +270,8 @@ func _mark_current_room_cleared(count_clear: bool = true) -> void:
 	# al jefe o al guardian menor.
 	if _room_kind in ["jefe","minijefe"] and is_instance_valid(_audio_director):
 		_audio_director.finish_boss_fight()
+		if _room_kind == "jefe" and not was_cleared:
+			_audio_director.warm_floor(_floor_index+1)
 	if count_clear and not was_cleared:
 		_rooms_cleared_total += 1
 		if is_instance_valid(player) and player.has_method("notify_room_cleared"):
@@ -852,7 +860,7 @@ func _physics_process(delta: float) -> void:
 	if _game_over or _run_complete or not is_instance_valid(player):
 		_reset_door_charge()
 		return
-	if _transition_locked:
+	if _transition_locked or _loading_transition:
 		player.move_input = Vector2.ZERO
 		player.aim_input = Vector2.ZERO
 		_reset_door_charge()
@@ -914,18 +922,46 @@ func _reset_door_charge() -> void:
 		_door_charge_indicator.reset()
 
 func _travel_to(direction: Vector2i) -> void:
-	if _transition_locked:
+	if _transition_locked or _loading_transition:
 		return
 	var destination := _current_cell+direction
 	if not _dungeon.has_room(destination):
 		return
 	_transition_locked = true
+	_loading_transition = true
 	_audio_sfx("room_transition",0.96)
+	var next_kind: String = _dungeon.kind(destination)
+	var room_number: int = _dungeon.display_ordinal(destination)
+	if is_instance_valid(_loading_overlay):
+		_loading_overlay.show_room(_floor_index,room_number,next_kind)
+	# Ceder un par de frames para pintar la pantalla ANTES de cambiar
+	# obstaculos, enemigos, puertas y minimapa.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _game_over:
+		_finish_loading_transition()
+		return
+	var song_kind := "combate" if _dungeon.is_cleared(destination) and next_kind in ["jefe","minijefe"] else next_kind
+	if is_instance_valid(_audio_director):
+		_audio_director.set_floor(_floor_index,song_kind)
+		while not _audio_director.music_ready_for(_floor_index,song_kind):
+			if _game_over:
+				_finish_loading_transition()
+				return
+			await get_tree().process_frame
+	# La entrada normal se mantiene rapida sin saltos de imagen.
 	_current_cell = destination
 	_begin_room(direction)
+	await get_tree().create_timer(0.20).timeout
+	_finish_loading_transition()
+
+func _finish_loading_transition() -> void:
+	_loading_transition = false
+	if is_instance_valid(_loading_overlay):
+		_loading_overlay.hide_loading()
 
 func _finish_floor() -> void:
-	if _transition_locked:
+	if _transition_locked or _loading_transition:
 		return
 	_transition_locked = true
 	_spawn_generation += 1
@@ -943,10 +979,30 @@ func _finish_floor() -> void:
 	_floor_transition()
 
 func _floor_transition() -> void:
+	await _perform_floor_transition(mini(_floor_index+1,TOTAL_FLOORS))
+
+func _perform_floor_transition(next_floor: int) -> void:
+	_loading_transition = true
+	if is_instance_valid(_loading_overlay):
+		_loading_overlay.show_floor(next_floor,"EL DESCENSO CONTINUA")
+	# Iniciar la pista antes del retraso de transicion evita cualquier
+	# sintesis musical dentro del frame de entrada al nuevo piso.
+	if is_instance_valid(_audio_director):
+		_audio_director.set_floor(next_floor,"inicio")
+		_audio_director.warm_floor(next_floor)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	await get_tree().create_timer(FLOOR_TRANSITION_DELAY).timeout
 	if _game_over:
+		_finish_loading_transition()
 		return
-	_floor_index += 1
+	if is_instance_valid(_audio_director):
+		while not _audio_director.music_ready_for(next_floor,"inicio"):
+			if _game_over:
+				_finish_loading_transition()
+				return
+			await get_tree().process_frame
+	_floor_index = next_floor
 	_dungeon.generate(_floor_index)
 	if _map_reveal_active:
 		_dungeon.reveal_public_rooms()
@@ -954,6 +1010,8 @@ func _floor_transition() -> void:
 		player.refill_floor_shield()
 	_current_cell = Vector2i.ZERO
 	_begin_room(Vector2i.ZERO)
+	await get_tree().process_frame
+	_finish_loading_transition()
 
 func _grant_floor_reward() -> String:
 	player.add_max_health(1)
