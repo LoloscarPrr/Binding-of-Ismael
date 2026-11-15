@@ -132,6 +132,11 @@ func _test_clean_audio_and_boss_soundtrack() -> void:
 	_assert(boss_track.data.size()>160000,"Música de jefe demasiado corta")
 	var director = AudioDirector.new()
 	_assert(director.MAX_SFX_VOICES <= 12,"Demasiadas voces simultáneas")
+	# Los tests del cambio de pista no deben liberar objetos mientras
+	# un hilo de sintesis sigue utilizandolos: precargar WAV de prueba.
+	director._music_cache["1:piso"] = boss_track
+	director._music_cache["2:piso"] = boss_track
+	director._music_cache["2:jefe"] = boss_track
 	# Regression: el audio de jefes termina cuando ambos tipos de guardián caen.
 	root.add_child(director)
 	for boss_kind in ["minijefe","jefe"]:
