@@ -6,6 +6,7 @@ const BossSeals = preload("res://src/domain/run/boss_seal_catalog.gd")
 const BossPhases = preload("res://src/domain/run/boss_phase_profile.gd")
 const AdvancedEnemy = preload("res://scripts/advanced_enemy.gd")
 const SpecialEnemy = preload("res://scripts/special_enemy.gd")
+const SpawnPlanner = preload("res://src/domain/run/room_spawn_planner.gd")
 
 var _room_layout_profile := "abierta"
 
@@ -151,6 +152,36 @@ func _spawn_enemy_pack(count: int, depth: int) -> void:
 		enemy.defeated.connect(_on_enemy_defeated)
 		add_child(enemy)
 
+# Calcula apariciones después del retardo de entrada, con la posición
+# ACTUAL del jugador y con todas las coberturas (incluidas rocas rompibles).
+func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
+	var seed := absi(
+		_floor_index*193+_room_index*47+_current_cell.x*92821
+		+_current_cell.y*68917+_challenge_wave*17
+	)
+	var player_at := player.global_position if is_instance_valid(player) else room_rect.get_center()
+	return SpawnPlanner.choose_positions(
+		count,room_rect,player_at,_room_spawn_blockers(),seed,
+		maxf(room_rect.size.y*0.42,280.0),
+		maxf(105.0,minf(room_rect.size.x,room_rect.size.y)*MIN_ENEMY_SEPARATION_RATIO)
+	)
+
+func _room_spawn_blockers() -> Array[Rect2]:
+	var blockers: Array[Rect2] = []
+	for obstacle in get_tree().get_nodes_in_group("room_obstacles"):
+		if not is_instance_valid(obstacle) or obstacle.is_queued_for_deletion() or not obstacle is IsmaelRoomObstacle:
+			continue
+		blockers.append(Rect2(
+			obstacle.global_position-obstacle.obstacle_size*0.5,
+			obstacle.obstacle_size
+		))
+	for rock in get_tree().get_nodes_in_group("room_rocks"):
+		if not is_instance_valid(rock) or rock.is_queued_for_deletion() or not rock is IsmaelDestructibleRock:
+			continue
+		var half: float = IsmaelDestructibleRock.COLLISION_RADIUS*rock.scale.x
+		blockers.append(Rect2(rock.global_position-Vector2.ONE*half,Vector2.ONE*half*2.0))
+	return blockers
+
 func _create_floor_enemy(kind_id: String):
 	if kind_id in ["brute","spitter","stalker","brute_elite","spitter_elite","stalker_elite"]:
 		var advanced := AdvancedEnemy.new()
@@ -232,24 +263,39 @@ func _spawn_miniboss() -> void:
 # apariciones prácticamente encima de Ismael, especialmente en puertas norte.
 func _safe_guardian_spawn_position(preferred_ratio: Vector2) -> Vector2:
 	var preferred := room_rect.position+room_rect.size*preferred_ratio
-	if not is_instance_valid(player):
-		return preferred
+	var blockers := _room_spawn_blockers()
+	var player_at := player.global_position if is_instance_valid(player) else room_rect.get_center()
 	var minimum_distance := maxf(225.0,minf(room_rect.size.x,room_rect.size.y)*0.46)
-	if preferred.distance_to(player.global_position) >= minimum_distance:
-		return preferred
 	var alternatives: Array[Vector2] = [
-		Vector2(0.50,0.72),Vector2(0.25,0.28),Vector2(0.75,0.28),
-		Vector2(0.25,0.72),Vector2(0.75,0.72),Vector2(0.50,0.28)
+		preferred,
+		room_rect.position+room_rect.size*Vector2(0.50,0.72),
+		room_rect.position+room_rect.size*Vector2(0.25,0.28),
+		room_rect.position+room_rect.size*Vector2(0.75,0.28),
+		room_rect.position+room_rect.size*Vector2(0.25,0.72),
+		room_rect.position+room_rect.size*Vector2(0.75,0.72),
+		room_rect.position+room_rect.size*Vector2(0.50,0.28)
 	]
-	var safest := preferred
-	var best_distance := preferred.distance_squared_to(player.global_position)
-	for ratio in alternatives:
-		var candidate := room_rect.position+room_rect.size*ratio
-		var distance_squared := candidate.distance_squared_to(player.global_position)
-		if distance_squared > best_distance:
-			safest = candidate
-			best_distance = distance_squared
-	return safest
+	var best := Vector2.INF
+	var best_score := -INF
+	for candidate in alternatives:
+		if not SpawnPlanner.point_is_clear(candidate,room_rect,blockers,46.0):
+			continue
+		var distance := candidate.distance_to(player_at)
+		if distance < minimum_distance:
+			continue
+		var score := distance-candidate.distance_to(preferred)*0.45
+		if score > best_score:
+			best_score = score
+			best = candidate
+	if best != Vector2.INF:
+		return best
+	# Caso límite: Ismael se desplazó durante la entrada y tapó todos
+	# los puntos preferidos. Reutiliza la búsqueda segura conectada.
+	var fallback := SpawnPlanner.choose_positions(
+		1,room_rect,player_at,blockers,_floor_index*193+_room_index,
+		170.0,105.0
+	)
+	return fallback[0] if not fallback.is_empty() else preferred
 
 func _spawn_boss() -> void:
 	var boss = AdvancedEnemy.new()
