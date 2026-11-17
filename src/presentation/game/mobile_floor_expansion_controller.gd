@@ -168,6 +168,9 @@ func _deterministic_spawn_positions(count: int) -> Array[Vector2]:
 
 func _room_spawn_blockers() -> Array[Rect2]:
 	var blockers: Array[Rect2] = []
+	# Los smoke tests instancian controladores sin agregarlos al SceneTree.
+	if not is_inside_tree():
+		return blockers
 	for obstacle in get_tree().get_nodes_in_group("room_obstacles"):
 		if not is_instance_valid(obstacle) or obstacle.is_queued_for_deletion() or not obstacle is IsmaelRoomObstacle:
 			continue
