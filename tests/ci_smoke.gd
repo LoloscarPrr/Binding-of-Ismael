@@ -33,6 +33,7 @@ const AudioDirector = preload("res://scripts/audio_director.gd")
 const LoadingOverlay = preload("res://scripts/transition_loading_overlay.gd")
 const SewerAmbience = preload("res://scripts/sewer_ambience_composer.gd")
 const CoverPlanner = preload("res://src/domain/run/room_cover_planner.gd")
+const SpawnPlanner = preload("res://src/domain/run/room_spawn_planner.gd")
 const RockRoomController = preload("res://src/presentation/game/mobile_destructible_room_controller.gd")
 const BossArenaComposition = preload("res://src/domain/run/boss_arena_composition.gd")
 
@@ -70,6 +71,7 @@ func _run_tests() -> void:
 	_test_secrets_and_anomalies()
 	_test_shop_layout_and_guardian_spawns()
 	_test_enemy_obstacle_navigation()
+	_test_safe_room_spawns()
 	await _test_enemy_pathfinding_in_physics()
 	_test_shot_cancellation()
 	if _errors.is_empty():
@@ -697,6 +699,43 @@ func _test_enemy_obstacle_navigation() -> void:
 	_assert(ObstacleNavigator.segment_is_clear(right_enemy,right_corner,columns),"No puede llegar a la esquina desde la derecha")
 	var none: Array[Rect2] = []
 	_assert(ObstacleNavigator.next_corner(left_enemy,middle_player,none,arena) == middle_player,"El camino sin obstáculos debe ser directo")
+
+func _test_safe_room_spawns() -> void:
+	var arena := Rect2(40,60,1240,570)
+	var blocks: Array[Rect2] = [
+		Rect2(365,220,115,145),Rect2(845,225,115,145),
+		Rect2(620,325,90,70)
+	]
+	var player_at := Vector2(670,525)
+	var positions := SpawnPlanner.choose_positions(10,arena,player_at,blocks,19423,280.0,105.0)
+	var again := SpawnPlanner.choose_positions(10,arena,player_at,blocks,19423,280.0,105.0)
+	_assert(positions == again,"Las apariciones cambiaron con la misma semilla")
+	_assert(positions.size() >= 6,"El generador descarta demasiadas apariciones válidas")
+	for i in range(positions.size()):
+		var point: Vector2 = positions[i]
+		_assert(SpawnPlanner.point_is_clear(point,arena,blocks),"Enemigo apareció sobre una roca/columna")
+		_assert(point.distance_to(player_at) >= 280.0,"Enemigo apareció demasiado cerca de Ismael")
+		for j in range(i):
+			_assert(point.distance_to(positions[j]) >= 105.0,"Enemigos aparecieron superpuestos")
+
+	# Una barricada completa divide la sala: solo es válido el lado
+	# donde está Ismael, aunque haya lugares geométricamente libres al otro.
+	var split_arena := Rect2(0,0,1200,600)
+	var fence: Array[Rect2] = [Rect2(582,0,36,600)]
+	var left_player := Vector2(150,300)
+	var left_spawns := SpawnPlanner.choose_positions(8,split_arena,left_player,fence,8391,160.0,95.0)
+	_assert(not left_spawns.is_empty(),"No se encontraron apariciones del lado alcanzable")
+	for point in left_spawns:
+		_assert(point.x < 582.0,"El enemigo apareció aislado detrás de una pared")
+		_assert(SpawnPlanner.point_is_clear(point,split_arena,fence),"Aparición sobre muro divisorio")
+
+	# Sin superficie transitable se reduce la oleada, sin teletransportar
+	# enemigos ni inventar un punto inseguro.
+	var filled: Array[Rect2] = [Rect2(0,0,1200,600)]
+	_assert(
+		SpawnPlanner.choose_positions(5,split_arena,left_player,filled,7,120.0,90.0).is_empty(),
+		"La sala sin espacio seguro generó enemigos"
+	)
 
 func _test_enemy_pathfinding_in_physics() -> void:
 	# Reproduce la captura: Ismael permanece en medio, dos enemigos
