@@ -63,6 +63,7 @@ func _run_tests() -> void:
 	_test_minimap_multitouch_with_held_stick()
 	_test_build_balance()
 	_test_floor_rosters()
+	_test_two_new_floors()
 	_test_metaprogression()
 	_test_boss_seals()
 	_test_boss_mechanics()
@@ -506,6 +507,46 @@ func _test_metaprogression() -> void:
 	_assert(progress.has_unlock("santuario_eco"),"Cámara del Eco no desbloquea al ganar")
 	progress.echo_challenges_completed = 3
 	_assert(progress.has_unlock("corona_del_eco"),"Corona no desbloquea con tres desafíos")
+
+# Los cinco sellos siguen siendo historia independiente de los pisos posteriores.
+func _test_two_new_floors() -> void:
+	_assert(FloorCatalog.TOTAL_FLOORS == 7,"La progresión no alcanza los siete pisos")
+	_assert(FloorCatalog.floor_name(5) == "ABISMO","El piso original cambió de lugar")
+	_assert(FloorCatalog.floor_name(6) == "CISTERNA DE ÓXIDO","Falta la Cisterna de Óxido")
+	_assert(FloorCatalog.floor_name(7) == "SANTUARIO DE CENIZA","Falta el Santuario de Ceniza")
+	_assert(FloorCatalog.boss_name(6) == "EL CORROÍDO","El guardián del piso 6 es incorrecto")
+	_assert(FloorCatalog.boss_name(7) == "LA CAMPANA ROTA","El guardián del piso 7 es incorrecto")
+	_assert(BossSeals.boss_name(5) == "EL HUECO","Se perdió el quinto sello original")
+	for floor_number in [6,7]:
+		var pool: Array[String] = FloorCatalog.enemy_pool(floor_number)
+		_assert(pool.size() >= 7,"Piso avanzado sin variedad de enemigos")
+		var layout: String = FloorCatalog.room_layout_profile(floor_number,"combate",floor_number*13)
+		_assert(not layout.is_empty(),"Piso avanzado sin disposición de salas")
+		var roster: Array[String] = FloorCatalog.encounter_roster(floor_number,1463,8,"combate",layout)
+		_assert(roster.size() == 8,"Encuentro incompleto en piso %d" % floor_number)
+		for enemy_name in roster:
+			_assert(pool.has(enemy_name.trim_suffix("_elite")),"Enemigo inválido en piso nuevo")
+		var boss_texture: Texture2D = VisualSprites.boss_texture(floor_number)
+		_assert(boss_texture != null and boss_texture.get_width() == 192,"El jefe nuevo no tiene ilustración propia")
+		var boss_actor = AdvancedEnemy.new()
+		boss_actor.configure_advanced("boss",floor_number)
+		_assert(boss_actor.floor_variant == floor_number,"El jefe usa la variante de otro piso")
+		_assert(boss_actor.max_health >= 260 and boss_actor.max_health <= 305,"El jefe nuevo tiene vida desbalanceada")
+		_assert(not BossPhases.phase_title(floor_number,2).is_empty(),"Fase II sin anuncio")
+		_assert(not BossPhases.phase_title(floor_number,3).is_empty(),"Fase III sin anuncio")
+		_assert(BossArenaComposition.center_is_clear(floor_number),"Arena nueva sin salida central")
+		_assert(BossMusic.note_frequency(floor_number,0) > 60.0,"El jefe nuevo no tiene música")
+		for previous_floor in range(1,floor_number):
+			_assert(BossMusic.note_frequency(floor_number,0) != BossMusic.note_frequency(previous_floor,0),"El nuevo guardián repite tonalidad de un piso anterior")
+		_assert(SewerAmbience.mystery_note_frequency(floor_number,0) > 60.0,"Piso nuevo sin ambiente")
+		boss_actor.free()
+	var progress = RunProgress.new()
+	progress.boss_defeats["5"] = 1
+	progress.boss_defeats["6"] = 2
+	progress.boss_defeats["7"] = 1
+	_assert(progress.boss_defeat_count(6) == 2,"El guardián 6 se registra sobre el 5")
+	_assert(progress.boss_defeat_count(7) == 1,"El guardián 7 se registra sobre el 5")
+	_assert(progress.boss_seals_discovered() == 1,"Guardianes extra alteraron los cinco sellos")
 
 func _test_boss_seals() -> void:
 	var progress = RunProgress.new()

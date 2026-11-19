@@ -20,8 +20,8 @@ static func phase_for_health(health: int, max_health: int) -> int:
 static func speed_multiplier(floor_index: int, phase: int) -> float:
 	if phase <= 1:
 		return 1.0
-	var increases: Array[float] = [0.07,0.16,0.08,0.04,0.10]
-	var bonus := increases[clampi(floor_index,1,5)-1]
+	var increases: Array[float] = [0.07,0.16,0.08,0.04,0.10,0.08,0.07]
+	var bonus := increases[clampi(floor_index,1,increases.size())-1]
 	return 1.0 + bonus * (1.0 if phase == 2 else 1.65)
 
 static func attack_multiplier(phase: int) -> float:
@@ -35,19 +35,23 @@ static func mechanic_stride(phase: int) -> int:
 
 static func phase_title(floor_index: int, phase: int) -> String:
 	if phase == 2:
-		match clampi(floor_index,1,5):
+		match clampi(floor_index,1,7):
 			1: return "EL CARCELERO · CIERRE DE CELDAS"
 			2: return "LA MANDÍBULA · HAMBRE DESATADA"
 			3: return "EL VIGÍA · MIRADA DESPIERTA"
 			4: return "EL SEPULTURERO · TUMBAS ABIERTAS"
-			_: return "EL HUECO · ECO DEL ABISMO"
+			5: return "EL HUECO · ECO DEL ABISMO"
+			6: return "EL CORROÍDO · CANALES ROTOS"
+			_: return "LA CAMPANA ROTA · PRIMER TAÑIDO"
 	if phase == 3:
-		match clampi(floor_index,1,5):
+		match clampi(floor_index,1,7):
 			1: return "ÚLTIMO CERROJO"
 			2: return "HAMBRE FINAL"
 			3: return "OJO DEL JUICIO"
 			4: return "EL ÚLTIMO ENTIERRO"
-			_: return "EL VACÍO RESPONDE"
+			5: return "EL VACÍO RESPONDE"
+			6: return "OXIDACIÓN TOTAL"
+			_: return "ÚLTIMA CAMPANADA"
 	return "PRIMER SELLO"
 
 static func phase_subtitle(phase: int) -> String:

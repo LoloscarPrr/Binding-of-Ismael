@@ -4,19 +4,23 @@ class_name IsmaelBossArenaComposition
 # Cinco configuraciones de arenas con el centro transitable.
 # La decoración no modifica ataques, fases ni salud del guardián.
 static func cover_slots(floor_number: int) -> Array[Vector2]:
-	match clampi(floor_number,1,5):
+	match clampi(floor_number,1,7):
 		1: return [Vector2(0.16,0.26),Vector2(0.84,0.26)]
 		2: return [Vector2(0.17,0.73),Vector2(0.83,0.73)]
 		3: return [Vector2(0.15,0.31),Vector2(0.85,0.31)]
 		4: return [Vector2(0.17,0.25),Vector2(0.83,0.25)]
-		_: return [] # El Hueco necesita una arena abierta para esquivas
+		5: return [] # El Hueco necesita una arena abierta para esquivas
+		6: return [Vector2(0.17,0.25),Vector2(0.83,0.75)]
+		_: return [] # La Campana tiene anillos: escenario despejado
 
 static func cover_sizes(floor_number: int) -> Vector2:
-	match clampi(floor_number,1,5):
+	match clampi(floor_number,1,7):
 		1: return Vector2(0.045,0.075)
 		2: return Vector2(0.052,0.085)
 		3: return Vector2(0.045,0.085)
 		4: return Vector2(0.048,0.078)
+		5: return Vector2.ZERO
+		6: return Vector2(0.050,0.082)
 		_: return Vector2.ZERO
 
 static func center_is_clear(floor_number: int) -> bool:

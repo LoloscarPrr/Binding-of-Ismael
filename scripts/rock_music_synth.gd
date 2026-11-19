@@ -6,9 +6,9 @@ class_name IsmaelRockMusicSynth
 # Las pistas se renderizan una sola vez y el director las mantiene en cache.
 const SAMPLE_RATE := 22050
 const STEPS_PER_BAR := 16
-const ROOTS: Array[int] = [40,43,38,41,36]
-const BOSS_TEMPOS: Array[int] = [136,141,132,144,139]
-const ROOM_TEMPOS: Array[int] = [96,100,94,103,98]
+const ROOTS: Array[int] = [40,43,38,41,36,37,33]
+const BOSS_TEMPOS: Array[int] = [136,141,132,144,139,134,128]
+const ROOM_TEMPOS: Array[int] = [96,100,94,103,98,93,89]
 const BOSS_CHORDS: Array[int] = [0,-3,-5,-2,0,-3,-7,-2]
 const ROOM_CHORDS: Array[int] = [0,-3,-5,-2]
 const CHUG_PATTERN: Array[int] = [1,0,1,0, 1,1,0,1, 1,0,1,1, 0,1,0,0]
@@ -148,7 +148,7 @@ static func _finalize(mix: PackedFloat32Array, floor_number: int, combat: bool) 
 	return stream
 
 static func compose(floor_number: int, combat: bool) -> AudioStreamWAV:
-	var floor_id := clampi(floor_number,1,5)
+	var floor_id := clampi(floor_number,1,ROOTS.size())
 	var bpm: int = BOSS_TEMPOS[floor_id-1] if combat else ROOM_TEMPOS[floor_id-1]
 	var steps := 128 if combat else 64
 	var samples_per_step := maxi(64,int(round(float(SAMPLE_RATE)*60.0/float(bpm)/4.0)))

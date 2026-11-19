@@ -53,10 +53,10 @@ func _apply_ambience_volume() -> void:
 	_ambience.volume_db = -80.0 if ambience_level <= 0.0 else -7.0 + linear_to_db(ambience_level)
 
 func _track_key(floor_number: int, boss: bool) -> String:
-	return "%d:%s" % [clampi(floor_number,1,5),"jefe" if boss else "piso"]
+	return "%d:%s" % [clampi(floor_number,1,7),"jefe" if boss else "piso"]
 
 func set_floor(floor_index: int, room_kind: String = "inicio") -> void:
-	var resolved := clampi(floor_index,1,5)
+	var resolved := clampi(floor_index,1,7)
 	var boss_now := room_kind in ["jefe","minijefe"]
 	var requested := _track_key(resolved,boss_now)
 	if requested == _requested_music_key and _ambience.playing:
@@ -76,7 +76,7 @@ func music_ready_for(floor_index: int, room_kind: String = "inicio") -> bool:
 
 func warm_floor(floor_index: int) -> void:
 	# Precargar exploracion y jefe del piso en segundo plano, una vez.
-	if floor_index < 1 or floor_index > 5:
+	if floor_index < 1 or floor_index > 7:
 		return
 	_queue_music(floor_index,false,false)
 	_queue_music(floor_index,true,false)

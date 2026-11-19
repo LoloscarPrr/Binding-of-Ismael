@@ -30,8 +30,8 @@ static func enemy_texture(kind_id: String) -> Texture2D:
 	return _texture("enemy_"+id)
 
 static func boss_texture(floor_index: int) -> Texture2D:
-	var titles: Array[String] = ["carcelero","mandibula","vigia","sepulturero","hueco"]
-	return _texture("boss_"+titles[clampi(floor_index,1,5)-1])
+	var titles: Array[String] = ["carcelero","mandibula","vigia","sepulturero","hueco","corroido","campana"]
+	return _texture("boss_"+titles[clampi(floor_index,1,titles.size())-1])
 
 static func cached_texture_count() -> int:
 	return _textures.size()

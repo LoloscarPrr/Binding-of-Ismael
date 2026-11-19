@@ -48,6 +48,7 @@ func _draw() -> void:
 	_draw_ismael_sigil()
 	_draw_debris()
 	_draw_props()
+	_draw_deep_floor_details()
 	_draw_wall_torches()
 	_draw_light_pools()
 	_draw_airborne_motes()
@@ -89,25 +90,24 @@ func _draw_wall_shell() -> void:
 		y += 42.0
 
 func _void_color() -> Color:
-	match clampi(floor_index,1,5):
+	match clampi(floor_index,1,7):
 		1: return Color(0.014,0.012,0.012)
 		2: return Color(0.012,0.016,0.014)
 		3: return Color(0.015,0.014,0.020)
 		4: return Color(0.010,0.010,0.014)
-		_: return Color(0.006,0.006,0.010)
+		5: return Color(0.006,0.006,0.010)
+		6: return Color(0.007,0.013,0.012)
+		_: return Color(0.014,0.009,0.007)
 
 func _floor_palette() -> Dictionary:
-	match clampi(floor_index,1,5):
-		1:
-			return {"floor":Color(0.185,0.145,0.116),"wall":Color(0.10,0.073,0.058),"wall_dark":Color(0.052,0.040,0.035),"trim":Color(0.26,0.18,0.12),"highlight":Color(0.20,0.145,0.105),"light":Color(1.0,0.48,0.12)}
-		2:
-			return {"floor":Color(0.115,0.145,0.115),"wall":Color(0.075,0.105,0.080),"wall_dark":Color(0.035,0.055,0.040),"trim":Color(0.18,0.28,0.18),"highlight":Color(0.14,0.22,0.14),"light":Color(0.78,0.70,0.28)}
-		3:
-			return {"floor":Color(0.125,0.105,0.145),"wall":Color(0.085,0.070,0.115),"wall_dark":Color(0.040,0.032,0.060),"trim":Color(0.25,0.19,0.34),"highlight":Color(0.19,0.15,0.27),"light":Color(0.78,0.42,0.86)}
-		4:
-			return {"floor":Color(0.085,0.082,0.105),"wall":Color(0.060,0.058,0.080),"wall_dark":Color(0.026,0.026,0.038),"trim":Color(0.18,0.17,0.24),"highlight":Color(0.13,0.13,0.18),"light":Color(0.48,0.58,0.86)}
-		_:
-			return {"floor":Color(0.055,0.050,0.070),"wall":Color(0.040,0.036,0.055),"wall_dark":Color(0.014,0.012,0.020),"trim":Color(0.15,0.12,0.20),"highlight":Color(0.10,0.085,0.14),"light":Color(0.62,0.30,0.88)}
+	match clampi(floor_index,1,7):
+		1: return {"floor":Color(0.185,0.145,0.116),"wall":Color(0.10,0.073,0.058),"wall_dark":Color(0.052,0.040,0.035),"trim":Color(0.26,0.18,0.12),"highlight":Color(0.20,0.145,0.105),"light":Color(1.0,0.48,0.12)}
+		2: return {"floor":Color(0.115,0.145,0.115),"wall":Color(0.075,0.105,0.080),"wall_dark":Color(0.035,0.055,0.040),"trim":Color(0.18,0.28,0.18),"highlight":Color(0.14,0.22,0.14),"light":Color(0.78,0.70,0.28)}
+		3: return {"floor":Color(0.125,0.105,0.145),"wall":Color(0.085,0.070,0.115),"wall_dark":Color(0.040,0.032,0.060),"trim":Color(0.25,0.19,0.34),"highlight":Color(0.19,0.15,0.27),"light":Color(0.78,0.42,0.86)}
+		4: return {"floor":Color(0.085,0.082,0.105),"wall":Color(0.060,0.058,0.080),"wall_dark":Color(0.026,0.026,0.038),"trim":Color(0.18,0.17,0.24),"highlight":Color(0.13,0.13,0.18),"light":Color(0.48,0.58,0.86)}
+		5: return {"floor":Color(0.055,0.050,0.070),"wall":Color(0.040,0.036,0.055),"wall_dark":Color(0.014,0.012,0.020),"trim":Color(0.15,0.12,0.20),"highlight":Color(0.10,0.085,0.14),"light":Color(0.62,0.30,0.88)}
+		6: return {"floor":Color(0.090,0.122,0.105),"wall":Color(0.047,0.082,0.072),"wall_dark":Color(0.018,0.034,0.031),"trim":Color(0.32,0.22,0.13),"highlight":Color(0.19,0.34,0.27),"light":Color(0.34,0.86,0.66)}
+		_: return {"floor":Color(0.135,0.104,0.090),"wall":Color(0.095,0.068,0.060),"wall_dark":Color(0.040,0.026,0.024),"trim":Color(0.31,0.18,0.13),"highlight":Color(0.27,0.18,0.15),"light":Color(1.0,0.63,0.34)}
 
 func _floor_color() -> Color:
 	var color: Color = _floor_palette()["floor"]
@@ -262,9 +262,10 @@ func _draw_boss_seal_arena() -> void:
 	var center := room_rect.get_center()
 	var tones: Array[Color] = [
 		Color(0.73,0.24,0.20),Color(0.85,0.44,0.18),Color(0.56,0.38,0.81),
-		Color(0.37,0.68,0.71),Color(0.77,0.31,0.62)
+		Color(0.37,0.68,0.71),Color(0.77,0.31,0.62),
+		Color(0.34,0.79,0.58),Color(0.94,0.56,0.30)
 	]
-	var tint: Color = tones[clampi(floor_index-1,0,4)]
+	var tint: Color = tones[clampi(floor_index-1,0,6)]
 	var pulse := 0.5+sin(_age*1.4)*0.5
 	var ink := Color(tint.r,tint.g,tint.b,0.18+pulse*0.05)
 	# La sala del guardián tiene identidad espacial propia: perímetro
@@ -303,7 +304,7 @@ func _draw_boss_seal_arena() -> void:
 		var angle := float(i)*TAU/8.0
 		var radial := Vector2.RIGHT.rotated(angle)
 		draw_line(center+radial*99.0,center+radial*115.0,ink,2.5)
-	match clampi(floor_index,1,5):
+	match clampi(floor_index,1,7):
 		1: # barrotes de prisión
 			for i in range(-2,3):
 				draw_line(center+Vector2(float(i)*15.0,-42.0),center+Vector2(float(i)*15.0,42.0),ink,3.0)
@@ -320,12 +321,23 @@ func _draw_boss_seal_arena() -> void:
 			draw_rect(Rect2(center-Vector2(27,39),Vector2(54,78)),ink,false,3.0)
 			draw_line(center+Vector2(-19,-13),center+Vector2(19,-13),ink,3.0)
 			draw_line(center+Vector2(0,-27),center+Vector2(0,24),ink,3.0)
-		_: # ausencia en el centro de El Hueco
+		5: # ausencia en el centro de El Hueco
 			draw_arc(center,40.0,0.38,PI*1.82,34,ink,4.0)
 			for i in range(5):
 				var a := _age*0.18+float(i)*TAU/5.0
 				var p := center+Vector2.RIGHT.rotated(a)*53.0
 				draw_line(p,p+Vector2.RIGHT.rotated(a)*12.0,ink,3.0)
+		6: # oxido: ruedas dentadas quebradas
+			for i in range(8):
+				var angle := float(i)*TAU/8.0
+				var direction := Vector2.RIGHT.rotated(angle)
+				draw_line(center+direction*34.0,center+direction*47.0,ink,3.0)
+			draw_arc(center,27.0,0.0,TAU,30,ink,3.0)
+		_: # campana quebrada y badajo
+			draw_arc(center+Vector2(0,-6),39.0,PI*1.1,PI*1.9,25,ink,4.0)
+			draw_line(center+Vector2(-35,6),center+Vector2(35,6),ink,4.0)
+			draw_line(center+Vector2(0,8),center+Vector2(0,32),ink,3.0)
+			draw_circle(center+Vector2(0,32),6.0,ink)
 
 func _draw_ismael_sigil() -> void:
 	var center := room_rect.get_center()
@@ -350,7 +362,7 @@ func _draw_ismael_sigil() -> void:
 	draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 	# Each floor corrupts the same symbol differently, so the world has one visual language.
-	match clampi(floor_index,1,5):
+	match clampi(floor_index,1,7):
 		1:
 			draw_arc(center,108.0,PI*0.12,PI*0.88,24,Color(accent.r,accent.g,accent.b,alpha*0.42),2.0)
 		2:
@@ -364,10 +376,16 @@ func _draw_ismael_sigil() -> void:
 				var a := PI*0.25+float(i)*PI*0.5
 				var d := Vector2.RIGHT.rotated(a)
 				draw_line(center+d*96.0,center+d*126.0,Color(accent.r,accent.g,accent.b,alpha*0.50),3.0)
-		_:
+		5:
 			for i in range(5):
 				var a := _age*0.10+TAU*float(i)/5.0
 				draw_circle(center+Vector2.RIGHT.rotated(a)*112.0,4.5,Color(accent.r,accent.g,accent.b,alpha*0.72))
+		6:
+			for i in range(6):
+				var a := TAU*float(i)/6.0
+				draw_line(center+Vector2.RIGHT.rotated(a)*98.0,center+Vector2.RIGHT.rotated(a)*122.0,Color(accent.r,accent.g,accent.b,alpha*0.60),3.0)
+		_:
+			draw_arc(center,116.0,0.0,PI*1.70,32,Color(accent.r,accent.g,accent.b,alpha*0.53),2.0)
 
 func _draw_debris() -> void:
 	var debris_count := 10 if room_kind in ["recompensa","secreta","supersecreta","sacrificio"] else 28
@@ -428,6 +446,31 @@ func _draw_props() -> void:
 			var p := room_rect.get_center()+Vector2(side*room_rect.size.x*0.32,-room_rect.size.y*0.30)
 			draw_circle(p,13.0,Color(0.12,0.04,0.025))
 			draw_colored_polygon(PackedVector2Array([p+Vector2(-6,-7),p+Vector2(0,-28),p+Vector2(7,-7)]),Color(0.75,0.18,0.06,0.72))
+
+# P6/P7 añaden detalles físicos NO COLISIONABLES, ligeros para Android.
+# Se dibujan únicamente en las orillas, sin tapar disparos ni rutas.
+func _draw_deep_floor_details() -> void:
+	if floor_index < 6:
+		return
+	var ink: Color = _floor_palette()["light"]
+	for i in range(8):
+		var along := 0.11+float(i)*0.11
+		var lower := i%2==0
+		var position_y := room_rect.end.y-28.0 if lower else room_rect.position.y+30.0
+		var p := Vector2(room_rect.position.x+room_rect.size.x*along,position_y)
+		if floor_index == 6:
+			# Canales corroídos, pernos y pequeñas pozas de óxido.
+			draw_rect(Rect2(p-Vector2(28,5),Vector2(56,10)),Color(0.15,0.26,0.22,0.42))
+			draw_line(p-Vector2(28,4),p+Vector2(28,4),Color(ink.r,ink.g,ink.b,0.20),1.6)
+			for side in [-18.0,18.0]:
+				draw_circle(p+Vector2(side,0),3.0,Color(0.48,0.28,0.15,0.60))
+		else:
+			# Ceniza suspendida y fisuras iluminadas alrededor del perímetro.
+			var line_start := p-Vector2(22,0)
+			var line_end := p+Vector2(22,0)
+			draw_line(line_start,p+Vector2(-4,7),Color(ink.r,ink.g,ink.b,0.23),2.1)
+			draw_line(p+Vector2(-4,7),line_end,Color(ink.r,ink.g,ink.b,0.17),2.1)
+			draw_circle(p+Vector2(0,-7),2.0,Color(ink.r,ink.g,ink.b,0.32))
 
 func _draw_wall_torches() -> void:
 	var flicker := 0.86 + sin(_age*7.0)*0.08 + sin(_age*11.3)*0.04
