@@ -43,7 +43,7 @@ func configure_advanced(kind_id: String, floor_index: int) -> void:
 		"boss":
 			advanced_kind = AdvancedKind.FLOOR_BOSS
 			super.configure(IsmaelEnemy.EnemyKind.BOSS,floor_variant)
-			var boss_health_curve: Array[int] = [110,150,195,245,305]
+			var boss_health_curve: Array[int] = [110,150,195,245,305,285,300]
 			health = boss_health_curve[clampi(floor_variant-1,0,boss_health_curve.size()-1)]
 			max_health = health
 			speed = 88.0+floor_variant*5.0
@@ -78,11 +78,19 @@ func _planned_attack_type() -> String:
 		return "fan"
 	if advanced_kind != AdvancedKind.FLOOR_BOSS:
 		return super._planned_attack_type()
-	match clampi(floor_variant,1,5):
+	match clampi(floor_variant,1,7):
 		1: return "fan"
 		2: return "ring" if _attack_sequence%3==2 else "fan"
 		3: return "cross" if _attack_sequence%2==0 else "lane"
 		4: return "spiral"
+		5:
+			match _attack_sequence%4:
+				0: return "fan"
+				1: return "ring"
+				2: return "cross"
+				_: return "spiral"
+		6: return "cross" if _attack_sequence%2==0 else "fan"
+		7: return "ring" if _attack_sequence%2==0 else "spiral"
 		_:
 			match _attack_sequence%4:
 				0: return "fan"
@@ -131,7 +139,7 @@ func _boss_movement(to_player: Vector2) -> Vector2:
 	if _boss_base_speed > 0.0 and max_health >= 60:
 		speed = _boss_base_speed * BossPhases.speed_multiplier(floor_variant,_boss_phase)
 	var tension := 1.0 if _boss_phase == 1 else (1.26 if _boss_phase == 2 else 1.48)
-	match clampi(floor_variant,1,5):
+	match clampi(floor_variant,1,7):
 		1:
 			# EL CARCELERO owns the middle distance and slides sideways like a closing gate.
 			var radial := to_player*clampf((distance-225.0)/110.0,-0.85,0.85)
@@ -153,10 +161,18 @@ func _boss_movement(to_player: Vector2) -> Vector2:
 			var radial := to_player*clampf((distance-245.0)/145.0,-0.62,0.62)
 			var direction_flip := -1.0 if _boss_phase == 3 and posmod(int(_age/3.0),2) == 1 else 1.0
 			return (tangent*sin(_age*(0.72+0.24*float(_boss_phase-1)))*0.56*tension*direction_flip+radial).normalized()
-		_:
+		5:
 			# EL HUECO never settles: pursuit and orbit trade dominance continuously.
 			var pulse := 0.5+0.5*sin(_age*1.35)
 			return (to_player*(0.45+pulse*0.70)*tension+tangent*sin(_age*(2.0+0.40*float(_boss_phase-1)))*(0.35+0.55*(1.0-pulse))).normalized()
+		6:
+			# El Corroído mantiene las diagonales libres entre sus ráfagas cruzadas.
+			var radial_oxide := to_player*clampf((distance-265.0)/125.0,-0.78,0.72)
+			return (radial_oxide+tangent*sin(_age*1.1)*0.83*tension).normalized()
+		_:
+			# La Campana Rota gira lentamente, marcando salidas de sus anillos.
+			var radial_ash := to_player*clampf((distance-275.0)/130.0,-0.7,0.7)
+			return (radial_ash+tangent*(0.82 if _boss_phase < 3 else -0.82)*tension).normalized()
 
 func take_damage(amount: int, source_position: Vector2 = Vector2.ZERO) -> void:
 	# Las builds de multitiro conservan sus proyectiles y sinergias, pero
@@ -241,7 +257,7 @@ func _fire_floor_boss_attack() -> void:
 	if not is_instance_valid(target):
 		return
 	var phase_two := _boss_phase >= 2
-	match clampi(floor_variant,1,5):
+	match clampi(floor_variant,1,7):
 		1:
 			_fire_jailer_pattern(phase_two)
 		2:
@@ -250,8 +266,12 @@ func _fire_floor_boss_attack() -> void:
 			_fire_watcher_pattern(phase_two)
 		4:
 			_fire_gravedigger_pattern(phase_two)
-		_:
+		5:
 			_fire_hollow_pattern(phase_two)
+		6:
+			_fire_corroded_pattern(phase_two)
+		_:
+			_fire_bell_pattern(phase_two)
 	# Una amenaza espacial extra cada pocos patrones, no en cada disparo.
 	# El jugador ve la señal antes de que la zona pueda dañarlo.
 	if max_health >= 60 and _attack_sequence % BossPhases.mechanic_stride(_boss_phase) == 1:
@@ -283,7 +303,7 @@ func _spawn_signature_mechanic(phase_two: bool) -> void:
 	var advance := Vector2.ZERO
 	if target is CharacterBody2D:
 		advance = (target as CharacterBody2D).velocity * 0.19
-	match clampi(floor_variant,1,5):
+	match clampi(floor_variant,1,7):
 		1:
 			# El Carcelero cierra ambos costados; deja el eje central libre.
 			for side in [-1.0,1.0]:
@@ -299,7 +319,7 @@ func _spawn_signature_mechanic(phase_two: bool) -> void:
 			var shift := tangent*105.0
 			_create_mechanic_zone("tumba",target_position+advance*0.48+shift,phase_two)
 			_create_mechanic_zone("tumba",target_position+advance*0.48-shift,phase_two)
-		_:
+		5:
 			# El Hueco alterna ecos de los sellos anteriores sin generar spam.
 			match _attack_sequence % 3:
 				0:
@@ -309,6 +329,13 @@ func _spawn_signature_mechanic(phase_two: bool) -> void:
 				_:
 					_create_mechanic_zone("vacio",target_position+tangent*102.0,phase_two)
 					_create_mechanic_zone("vacio",target_position-tangent*102.0,phase_two)
+		6:
+			# Dos focos opuestos anuncian el siguiente cruce.
+			_create_mechanic_zone("grillete",target_position+tangent*116.0,phase_two)
+			_create_mechanic_zone("grillete",target_position-tangent*116.0,phase_two)
+		_:
+			# Nunca en el centro: las campanadas dejan espacio lateral.
+			_create_mechanic_zone("vacio",target_position+tangent*118.0,phase_two)
 
 func _fire_jailer_pattern(phase_two: bool) -> void:
 	var aim := _attack_locked_direction
@@ -384,6 +411,34 @@ func _fire_hollow_pattern(phase_two: bool) -> void:
 		_:
 			_fire_gravedigger_pattern(phase_two)
 	_attack_cooldown = 0.52 if phase_two else 0.76
+
+# Dos guardianes posteriores a los cinco sellos; ritmos originales con
+# señales existentes, sin un muro de balas ni ataques impredecibles.
+func _fire_corroded_pattern(phase_two: bool) -> void:
+	var aim := _attack_locked_direction
+	if _attack_sequence%2==0:
+		# Dos diagonales enfrentadas con corredor central libre.
+		for angle in [-0.58,-0.34,0.34,0.58]:
+			_spawn_enemy_shot(aim.rotated(angle),330.0+(25.0 if phase_two else 0.0),1)
+	else:
+		for angle in [-0.25,-0.12,0.0,0.12,0.25]:
+			_spawn_enemy_shot(aim.rotated(angle),310.0,1)
+	_attack_cooldown = 0.82 if phase_two else 1.12
+
+func _fire_bell_pattern(phase_two: bool) -> void:
+	var count := 12 if phase_two else 10
+	var gap := posmod(_attack_sequence*3,count)
+	var rotation := float(_attack_sequence)*0.28
+	for i in range(count):
+		# Una brecha doble siempre transitable.
+		if i == gap or i == posmod(gap+1,count) or i == posmod(gap+2,count):
+			continue
+		var angle := rotation+TAU*float(i)/float(count)
+		_spawn_enemy_shot(Vector2.RIGHT.rotated(angle),258.0+(15.0 if phase_two else 0.0),1)
+	if _attack_sequence%3==2:
+		for angle in [-0.32,0.0,0.32]:
+			_spawn_enemy_shot(_attack_locked_direction.rotated(angle),305.0,1)
+	_attack_cooldown = 0.88 if phase_two else 1.18
 
 func _draw() -> void:
 	_draw_presence_aura()
@@ -501,7 +556,7 @@ func _draw_floor_boss(flash: bool) -> void:
 	var breathe := 1.0+sin(_age*2.6)*0.028
 	draw_ellipse(Vector2(0,40),Vector2(49,13),Color(0.01,0.005,0.008,0.44))
 	draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,breathe))
-	match clampi(floor_variant,1,5):
+	match clampi(floor_variant,1,7):
 		1:
 			# CARCELERO: broad, squared body with prison bars.
 			draw_rect(Rect2(-48,-35,96,72),dark)
