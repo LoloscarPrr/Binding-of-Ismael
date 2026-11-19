@@ -6,7 +6,7 @@ class_name IsmaelRockMusicSynth
 # Las pistas se renderizan una sola vez y el director las mantiene en cache.
 const SAMPLE_RATE := 22050
 const STEPS_PER_BAR := 16
-const ROOTS: Array[int] = [40,43,38,41,36,40,33]
+const ROOTS: Array[int] = [40,43,38,41,36,37,33]
 const BOSS_TEMPOS: Array[int] = [136,141,132,144,139,134,128]
 const ROOM_TEMPOS: Array[int] = [96,100,94,103,98,93,89]
 const BOSS_CHORDS: Array[int] = [0,-3,-5,-2,0,-3,-7,-2]

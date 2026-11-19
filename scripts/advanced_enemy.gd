@@ -89,7 +89,7 @@ func _planned_attack_type() -> String:
 				1: return "ring"
 				2: return "cross"
 				_: return "spiral"
-		6: return "cross" if _attack_sequence%2==0 else "fan"
+		6: return "fan" # aviso veraz para las dos disposiciones de abanico
 		7: return "ring" if _attack_sequence%2==0 else "spiral"
 		_:
 			match _attack_sequence%4:

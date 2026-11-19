@@ -536,6 +536,8 @@ func _test_two_new_floors() -> void:
 		_assert(not BossPhases.phase_title(floor_number,3).is_empty(),"Fase III sin anuncio")
 		_assert(BossArenaComposition.center_is_clear(floor_number),"Arena nueva sin salida central")
 		_assert(BossMusic.note_frequency(floor_number,0) > 60.0,"El jefe nuevo no tiene música")
+		for previous_floor in range(1,floor_number):
+			_assert(BossMusic.note_frequency(floor_number,0) != BossMusic.note_frequency(previous_floor,0),"El nuevo guardián repite tonalidad de un piso anterior")
 		_assert(SewerAmbience.mystery_note_frequency(floor_number,0) > 60.0,"Piso nuevo sin ambiente")
 		boss_actor.free()
 	var progress = RunProgress.new()
