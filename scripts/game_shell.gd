@@ -157,7 +157,7 @@ func _navigate(target: String) -> void:
 	match target:
 		"inicio":
 			_heading.text = "BINDING OF ISMAEL"
-			_subheading.text = "CINCO PISOS · TRES DESTINOS · UNA VIDA"
+			_subheading.text = "SIETE PISOS · CINCO SELLOS · TRES DESTINOS"
 		"pausa":
 			_heading.text = "DESCENSO INTERRUMPIDO"
 			_subheading.text = "El sótano puede esperar."

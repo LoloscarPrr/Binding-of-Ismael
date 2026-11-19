@@ -2,7 +2,7 @@ name: Android Debug APK
 
 on:
   push:
-    branches: ["main", "feature/fase-10-1-salas-seguras"]
+    branches: ["main", "feature/fase-10-2-pisos-6-7"]
   workflow_dispatch:
 
 permissions:

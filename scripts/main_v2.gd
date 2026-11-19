@@ -49,19 +49,21 @@ func _create_presentation_overlay() -> void:
 	layer.add_child(presentation_overlay)
 
 func _presentation_floor_name() -> String:
-	match clampi(_floor_index,1,5):
+	match clampi(_floor_index,1,7):
 		1: return "SÓTANO"
 		2: return "FOSAS"
 		3: return "CATACUMBAS"
 		4: return "CRIPTA"
-		_: return "ABISMO"
+		5: return "ABISMO"
+		6: return "CISTERNA DE ÓXIDO"
+		_: return "SANTUARIO DE CENIZA"
 
 func _present_floor_intro() -> void:
 	if not is_instance_valid(presentation_overlay):
 		return
 	presentation_overlay.present(
 		"PISO %d · %s" % [_floor_index,_presentation_floor_name()],
-		"DESCENSO %d DE 5" % _floor_index,
+		"DESCENSO %d DE 7" % _floor_index,
 		1.05,
 		0.54
 	)
@@ -178,12 +180,14 @@ func _polish_hud() -> void:
 	_apply_floor_identity_to_hud()
 
 func _floor_ui_accent() -> Color:
-	match clampi(_floor_index,1,5):
+	match clampi(_floor_index,1,7):
 		1: return Color(0.86,0.42,0.18,0.82)
 		2: return Color(0.68,0.66,0.24,0.82)
 		3: return Color(0.72,0.36,0.82,0.82)
 		4: return Color(0.42,0.56,0.82,0.82)
-		_: return Color(0.60,0.24,0.82,0.88)
+		5: return Color(0.60,0.24,0.82,0.88)
+		6: return Color(0.30,0.70,0.57,0.85)
+		_: return Color(0.85,0.48,0.25,0.88)
 
 func _apply_floor_identity_to_hud() -> void:
 	if not is_instance_valid(hud_center_card):

@@ -1,7 +1,7 @@
 extends RefCounted
 class_name IsmaelFloorCatalog
 
-const TOTAL_FLOORS := 5
+const TOTAL_FLOORS := 7
 
 static func floor_name(floor_index: int) -> String:
 	match clampi(floor_index,1,TOTAL_FLOORS):
@@ -9,7 +9,9 @@ static func floor_name(floor_index: int) -> String:
 		2: return "FOSAS"
 		3: return "CATACUMBAS"
 		4: return "CRIPTA"
-		_: return "ABISMO"
+		5: return "ABISMO"
+		6: return "CISTERNA DE ÓXIDO"
+		_: return "SANTUARIO DE CENIZA"
 
 static func floor_identity(floor_index: int) -> String:
 	match clampi(floor_index,1,TOTAL_FLOORS):
@@ -17,7 +19,9 @@ static func floor_identity(floor_index: int) -> String:
 		2: return "CARGAS · PINZAS · PÚAS"
 		3: return "FUEGO CRUZADO · COBERTURAS · LLAMAS"
 		4: return "EMBUDOS · ACECHO · ALTA PRESIÓN"
-		_: return "CAOS MIXTO · RIESGO MÁXIMO"
+		5: return "CAOS MIXTO · LOS CINCO SELLOS"
+		6: return "CANALIZACIONES · CORROSIÓN · CERCO"
+		_: return "CENIZA · RUINAS · ÚLTIMO DESCENSO"
 
 static func boss_name(floor_index: int) -> String:
 	match clampi(floor_index,1,TOTAL_FLOORS):
@@ -25,7 +29,9 @@ static func boss_name(floor_index: int) -> String:
 		2: return "LA MANDÍBULA"
 		3: return "EL VIGÍA"
 		4: return "EL SEPULTURERO"
-		_: return "EL HUECO"
+		5: return "EL HUECO"
+		6: return "EL CORROÍDO"
+		_: return "LA CAMPANA ROTA"
 
 static func enemy_pool(floor_index: int) -> Array[String]:
 	match clampi(floor_index,1,TOTAL_FLOORS):
@@ -37,8 +43,12 @@ static func enemy_pool(floor_index: int) -> Array[String]:
 			return ["dasher","orbiter","brute","spitter","flyer","turret","leaper","shielded","burrower"]
 		4:
 			return ["orbiter","brute","spitter","stalker","turret","leaper","flyer","spitter","burrower","splitter"]
-		_:
+		5:
 			return ["brute","spitter","stalker","orbiter","turret","leaper","flyer","stalker","brute","shielded","burrower","splitter"]
+		6:
+			return ["shielded","burrower","spitter","stalker","brute","orbiter","turret","flyer","splitter"]
+		_:
+			return ["leaper","flyer","splitter","stalker","orbiter","turret","burrower","spitter","shielded"]
 
 static func encounter_roster(
 	floor_index: int,
@@ -76,6 +86,10 @@ static func encounter_roster(
 			pattern = 3 # mobile threats punish staying behind one island.
 		"pinza":
 			pattern = 1
+		"canales":
+			pattern = 2 # hostigamiento detrás de canales oxidados.
+		"ceniza":
+			pattern = 4 # escuadras mixtas entre pilares derruidos.
 		"arena":
 			pattern = 4
 
@@ -141,9 +155,9 @@ static func encounter_name(
 	match layout_profile:
 		"barricada","cruzada","arena_cruzada":
 			return "FUEGO CRUZADO"
-		"embudo","corredor_maldito","pinza":
+		"embudo","corredor_maldito","pinza","canales":
 			return "CARGA"
-		"abierta","columnas","islas":
+		"abierta","columnas","islas","ceniza":
 			return "CERCO"
 	var pattern := posmod(encounter_seed+floor_index*3,5)
 	match pattern:
@@ -183,8 +197,12 @@ static func room_layout_profile(
 			profiles = ["cruzada","columnas","islas","barricada"]
 		4:
 			profiles = ["embudo","pinza","cruzada","islas"]
-		_:
+		5:
 			profiles = ["embudo","cruzada","islas","columnas","barricada"]
+		6:
+			profiles = ["canales","islas","barricada","canales","columnas"]
+		_:
+			profiles = ["ceniza","pinza","ceniza","cruzada","embudo"]
 	if risk_level>=2:
 		profiles.append("embudo")
 	if route_role=="main" and risk_level<=1:
@@ -204,6 +222,8 @@ static func room_layout_title(profile: String) -> String:
 		"duelo": return "DUELO"
 		"boss_arena": return "ARENA DEL GUARDIÁN"
 		"corredor_maldito": return "CORREDOR MALDITO"
+		"canales": return "CANAL DE ÓXIDO"
+		"ceniza": return "PILARES DE CENIZA"
 		_: return "ABIERTA"
 
 static func challenge_waves(floor_index: int) -> int:
@@ -219,7 +239,9 @@ static func enemy_cap(floor_index: int) -> int:
 		2: return 9
 		3: return 10
 		4: return 10
-		_: return 11
+		5: return 11
+		6: return 10
+		_: return 10
 
 static func enemy_count_bonus(floor_index: int) -> int:
 	return 1 if floor_index >= 4 else 0
@@ -230,4 +252,6 @@ static func miniboss_variant(floor_index: int) -> String:
 		2: return "brute"
 		3: return "spitter"
 		4: return "stalker"
-		_: return "brute"
+		5: return "brute"
+		6: return "spitter"
+		_: return "stalker"

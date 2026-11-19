@@ -38,11 +38,25 @@ const BOSSES := [
 		"lore":"No es un guardián: es el espacio que dejaron todos los demás al desaparecer.",
 		"tip":"Combina marcas del vacío y haces de sus predecesores: observa la señal, no solo las lágrimas.",
 		"rewards":["eco_fragil","reloj_ceniza","escudo"],"accent":Color(0.80,0.36,0.70)
+	},
+	{
+		"name":"EL CORROÍDO","seal":"MARCA DE ÓXIDO",
+		"omen":"DEBAJO DEL VACÍO, EL HIERRO SIGUE RESPIRANDO",
+		"lore":"Quedó atrapado en los canales olvidados. Su armadura se convirtió en la prisión de sus huesos.",
+		"tip":"Espera a que termine el cruce de proyectiles; corre por las diagonales libres.",
+		"rewards":["alma","perforante","curacion"],"accent":Color(0.35,0.71,0.59)
+	},
+	{
+		"name":"LA CAMPANA ROTA","seal":"MARCA DE CENIZA",
+		"omen":"LA ÚLTIMA CAMPANADA NO ANUNCIA LA SALIDA",
+		"lore":"La campana enterrada que despierta al mundo cuando se rompen todos los sellos.",
+		"tip":"Sus anillos dejan una brecha giratoria; no intentes atravesar el muro de proyectiles.",
+		"rewards":["escudo","reloj_ceniza","buscadora"],"accent":Color(0.90,0.53,0.30)
 	}
 ]
 
 static func definition(floor_index: int) -> Dictionary:
-	return BOSSES[clampi(floor_index,1,5)-1].duplicate(true)
+	return BOSSES[clampi(floor_index,1,BOSSES.size())-1].duplicate(true)
 
 static func seal_title(floor_index: int) -> String:
 	return String(definition(floor_index)["seal"])

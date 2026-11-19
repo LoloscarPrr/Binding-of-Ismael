@@ -53,7 +53,7 @@ func load_profile() -> void:
 	elif saved_bosses == null:
 		# Migración conservadora de los perfiles anteriores a la Fase 11.
 		# Haber entrado en un piso solo garantiza vencer al jefe anterior.
-		# Una victoria completa sí confirma los cinco guardianes.
+		# Una victoria anterior confirma al menos los cinco sellos originales.
 		var legacy_defeated := 5 if runs_completed > 0 else maxi(0,max_floor_reached-1)
 		for legacy_floor in range(1,legacy_defeated+1):
 			boss_defeats[str(legacy_floor)] = 1
@@ -92,14 +92,14 @@ func record_floor(floor_index: int) -> bool:
 	return false
 
 func record_boss_defeat(floor_index: int) -> int:
-	var key := str(clampi(floor_index,1,5))
+	var key := str(clampi(floor_index,1,7))
 	var count := maxi(0,int(boss_defeats.get(key,0)))+1
 	boss_defeats[key] = count
 	save_profile()
 	return count
 
 func boss_defeat_count(floor_index: int) -> int:
-	return maxi(0,int(boss_defeats.get(str(clampi(floor_index,1,5)),0)))
+	return maxi(0,int(boss_defeats.get(str(clampi(floor_index,1,7)),0)))
 
 func boss_seals_discovered() -> int:
 	var total := 0
@@ -117,7 +117,7 @@ func record_event() -> void:
 	save_profile()
 
 func record_guardian_echo_victory(floor_index: int) -> void:
-	var key := str(clampi(floor_index,1,5))
+	var key := str(clampi(floor_index,1,7))
 	guardian_echo_victories[key] = maxi(0,int(guardian_echo_victories.get(key,0)))+1
 	save_profile()
 

@@ -412,9 +412,9 @@ func _completion_status_text() -> String:
 func _completion_reward_text() -> String:
 	var base := ""
 	match _run_route():
-		"sangre": base = "ISMAEL VENCIÓ AL HUECO CARGANDO SUS PACTOS"
-		"testigo": base = "ISMAEL VIO LO QUE HABÍA DETRÁS DEL ÚLTIMO SELLO"
-		_: base = "ISMAEL SALIÓ DEL ABISMO CON LO QUE PUDO CONSERVAR"
+		"sangre": base = "ISMAEL ROMPIÓ LA CAMPANA CARGANDO SUS PACTOS"
+		"testigo": base = "ISMAEL VIO LO QUE HABÍA BAJO LOS CINCO SELLOS"
+		_: base = "ISMAEL ATRAVESÓ LA CENIZA Y ENCONTRÓ LA SALIDA"
 	if _run_progress != null:
 		return "%s · %s" % [base,_run_progress.summary_text()]
 	return base
@@ -427,9 +427,9 @@ func _completion_ending_title() -> String:
 
 func _completion_ending_subtitle() -> String:
 	match _run_route():
-		"sangre": return "EL HUECO CAYÓ, PERO LOS PACTOS SIGUEN VIVOS"
-		"testigo": return "EL HUECO CAYÓ Y EL ÚLTIMO SECRETO QUEDÓ ABIERTO"
-		_: return "EL HUECO CAYÓ Y ISMAEL ELIGIÓ SEGUIR CAMINANDO"
+		"sangre": return "LA CAMPANA CAYÓ, PERO LOS PACTOS SIGUEN VIVOS"
+		"testigo": return "LA CISTERNA MOSTRÓ EL ORIGEN DEL ÚLTIMO SECRETO"
+		_: return "ISMAEL DEJÓ ATRÁS EL SANTUARIO DE CENIZA"
 
 func _set_content_room_kind(cell: Vector2i, kind_value: String) -> void:
 	if not _dungeon.rooms.has(cell):
@@ -1220,7 +1220,7 @@ func _on_guardian_defeated() -> void:
 	_boss_seal_offers[_floor_index] = BossSeals.reward_choices(_floor_index,seed,owned)
 	_spawn_boss_seal_offerings()
 	status_label.text = BossSeals.seal_title(_floor_index)
-	reward_label.text = ("NUEVO SELLO DESCUBIERTO · " if first_defeat else "") + "ELIGE UNA SOLA BENDICIÓN"
+	reward_label.text = ("NUEVA MARCA DESCUBIERTA · " if first_defeat else "") + "ELIGE UNA SOLA BENDICIÓN" if _floor_index > 5 else ("NUEVO SELLO DESCUBIERTO · " if first_defeat else "") + "ELIGE UNA SOLA BENDICIÓN"
 	_audio_sfx("room_clear",1.15)
 
 func _spawn_boss_seal_offerings() -> void:
@@ -1256,7 +1256,7 @@ func _on_boss_seal_claimed(reward_id: String) -> void:
 		if is_instance_valid(pedestal):
 			pedestal.queue_free()
 	_last_reward = reward_id
-	status_label.text = "BENDICIÓN DEL SELLO RECIBIDA"
+	status_label.text = "BENDICIÓN DE LA MARCA RECIBIDA" if _floor_index > 5 else "BENDICIÓN DEL SELLO RECIBIDA"
 	reward_label.text = _reward_name(reward_id).replace("\n"," — ")
 	_audio_sfx("pickup",1.3)
 	queue_redraw()
@@ -1284,11 +1284,13 @@ func _spawn_content_hazards() -> void:
 	elif _room_kind == "desafio":
 		count = 1+int(_floor_index>=3)
 	else:
-		match clampi(_floor_index,1,5):
+		match clampi(_floor_index,1,7):
 			1: count = 0
 			2: count = 1
 			3: count = 2
 			4: count = 2
+			5: count = 3
+			6: count = 2
 			_: count = 3
 	if _room_layout_profile == "abierta":
 		count = mini(count,2 if _room_kind == "anomalia" else 1)
@@ -1298,7 +1300,7 @@ func _spawn_content_hazards() -> void:
 	for i in range(count):
 		var ratio := ratios[posmod(seed+i*3,ratios.size())]
 		var kind := "spike"
-		match clampi(_floor_index,1,5):
+		match clampi(_floor_index,1,7):
 			1:
 				kind = "spike"
 			2:
@@ -1307,6 +1309,10 @@ func _spawn_content_hazards() -> void:
 				kind = "fire" if i==count-1 or posmod(seed+i,4)==0 else "spike"
 			4:
 				kind = "fire" if i%2==1 else "spike"
+			5:
+				kind = "fire" if i%2==0 else "spike"
+			6:
+				kind = "spike" if i%2==0 else "fire"
 			_:
 				kind = "fire" if i%2==0 else "spike"
 		if (_room_kind == "maldicion" or (_room_kind == "anomalia" and _current_anomaly_variant() == "ceniza")) and i>=maxi(0,count-2):
@@ -1323,6 +1329,10 @@ func _spawn_content_hazards() -> void:
 
 func _hazard_ratios_for_layout() -> Array[Vector2]:
 	match _room_layout_profile:
+		"canales":
+			return [Vector2(0.50,0.44),Vector2(0.36,0.62),Vector2(0.64,0.38)]
+		"ceniza":
+			return [Vector2(0.50,0.62),Vector2(0.38,0.35),Vector2(0.62,0.76)]
 		"embudo":
 			return [
 				Vector2(0.50,0.52),Vector2(0.50,0.66),Vector2(0.38,0.44),

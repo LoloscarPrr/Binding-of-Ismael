@@ -104,6 +104,12 @@ func _build_room_layout() -> void:
 		"corredor_maldito":
 			_add_obstacle(Vector2(0.30,0.52),Vector2(0.07,0.22),2)
 			_add_obstacle(Vector2(0.70,0.52),Vector2(0.07,0.22),2)
+		"canales":
+			_add_obstacle(Vector2(0.26,0.40),Vector2(0.060,0.14),variant)
+			_add_obstacle(Vector2(0.74,0.63),Vector2(0.060,0.14),variant)
+		"ceniza":
+			_add_obstacle(Vector2(0.32,0.42),Vector2(0.060,0.12),variant)
+			_add_obstacle(Vector2(0.68,0.64),Vector2(0.060,0.12),variant)
 
 func _room_layout_title() -> String:
 	return FloorCatalog.room_layout_title(_room_layout_profile)
@@ -357,7 +363,7 @@ func _finish_floor() -> void:
 	if _floor_index>=FloorCatalog.TOTAL_FLOORS:
 		_run_complete = true
 		status_label.text = "RECORRIDO COMPLETADO"
-		reward_label.text = "ISMAEL SOBREVIVIÓ A LOS CINCO GUARDIANES"
+		reward_label.text = "ISMAEL ATRAVESÓ LOS SIETE PISOS"
 		restart_button.visible = true
 		left_stick.reset()
 		right_stick.reset()
