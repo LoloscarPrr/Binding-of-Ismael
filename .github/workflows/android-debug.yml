@@ -2,7 +2,7 @@ name: Android Debug APK
 
 on:
   push:
-    branches: ["main", "feature/fase-10-2-pisos-6-7"]
+    branches: ["main", "feature/fase-10-2-pisos-6-7", "feature/fase-01-regresion"]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +12,7 @@ jobs:
   build-android:
     name: Build Android Debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     container:
       image: barichello/godot-ci:4.3
     env:
@@ -24,7 +25,7 @@ jobs:
       - name: Prepare Godot environment
         shell: bash
         run: |
-          mkdir -p ~/.local/share/godot/export_templates ~/.config/godot
+          mkdir -p build/ci ~/.local/share/godot/export_templates ~/.config/godot
           if [ -d /root/.local/share/godot/export_templates/4.3.stable ]; then
             cp -a /root/.local/share/godot/export_templates/4.3.stable ~/.local/share/godot/export_templates/
           fi
@@ -32,8 +33,39 @@ jobs:
             cp -a /root/.config/godot/. ~/.config/godot/
           fi
 
+      - name: Validate Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --editor --quit 2>&1 | tee build/ci/godot-import.log
+          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script" build/ci/godot-import.log; then
+            echo "Godot script validation failed"
+            exit 1
+          fi
+
+      - name: Run roguelike regression smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://tests/ci_smoke.gd 2>&1 | tee build/ci/godot-smoke-tests.log
+          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script|QA FAIL" build/ci/godot-smoke-tests.log; then
+            echo "Regression smoke tests failed"
+            exit 1
+          fi
+          grep -q "QA PASS:" build/ci/godot-smoke-tests.log
+
+      - name: Run protected baseline contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --script res://tests/ci_baseline.gd 2>&1 | tee build/ci/godot-baseline-tests.log
+          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script|BASELINE FAIL" build/ci/godot-baseline-tests.log; then
+            exit 1
+          fi
+          grep -q "BASELINE PASS:" build/ci/godot-baseline-tests.log
+
       - name: Restore persistent Android signing key
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: build/ci/debug.keystore
           key: binding-of-ismael-debug-keystore-v1
@@ -72,31 +104,10 @@ jobs:
           echo "Android versionCode=${AUTO_VERSION_CODE}"
           grep -E '^version/(code|name)=' export_presets.cfg
 
-      - name: Validate Godot project
-        shell: bash
-        run: |
-          set -o pipefail
-          godot --headless --editor --quit 2>&1 | tee build/ci/godot-import.log
-          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script" build/ci/godot-import.log; then
-            echo "Godot script validation failed"
-            exit 1
-          fi
-
-      - name: Run roguelike regression smoke tests
-        shell: bash
-        run: |
-          set -o pipefail
-          godot --headless --path . --script res://tests/ci_smoke.gd 2>&1 | tee build/ci/godot-smoke-tests.log
-          if grep -Eiq "SCRIPT ERROR|Parse Error|Failed to load script|QA FAIL" build/ci/godot-smoke-tests.log; then
-            echo "Regression smoke tests failed"
-            exit 1
-          fi
-          grep -q "QA PASS:" build/ci/godot-smoke-tests.log
-
       - name: Export signed debug APK
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           mkdir -p build/android
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$PWD/build/ci/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
@@ -130,4 +141,13 @@ jobs:
           name: Binding-of-Ismael-debug-apk
           path: build/android/Binding-of-Ismael-debug.apk
           if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload QA logs (never the signing key)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Binding-of-Ismael-QA-logs
+          path: build/ci/*.log
+          if-no-files-found: ignore
           retention-days: 3
