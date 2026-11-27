@@ -25,7 +25,7 @@ godot --headless --path . --script res://tests/ci_baseline.gd
 ```
 
 ## Firma y distribución
-La clave actual depende del caché de GitHub Actions. Un respaldo Git no incluye ese archivo ni los datos locales del teléfono. Conservar exactamente el certificado existente; no generar una clave sustituta. Antes de una publicación estable, el propietario debe conservar una copia cifrada y segura del keystore original fuera del caché y verificar su huella. Nunca publicar el keystore, contraseñas ni secretos en el repositorio o artifacts. Si la clave falta, detener exportación; no recomendar desinstalar.
+El workflow intenta restaurar primero el keystore original desde el secreto de repositorio ISMAEL_KEYSTORE_BASE64 (contenido Base64 del archivo original, configurado por el propietario), y si no existe utiliza el caché legado. La huella fijada debe coincidir en ambos casos. No se almacena el secreto recuperado en el caché ni en artifacts. La ausencia del caché o del secreto bloquea la exportación. Un respaldo Git no incluye ese archivo ni los datos locales del teléfono. Conservar exactamente el certificado existente; no generar una clave sustituta. Antes de una publicación estable, el propietario debe conservar una copia cifrada y segura del keystore original fuera del caché y verificar su huella. Nunca publicar el keystore, contraseñas ni secretos en el repositorio o artifacts. Si la clave falta, detener exportación; no recomendar desinstalar.
 Los APK de prueba caducan: no considerar los artifacts un sistema de respaldo permanente.
 
 ## Criterios de cierre
