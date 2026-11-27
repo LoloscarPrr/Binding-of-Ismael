@@ -64,7 +64,27 @@ jobs:
           fi
           grep -q "BASELINE PASS:" build/ci/godot-baseline-tests.log
 
+      - name: Restore original Android signing key from private backup
+        id: private_signing_key
+        shell: bash
+        env:
+          ISMAEL_KEYSTORE_BASE64: ${{ secrets.ISMAEL_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ISMAEL_KEYSTORE_BASE64" ]; then
+            echo 'restored=false' >> "$GITHUB_OUTPUT"
+            echo 'No private signing backup configured; checking legacy cache.'
+            exit 0
+          fi
+          umask 077
+          mkdir -p build/ci
+          printf '%s' "$ISMAEL_KEYSTORE_BASE64" | base64 --decode > build/ci/debug.keystore.tmp
+          test -s build/ci/debug.keystore.tmp
+          mv build/ci/debug.keystore.tmp build/ci/debug.keystore
+          echo 'restored=true' >> "$GITHUB_OUTPUT"
+
       - name: Restore persistent Android signing key
+        if: steps.private_signing_key.outputs.restored != 'true'
         uses: actions/cache/restore@v4
         with:
           path: build/ci/debug.keystore
@@ -76,6 +96,7 @@ jobs:
           set -euo pipefail
           if [ ! -s build/ci/debug.keystore ]; then
             echo "ERROR: Persistent Android signing key is missing."
+            echo "Restore the original keystore using the repository secret ISMAEL_KEYSTORE_BASE64." 
             echo "Refusing to generate a new key because that would break APK updates."
             exit 1
           fi
